@@ -55,7 +55,7 @@ class GPModel:
                 print "Optimizing kernel parameters given data"
                 # Initilaize GP model
                 self.m = GPy.models.GPRegression(np.array(xvals), np.array(zvals), self.kern)
-                # self.m.initialize_parameter() ### this method does not exist for regression model
+                #self.m.initialize_parameter()
 
                 # Constrain the hyperparameters during optmization
                 self.m.constrain_positive('')
@@ -71,7 +71,7 @@ class GPModel:
         else:
             # Directly initilaize GP model
             self.m = GPy.models.GPRegression(np.array(xvals), np.array(zvals), self.kern)
-            # self.m.initialize_parameter() #### this method does not exist for refression model
+            #self.m.initialize_parameter()
 
     # Visualize the learned GP kernel
     def kernel_plot(self):
@@ -79,3 +79,8 @@ class GPModel:
         plt.ylim([-10, 10])
         plt.xlim([-10, 10])
         plt.show()
+    
+    def update_model(self, actual_measures):
+        self.m = GPy.models.GPRegression(X1, Y1, kernel=self.kern)
+        m.optimize('bfgs')
+
