@@ -344,7 +344,7 @@ class Dubins_Path_Generator(Path_Generator):
             coords[i] = [config for config in configurations if config[0] > self.extent[0] and config[0] < self.extent[1] and config[1] > self.extent[2] and config[1] < self.extent[3]]
         
         self.samples = coords
-        return coord
+        return coords
 
 
 class Dubins_EqualPath_Generator(Path_Generator):
@@ -375,7 +375,6 @@ class Dubins_EqualPath_Generator(Path_Generator):
                 path = path[0:current_min]
                 coords[key]=path
         
-
 
 class MCTS:
     '''Class that establishes a MCTS for nonmyopic planning'''
@@ -484,7 +483,7 @@ class MCTS:
             actions = self.path_generator.get_path_set(self.tree[node][0][-1]) #plan from the last point in the sample
             a = np.random.randint(0,len(actions)) #choose a random path
             #TODO add cost metrics
-			self.tree[node + ' child ' + str(a)] = (actions[a], 0, 0, 0) #add random path to the tree
+            self.tree[node + ' child ' + str(a)] = (actions[a], 0, 0, 0) #add random path to the tree
             node = node + ' child ' + str(a)
             sequence.append(node)
         return sequence
@@ -586,7 +585,7 @@ class Robot(object):
             raise ValueError('Only \'hotspot_info\' and \'mean\' and \'info_gain\' and \'mes\' and \'exp_improve\' reward fucntions supported.')
 
         # Initialize the robot's GP model with the initial kernel parameters
-        self.GP = GPModel(ranges = ranges, lengthscale = init_lengthscale, variance = init_variance)
+        self.GP = GPModel(ranges = extent, lengthscale = init_lengthscale, variance = init_variance)
                 
         # If both a kernel training dataset and a prior dataset are provided, train the kernel using both
         if  kernel_dataset is not None and prior_dataset is not None:
@@ -608,9 +607,9 @@ class Robot(object):
             self.GP.add_data(prior_dataset[0], prior_dataset[1]) 
         
         # The path generation class for the robot
-        path_options = {'default':Path_Generator(frontier_size, horizon_length, turning_radius, sample_step, ranges),
-                        'dubins': Dubins_Path_Generator(frontier_size, horizon_length, turning_radius, sample_step, ranges),
-                        'equal_dubins': Dubins_EqualPath_Generator(frontier_size, horizon_length, turning_radius, sample_step, ranges)}
+        path_options = {'default':Path_Generator(frontier_size, horizon_length, turning_radius, sample_step, self.ranges),
+                        'dubins': Dubins_Path_Generator(frontier_size, horizon_length, turning_radius, sample_step, self.ranges),
+                        'equal_dubins': Dubins_EqualPath_Generator(frontier_size, horizon_length, turning_radius, sample_step, self.ranges)}
         self.path_generator = path_options[path_generator]
 
     def choose_trajectory(self, t):
@@ -634,7 +633,7 @@ class Robot(object):
             elif self.f_rew == 'exp_improve':
             	if len(self.maxes) == 0:
             		param = [self.current_max]
-        		else:
+            	else:
         			param = self.maxes
         	value[path] = self.aquisition_function(time = t, xvals = points, robot_mode = self.GP, param = param)            
         try:
@@ -781,6 +780,7 @@ class Robot(object):
         ''' Visualizes the accumulation of reward and aquisition functions ''' 
         self.eval.plot_metrics()
 
+
 class Nonmyopic_Robot(Robot):
     '''This robot inherits from the Robot class, but uses a MCTS in order to perform global horizon planning'''
     
@@ -836,13 +836,13 @@ class Nonmyopic_Robot(Robot):
                 self.loc = best_path[-1]
         
 
-
 class Evaluation:
     ''' The Evaluation class, which includes the ground truth world model and a selection of reward criteria.
     
     Inputs:
-        * world (Environment object): an environment object that represents the ground truth environment
-        * f_rew (string): the reward function. One of {hotspot_info, mean, info_gain, mes}  '''
+        world (Environment object): an environment object that represents the ground truth environment
+        f_rew (string): the reward function. One of {hotspot_info, mean, info_gain, mes, exp_improve} 
+    '''
     def __init__(self, world, reward_function = 'mean'):
         ''' Initialize the evaluation module and select reward function'''
         self.world = world
@@ -869,18 +869,18 @@ class Evaluation:
             self.f_aqu = info_gain   
         elif reward_function == 'mes':
             self.f_rew = self.info_gain_reward
-            self.f_aqu = info_gain               
+            self.f_aqu = info_gain    
+        elif reward_function == 'exp_improve':
+        	self.f_rew = self.info_gain_reward
+        	self.f_agu = info_gain           
         else:
-            raise ValueError('Only \'mean\' and \'hotspot_info\' reward functions currently supported.')    
+            raise ValueError('Only \'mean\' and \'hotspot_info\' and \'info_gain\' and \' mew\' and \'exp_improve\' reward functions currently supported.')    
     
-    ''' %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                                Reward Functions - should have the form:
-    def reward(time, xvals), where:
-    * time (int): the current timestep of planning
-    * xvals (list of float tuples): representing a path i.e. [(3.0, 4.0), (5.6, 7.2), ... ])
-    * robot_model (GPModel)
-    
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'''
+    '''Reward Functions - should have the form (def reward(time, xvals, robot_model)), where:
+    	time (int): the current timestep of planning
+    	xvals (list of float tuples): representing a path i.e. [(3.0, 4.0), (5.6, 7.2), ... ])
+    	robot_model (GPModel)
+    '''
     def mean_reward(self, time, xvals, robot_model):
         ''' Predcited mean (true) reward function'''
         data = np.array(xvals)
@@ -907,15 +907,17 @@ class Evaluation:
         ''' The information reward gathered '''
         return info_gain(time, xvals, robot_model)
     
-    ''' %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                                               End Reward Functions
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'''        
+    '''Other information-theoretic metrics; includes:
+    	regret
+    	mean-squared error (MSE)
+    '''        
     def inst_regret(self, t, all_paths, selected_path, robot_model):
         ''' The instantaneous Kapoor regret of a selected path, according to the specified reward function
         Input:
-        * all_paths: the set of all avalaible paths to the robot at time t
-        * selected path: the path selected by the robot at time t '''
-        
+        	all_paths: the set of all avalaible paths to the robot at time t
+        	selected path: the path selected by the robot at time t 
+        	robot_model (GP Model)
+        '''
         value_omni = {}        
         for path, points in all_paths.items():           
             value_omni[path] =  self.f_rew(time = t, xvals = points, robot_model = robot_model)  
@@ -923,12 +925,10 @@ class Evaluation:
         
         value_selected = self.f_rew(time = t, xvals = selected_path, robot_model = robot_model)
 
-        #assert(value_max - value_selected >= 0)
         return value_max - value_selected
     
     def regret_bound(self, t, T):
         pass
-        
         
     def MSE(self, robot_model, NTEST = 10):
         ''' Compute the MSE on a set of test points, randomly distributed throughout the environment'''
@@ -942,6 +942,9 @@ class Evaluation:
         
         return ((pred_world - pred_robot) ** 2).mean()
     
+    ''' Helper functions '''
+
+
     def update_metrics(self, t, robot_model, all_paths, selected_path):
         ''' Function to update avaliable metrics'''    
         # Compute aquisition function
@@ -995,4 +998,263 @@ class Evaluation:
         ax.set_title('Map MSE at 100 Random Test Points')                             
         plt.plot(time, MSE, 'r')  
    
-        plt.show()  
+        plt.show() 
+
+
+
+'''%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                                    Aquisition Functions - should have the form:
+    def alpha(time, xvals, robot_model, param), where:
+    	time (int): the current timestep of planning
+    	xvals (list of float tuples): representing a path i.e. [(3.0, 4.0), (5.6, 7.2), ... ])
+    	robot_model (GPModel object): the robot's current model of the environment
+    	param (mixed): some functions require specialized parameters, which is there this can be used
+    
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'''
+
+def info_gain(time, xvals, robot_model, param=None):
+    ''' Compute the information gain of a set of potential sample locations with respect to the underlying function conditioned or previous samples xobs'''        
+    data = np.array(xvals)
+    x1 = data[:,0]
+    x2 = data[:,1]
+    queries = np.vstack([x1, x2]).T   
+    xobs = robot_model.xvals
+
+    # If the robot hasn't taken any observations yet, simply return the entropy of the potential set
+    if xobs is None:
+        Sigma_after = robot_model.kern.K(queries)
+        entropy_after, sign_after = np.linalg.slogdet(np.eye(Sigma_after.shape[0], Sigma_after.shape[1]) \
+                                    + robot_model.variance * Sigma_after)
+        #print "Entropy with no obs: ", entropy_after
+        return 0.5 * sign_after * entropy_after
+
+    all_data = np.vstack([xobs, queries])
+    
+    # The covariance matrices of the previous observations and combined observations respectively
+    Sigma_before = robot_model.kern.K(xobs) 
+    Sigma_total = robot_model.kern.K(all_data)       
+
+    # The term H(y_a, y_obs)
+    entropy_before, sign_before =  np.linalg.slogdet(np.eye(Sigma_before.shape[0], Sigma_before.shape[1]) \
+                                    + robot_model.variance * Sigma_before)
+    
+    # The term H(y_a, y_obs)
+    entropy_after, sign_after = np.linalg.slogdet(np.eye(Sigma_total.shape[0], Sigma_total.shape[1]) \
+                                    + robot_model.variance * Sigma_total)
+
+    # The term H(y_a | f)
+    entropy_total = 2 * np.pi * np.e * sign_after * entropy_after - 2 * np.pi * np.e * sign_before * entropy_before
+    #print "Entropy: ", entropy_total
+
+
+    ''' TODO: this term seems like it should still be in the equation, but it makes the IG negative'''
+    #entropy_const = 0.5 * np.log(2 * np.pi * np.e * robot_model.variance)
+    entropy_const = 0.0
+
+    # This assert should be true, but it's not :(
+    #assert(entropy_after - entropy_before - entropy_const > 0)
+    return entropy_total - entropy_const
+
+    
+def mean_UCB(time, xvals, robot_model, param=None):
+    ''' Computes the UCB for a set of points along a trajectory '''
+    data = np.array(xvals)
+    x1 = data[:,0]
+    x2 = data[:,1]
+    queries = np.vstack([x1, x2]).T   
+                              
+    # The GPy interface can predict mean and variance at an array of points; this will be an overestimate
+    mu, var = robot_model.predict_value(queries)
+    
+    delta = 0.9
+    d = 20
+    pit = np.pi**2 * (time + 1)**2 / 6.
+    beta_t = 2 * np.log(d * pit / delta)
+
+    return np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
+
+
+def hotspot_info_UCB(time, xvals, robot_model, param=None):
+    ''' The reward information gathered plus the estimated exploitation value gathered'''
+    data = np.array(xvals)
+    x1 = data[:,0]
+    x2 = data[:,1]
+    queries = np.vstack([x1, x2]).T   
+                              
+    LAMBDA = 1.0 # TOOD: should depend on time
+    mu, var = robot_model.predict_value(queries)
+    
+    delta = 0.9
+    d = 20
+    pit = np.pi**2 * (time + 1)**2 / 6.
+    beta_t = 2 * np.log(d * pit / delta)
+
+    return info_gain(time, xvals, robot_model) + LAMBDA * np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
+
+
+def sample_max_vals(robot_model, visualize = False):
+    ''' The mutual information between a potential set of samples and the local maxima'''
+    # If the robot has not samples yet, return a constant value
+    if robot_model.xvals is None:
+        return None, None
+    
+    nK =  1# The number of samples maximum values
+    nFeatures = 200 # number of random features samples to approximate GP
+    d = robot_model.xvals.shape[1] # The dimension of the points (should be 2D)     
+    
+    ''' Sample Maximum values i.e. return sampled max values for the posterior GP, conditioned on 
+    current observations. Construct random freatures and optimize functions drawn from posterior GP.'''
+    samples = np.zeros((nK, 1))
+    locs = np.zeros((nK, 2))
+
+    for i in xrange(nK):
+        # Draw the weights for the random features
+        W = np.random.normal(loc = 0.0, scale = robot_model.lengthscale, size = (nFeatures, d))
+        b = 2 * np.pi * np.random.uniform(low = 0.0, high = 1.0, size = (nFeatures, 1))
+        
+        # Compute the features for xx
+        Z = np.sqrt(2 * robot_model.variance / nFeatures) * np.cos(np.dot(W, robot_model.xvals.transpose()) + b)
+        #print Z.shape
+        
+        # Draw the coefficient theta
+        noise = np.random.normal(loc = 0.0, scale = 1.0, size = (nFeatures, 1))
+     
+        # TODO: Figure this code out
+        if robot_model.xvals.shape[0] < nFeatures and False:
+            Sigma = np.dot(Z.transpose(), Z) + robot_model.noise * np.eye(robot_model.xvals.shape[0])
+            mu = np.dot(np.dot(Z, np.linalg.inv(Sigma)), robot_model.zvals)
+            [U, D] = np.linalg.eig(Sigma)
+            D = np.diag(D)
+            R = (np.sqrt(D))        
+        else:
+            Sigma = np.dot(Z, Z.transpose()) / robot_model.noise + np.eye(nFeatures)
+            Sigma = np.linalg.inv(Sigma)
+            mu = np.dot(np.dot(Sigma, Z), robot_model.zvals) / robot_model.noise
+            theta = mu + np.dot(np.linalg.cholesky(Sigma), noise)
+            #theta = np.random.multivariate_normal(mean = np.reshape(mu, (nFeatures,)), cov = Sigma, size = (nFeatures, 1))
+            
+        # Obtain a function samples from posterior GP
+        target = lambda x: np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), \
+                        np.cos(np.dot(W, x.T) + b)).transpose()
+        target_vector_n = lambda x: -float(target(x)[0,0])
+        
+        # Can only take a 1D input
+        target_gradient = lambda x: np.dot(theta.T * -np.sqrt(2.0 * robot_model.variance / nFeatures), \
+                        np.sin(np.dot(W, x.reshape((2,1))) + b) * W)
+        target_vector_gradient_n = lambda x: -np.asarray(target_gradient(x).reshape(2,))
+                                                                  
+        # Optimize the function
+        maxima, max_val = global_maximization(target, target_vector_n, target_gradient, 
+                            target_vector_gradient_n, robot_model.ranges, robot_model.xvals, visualize)
+        samples[i] = max_val
+        locs[i, :] = maxima
+        
+        if max_val < np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise):
+            samples[i] = np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise)
+            locs[i, :] = robot_model.xvals[np.argmax(robot_model.zvals)]
+            #locs[i, :] = locs[i-1, :]
+        
+        return samples, locs
+      
+
+def mves(time, xvals, robot_model, param):
+    ''' Define the Acquisition Function and the Gradient of MES'''
+    # Compute the aquisition function value f and garident g at the queried point x using MES, given samples
+    # function maxes and a previous set of functino maxes
+    data = np.array(xvals)
+    x1 = data[:,0]
+    x2 = data[:,1]
+    queries = np.vstack([x1, x2]).T   
+    maxes = param
+    
+    #print "Evaluation points:", queries
+    nK = 1 # The number of samples maximum values
+    nFeatures = 200 # number of random features samples to approximate GP
+    d = queries.shape[1] # The dimension of the points (should be 2D)     
+
+    # Initialize f, g
+    f = 0
+    for i in xrange(nK):
+        # Compute the posterior mean/variance predictions and gradients.
+        #[meanVector, varVector, meangrad, vargrad] = mean_var(x, xx, ...
+        #    yy, KernelMatrixInv{i}, l(i,:), sigma(i), sigma0(i));
+        mean, var = robot_model.predict_value(queries)
+        std_dev = np.sqrt(var)
+        
+        # Compute the acquisition function of MES.        
+        gamma = (maxes[i] - mean) / var
+        pdfgamma = sp.stats.norm.pdf(gamma)
+        cdfgamma = sp.stats.norm.cdf(gamma)
+        f += sum(gamma * pdfgamma / (2.0 * cdfgamma) - np.log(cdfgamma))        
+    # Average f
+    f = f / nK
+    # f is an np array; return scalar value
+    return f[0]
+      
+
+def global_maximization(target, target_vector_n, target_grad, target_vector_gradient_n, ranges, guesses, visualize):
+    ''' Perform efficient global maximization'''
+    gridSize = 10
+    
+    # Uniformly sample gridSize number of points in interval xmin to xmax
+    x1 = np.random.uniform(ranges[0], ranges[1], size = gridSize)
+    x2 = np.random.uniform(ranges[2], ranges[3], size = gridSize)
+    x1, x2 = np.meshgrid(x1, x2, sparse = False, indexing = 'xy')  
+    
+    Xgrid = np.vstack([x1.ravel(), x2.ravel()]).T    
+    Xgrid = np.vstack([Xgrid, guesses])   
+    
+    # Get the function value at Xgrid locations
+    y = target(Xgrid)
+    max_index = np.argmax(y)   
+    start = np.asarray(Xgrid[max_index, :])
+    #print "Starting optimization at", start
+    res = sp.optimize.minimize(fun = target_vector_n, x0 = start, method = 'SLSQP', jac = target_vector_gradient_n, \
+                               bounds = ((ranges[0], ranges[1]), (ranges[2], ranges[3])))
+    
+    
+    # Generate a set of observations from robot model with which to make contour plots
+    x1vals = np.linspace(ranges[0], ranges[1], 100)
+    x2vals = np.linspace(ranges[2], ranges[3], 100)
+    x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
+    data = np.vstack([x1.ravel(), x2.ravel()]).T
+    observations = target(data)
+    
+    if visualize:
+        fig2, ax2 = plt.subplots(figsize=(8, 6))
+        #ax2 = fig2.add_subplot(111)
+        ax2.set_xlim(ranges[0:2])
+        ax2.set_ylim(ranges[2:])        
+        ax2.set_title('Countour Plot of the Approximated World Model')     
+        plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis')
+        scatter = ax2.scatter(res['x'][0], res['x'][1], color = 'r', s = 100.0)      
+        plt.show()
+
+    return res['x'], res['fun']
+
+
+def exp_improvement(time, xvals, robot_model, param=None):
+	''' The aquisition function using expected information, as defined in Hennig and Schuler Entropy Search'''
+	data = np.array(xvals)
+	x1 = data[:,0]
+	x2 = data[:,1]
+	queries = np.vstack([x1,x2]).T
+
+	mu, var = robot_model.predict_value(queries)
+	current_max = -10000
+	avg_reward = 0
+	delta = 0.9
+	d = 20
+	pit = np.pi**2 * (time + 1)**2 / 6.
+	beta_t = 2 * np.log(d * pit / delta)
+
+	if param == None:
+   		eta = 0.5
+	else:
+		eta = sum(param)/len(param)
+    	z = (np.sum(mu)-eta)/np.sum(np.fabs(var))
+    	big_phi = 0.5 * (1 + sp.special.erf(z/np.sqrt(2)))
+    	small_phi = 1/np.sqrt(2*np.pi) * np.exp(-z**2 / 2) 
+    	avg_reward = (np.sum(mu)-eta)*big_phi + np.sum(np.fabs(var))*small_phi
+	    
+	return avg_reward
