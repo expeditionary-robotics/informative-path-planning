@@ -102,7 +102,7 @@ class GPModel:
 
         # If the model hasn't been created yet (can't be created until we have data), create GPy model
         if self.model == None:
-            self.model = GPy.models.GPRegression(np.array(xvals), np.array(zvals), self.kern)
+            self.model = GPy.models.GPRegression(np.array(self.xvals), np.array(self.zvals), self.kern)
         # Else add to the exisiting model
         else:
             self.model.set_XY(X = np.array(self.xvals), Y = np.array(self.zvals))
@@ -131,7 +131,8 @@ class GPModel:
         	nothing is returned, but a kernel file is created.
         '''      
         
-        # Read pre-trained kernel parameters from file, if avaliable and no training data is provided
+        # Read pre-trained kernel parameters from file, if available and no 
+        # training data is provided
         if xvals is not None and zvals is not None:
             print "Optimizing kernel parameters given data"
             # Initilaize a GP model (used only for optmizing kernel hyperparamters)
@@ -154,16 +155,21 @@ class GPModel:
 class Environment:
     '''The Environment class, which represents a retangular Gaussian world.
     ''' 
-    def __init__(self, ranges, NUM_PTS, variance, lengthscale, noise = 0.0001, visualize = True, seed = None, dim = 2):
-        ''' Initialize a random Gaussian environment using the input kernel, assuming zero mean
+    def __init__(self, ranges, NUM_PTS, variance, lengthscale, noise = 0.0001, 
+            visualize = True, seed = None, dim = 2):
+        ''' Initialize a random Gaussian environment using the input kernel, 
+            assuming zero mean function.
         Input:
-    	ranges (tuple of floats): a tuple representing the max/min of 2D rectangular domain i.e. (-10, 10, -50, 50)
-    	NUM_PTS (int): the number of points in each dimension to sample for initialization, resulting in a sample grid of size NUM_PTS x NUM_PTS
+    	ranges (tuple of floats): a tuple representing the max/min of 2D 
+            rectangular domain i.e. (-10, 10, -50, 50)
+    	NUM_PTS (int): the number of points in each dimension to sample for 
+            initialization, resulting in a sample grid of size NUM_PTS x NUM_PTS
     	variance (float): the variance parameter of the kernel
     	lengthscale (float): the lengthscale parameter of the kernel
     	noise (float): the sensor noise parameter of the kernel
     	visualize (boolean): flag to plot the surface of the environment 
-    	seed (int): an integer seed for the random draws. If set to \'None\', no seed is used 
+    	seed (int): an integer seed for the random draws. If set to \'None\', 
+            no seed is used 
     	'''
 
         # Save the parmeters of GP model
@@ -183,8 +189,10 @@ class Environment:
         # Generate a set of discrete grid points, uniformly spread across the environment
         x1 = np.linspace(self.x1min, self.x1max, NUM_PTS)
         x2 = np.linspace(self.x2min, self.x2max, NUM_PTS)
-        x1vals, x2vals = np.meshgrid(x1, x2, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS
-        data = np.vstack([x1vals.ravel(), x2vals.ravel()]).T # dimension: NUM_PTS*NUM_PTS x 2
+        # dimension: NUM_PTS x NUM_PTS
+        x1vals, x2vals = np.meshgrid(x1, x2, sparse = False, indexing = 'xy') 
+        # dimension: NUM_PTS*NUM_PTS x 2
+        data = np.vstack([x1vals.ravel(), x2vals.ravel()]).T 
 
         # Take an initial sample in the GP prior, conditioned on no other data
         # This is done to 
@@ -199,7 +207,8 @@ class Environment:
         # Add initial sample data point to the GP model
         self.GP.add_data(xsamples, zsamples)                            
                                  
-        # Iterate through the rest of the grid sequentially and sample a z values, condidtioned on previous samples
+        # Iterate through the rest of the grid sequentially and sample a z values, 
+        # conditioned on previous samples
         for index, point in enumerate(data[1:, :]):
             # Get a new sample point
             xs = np.reshape(np.array(point), (1, dim))
@@ -219,8 +228,8 @@ class Environment:
             self.GP.add_data(np.reshape(xs, (1, dim)), np.reshape(zs, (1, 1)))
       
         # Plot the surface mesh and scatter plot representation of the samples points
-        if visualize == True:
-        	# the 3D surface
+        if visualize == True:   
+            # the 3D surface
             fig = plt.figure(figsize=(8, 6))
             ax = fig.add_subplot(111, projection = '3d')
             ax.set_title('Surface of the Simulated Environment')
@@ -249,7 +258,6 @@ class Environment:
         '''
         assert(xvals.shape[0] >= 1)            
         assert(xvals.shape[1] == self.dim)        
-
 
         mean, var = self.GP.predict_value(xvals)
         return mean
@@ -325,7 +333,7 @@ class Path_Generator:
         return self.goals
     
     def get_sample_points(self):
-    	''' Method to access the trajectory points'''
+        return self.samples
 
 
 class Dubins_Path_Generator(Path_Generator):
@@ -381,16 +389,16 @@ class MCTS:
 
     def __init__(self, computation_budget, belief, initial_pose, rollout_length, frontier_size, path_generator, aquisition_function, f_rew, time):
         '''Initialize with constraints for the planning, including whether there is a budget or planning horizon
-           Inputs:
-            	computation_budget (float) number of seconds to run the tree building procedure
-            	belief (GP model) current belief of the vehicle
-            	initial_pose (tuple of floats) location of the vehicle in world coordinates
-            	rollout_length (int) number of actions to rollout after selecting a child (tree depth)
-            	frontier_size (int) number of options for each action in the tree (tree breadth)
-            	path_generator (string) how action sets should be developed
-            	aquisition_function (function) the criteria to make decisions
-            	f_rew (string) the name of the function used to make decisions
-            	time (float) time in the global world used for aquisition weighting
+        Inputs:
+            computation_budget (float) number of seconds to run the tree building procedure
+            belief (GP model) current belief of the vehicle
+            initial_pose (tuple of floats) location of the vehicle in world coordinates
+            rollout_length (int) number of actions to rollout after selecting a child (tree depth)
+            frontier_size (int) number of options for each action in the tree (tree breadth)
+            path_generator (string) how action sets should be developed
+            aquisition_function (function) the criteria to make decisions
+            f_rew (string) the name of the function used to make decisions
+            time (float) time in the global world used for aquisition weighting
         '''
 
         # Parameterization for the search
@@ -407,7 +415,8 @@ class MCTS:
         # The tree
         self.tree = None
         
-        # Elements which are relevant for some aquisition functions
+        # Elements which are relevant for some acquisition functions
+        self.params = None
         self.max_val = None
         self.max_locs = None
 
@@ -423,9 +432,8 @@ class MCTS:
 
         # randonly sample the world for entropy search function
         if self.f_rew == 'mes':
-            self.max_val, self.max_locs = sample_max_vals(self.GP, False)
-        
-        # start the computation limiter
+            self.max_val, self.max_locs = sample_max_vals(self.GP)
+            
         time_start = time.clock()            
             
        	# while we still have time to compute, generate the tree
@@ -437,9 +445,11 @@ class MCTS:
             self.update_tree(reward, sequence)
 
         # get the best action to take with most promising futures
-        best_sequence, cost = self.get_best_child()
+        best_sequence, best_val, all_vals = self.get_best_child()
         print "Number of rollouts:", i, "\t Size of tree:", len(self.tree)
-        return self.tree[best_sequence][0], cost
+
+        paths = self.path_generator.get_path_set(self.cp)                
+        return self.tree[best_sequence][0], best_val, paths, all_vals, self.max_locs
 
     def initialize_tree(self):
         '''Creates a tree instance, which is a dictionary, that keeps track of the nodes in the world
@@ -502,9 +512,6 @@ class MCTS:
             samples.append(self.tree[seq][0])
         obs = list(chain.from_iterable(samples))
         
-        if self.f_rew == 'mes':
-            if self.max_val is None:
-                return 1.0
         return self.aquisition_function(time = self.t, xvals = obs, robot_model = sim_world, param = self.max_val)
     
     def update_tree(self, reward, sequence):
@@ -529,37 +536,43 @@ class MCTS:
         '''
         best = -1000
         best_child = None
+        value = {}
         for i in xrange(self.fs):
             r = self.tree['child '+ str(i)][2]
+            value[i] = r
             if r > best:
                 best = r
                 best_child = 'child '+ str(i)
-        return best_child, 0
+        return best_child, best, value
 
 
 class Robot(object):
     ''' The Robot class, which includes the vehicles current model of the world and IPP algorithms.'''
 
-    def __init__(self, sample_world, start_loc = (0.0, 0.0, 0.0), extent = (-10., 10., -10., 10.), kernel_file = None, kernel_dataset = None, prior_dataset = None, init_lengthscale = 10.0, init_variance = 100.0, noise = 0.05, path_generator = 'default', frontier_size = 6, horizon_length = 5, turning_radius = 1, sample_step = 0.5, evaluation = None, f_rew = 'mean', create_animation = False):
+    def __init__(self, sample_world, start_loc = (0.0, 0.0, 0.0), extent = (-10., 10., -10., 10.), 
+            kernel_file = None, kernel_dataset = None, prior_dataset = None, init_lengthscale = 10.0, 
+            init_variance = 100.0, noise = 0.05, path_generator = 'default', frontier_size = 6, 
+            horizon_length = 5, turning_radius = 1, sample_step = 0.5, evaluation = None, 
+            f_rew = 'mean', create_animation = False):
         ''' Initialize the robot class with a GP model, initial location, path sets, and prior dataset
         Inputs:
-        	sample_world (method) a function handle that takes a set of locations as input and returns a set of observations
-        	start_loc (tuple of floats) the location of the robot initially in 2-D space e.g. (0.0, 0.0, 0.0)
-        	extent (tuple of floats): a tuple representing the max/min of 2D rectangular domain i.e. (-10, 10, -50, 50)
-        	kernel_file (string) a filename specifying the location of the stored kernel values
-        	kernel_dataset (tuple of nparrays) a tuple (xvals, zvals), where xvals is a Npoint x 2 nparray of type float and zvals is a Npoint x 1 nparray of type float 
-        	prior_dataset (tuple of nparrays) a tuple (xvals, zvals), where xvals is a Npoint x 2 nparray of type float and zvals is a Npoint x 1 nparray of type float
-        	init_lengthscale (float) lengthscale param of kernel
-        	init_variance (float) variance param of kernel
-        	noise (float) the sensor noise parameter of kernel 
-        	path_generator (string): one of default, dubins, or equal_dubins. Robot path parameterization. 
-        	frontier_size (int): the number of paths in the generated path set
-        	horizon_length (float): the length of the paths generated by the robot 
-        	turning_radius (float): the turning radius (in units of distance) of the robot
-        	sample_set (float): the step size (in units of distance) between sequential samples on a trajectory
-        	evaluation (Evaluation object): an evaluation object for performance metric compuation
-        	f_rew (string): the reward function. One of {hotspot_info, mean, info_gain, exp_info, mes}
-			create_animation (boolean): save the generate world model and trajectory to file at each timestep 
+            sample_world (method) a function handle that takes a set of locations as input and returns a set of observations
+            start_loc (tuple of floats) the location of the robot initially in 2-D space e.g. (0.0, 0.0, 0.0)
+            extent (tuple of floats): a tuple representing the max/min of 2D rectangular domain i.e. (-10, 10, -50, 50)
+            kernel_file (string) a filename specifying the location of the stored kernel values
+            kernel_dataset (tuple of nparrays) a tuple (xvals, zvals), where xvals is a Npoint x 2 nparray of type float and zvals is a Npoint x 1 nparray of type float 
+            prior_dataset (tuple of nparrays) a tuple (xvals, zvals), where xvals is a Npoint x 2 nparray of type float and zvals is a Npoint x 1 nparray of type float
+            init_lengthscale (float) lengthscale param of kernel
+            init_variance (float) variance param of kernel
+            noise (float) the sensor noise parameter of kernel 
+            path_generator (string): one of default, dubins, or equal_dubins. Robot path parameterization. 
+            frontier_size (int): the number of paths in the generated path set
+            horizon_length (float): the length of the paths generated by the robot 
+            turning_radius (float): the turning radius (in units of distance) of the robot
+            sample_set (float): the step size (in units of distance) between sequential samples on a trajectory
+            evaluation (Evaluation object): an evaluation object for performance metric compuation
+            f_rew (string): the reward function. One of {hotspot_info, mean, info_gain, exp_info, mes}
+                    create_animation (boolean): save the generate world model and trajectory to file at each timestep 
         '''
 
         # Parameterization for the robot
@@ -619,23 +632,24 @@ class Robot(object):
         Output:
         	either None or the (best path, best path value, all paths, all values, the max_locs for some functions)
         '''
-        paths = self.path_generator.get_path_set(self.loc)
         value = {}
         param = None    
         
         max_locs = max_vals = None      
         if self.f_rew == 'mes':
-            max_val, max_locs = sample_max_vals(self.GP, False)
+            max_val, max_locs = sample_max_vals(self.GP)
             
+        paths = self.path_generator.get_path_set(self.loc)
+
         for path, points in paths.items():
             if self.f_rew == 'mes':
-                	param = max_val
+                param = max_val
             elif self.f_rew == 'exp_improve':
             	if len(self.maxes) == 0:
-            		param = [self.current_max]
-            	else:
-        			param = self.maxes
-        	value[path] = self.aquisition_function(time = t, xvals = points, robot_mode = self.GP, param = param)            
+            	    param = [self.current_max]
+                else:
+            	    param = self.maxes
+            value[path] = self.aquisition_function(time = t, xvals = points, robot_model = self.GP, param = param)            
         try:
             return paths[max(value, key = value.get)], value[max(value, key = value.get)], paths, value, max_locs
         except:
@@ -686,68 +700,78 @@ class Robot(object):
         maxes = None, all_paths = None, all_vals = None):      
         ''' Visualize the set of paths chosen by the robot 
         Inputs:
-        	screen (boolean): determines whether the figure is plotted to the screen or saved to file
-        	filename (string): place to put the saved file
-        	best_path (path object)
-        	maxes (list of locations)
-        	all_paths (list of path objects)
-        	all_vals (list of all path rewards) 
-        	T (string or int): string append to the figure filename
+            screen (boolean): determines whether the figure is plotted to the screen or saved to file
+            filename (string): substring for the last part of the filename i.e. '0', '1', ...
+            best_path (path object)
+            maxes (list of locations)
+            all_paths (list of path objects)
+            all_vals (list of all path rewards) 
+            T (string or int): string append to the figure filename
         '''
         
         # Generate a set of observations from robot model with which to make contour plots
         x1vals = np.linspace(self.ranges[0], self.ranges[1], 100)
         x2vals = np.linspace(self.ranges[2], self.ranges[3], 100)
-        x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
+        x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') 
         data = np.vstack([x1.ravel(), x2.ravel()]).T
         observations, var = self.GP.predict_value(data)        
         
-        
+       
+        # Plot the current robot model of the world
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.set_xlim(self.ranges[0:2])
         ax.set_ylim(self.ranges[2:])
-        plot = ax.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis')
+        plot = ax.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = -25, vmax = 25)
         if self.GP.xvals is not None:
             scatter = ax.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c='k', s = 20.0, cmap = 'viridis')                
         color = iter(plt.cm.cool(np.linspace(0,1,len(self.trajectory))))
-        
+       
+        # Plot the current trajectory
         for i, path in enumerate(self.trajectory):
             c = next(color)
             f = np.array(path)
             plt.plot(f[:,0], f[:,1], c=c, marker='*')
 
+        # If available, plot the current set of options available to robot, colored
+        # by their value (red: low, yellow: high)
         if all_paths is not None:
             all_vals = [x for x in all_vals.values()]   
             path_color = iter(plt.cm.autumn(np.linspace(0, max(all_vals),len(all_vals))/ max(all_vals)))        
             path_order = np.argsort(all_vals)
-        
+            
             for index in path_order:
-                c = next(path_color)                                
+                c = next(path_color)                
                 points = all_paths[index]
                 f = np.array(points)
                 plt.plot(f[:,0], f[:,1], c = c, marker='.')
-                
+               
+        # If available, plot the selected path in green
         if best_path is not None:
             f = np.array(best_path)
             plt.plot(f[:,0], f[:,1], c = 'g', marker='*')
-            
+           
+        # If available, plot the current location of the maxes for mes
         if maxes is not None:
             plt.scatter(maxes[:, 0], maxes[:, 1], color = 'r', marker = '*', s = 500.0)
-            
+           
+        # Either plot to screen or save to file
         if screen:
             plt.show()           
         else:
-            if not os.path.exists('./figures'):
-                os.makedirs('./figures')
-            fig.savefig('figures/trajectory.' + str(filename) + '.png')
+            if not os.path.exists('./figures/' + str(self.f_rew)):
+                os.makedirs('./figures/' + str(self.f_rew))
+            fig.savefig('./figures/' + str(self.f_rew)+ '/trajectory-N.' + str(filename) + '.png')
+            plt.show()
+            plt.close()
+            
         
-    def visualize_world_model(self, screen = True, filename = 'SUMMARY', maxes = None):
+    def visualize_world_model(self, screen = True, filename = 'SUMMARY'):
         ''' Visaulize the robots current world model by sampling points uniformly in space and 
         plotting the predicted function value at those locations.
         Inputs:
-        	screen (boolean): determines whether the figure is plotted to the screen or saved to file 
-        	filename (String): name of the file to be made
-        	maxes (locations of largest points in the world)
+            screen (boolean): determines whether the figure is plotted to the screen or saved to file 
+            filename (String): name of the file to be made
+            maxes (locations of largest points in the world)
         '''
         # Generate a set of observations from robot model with which to make contour plots
         x1vals = np.linspace(self.ranges[0], self.ranges[1], 100)
@@ -757,24 +781,21 @@ class Robot(object):
         observations, var = self.GP.predict_value(data)        
         
         fig2, ax2 = plt.subplots(figsize=(8, 6))
-        #ax2 = fig2.add_subplot(111)
         ax2.set_xlim(self.ranges[0:2])
         ax2.set_ylim(self.ranges[2:])        
         ax2.set_title('Countour Plot of the Robot\'s World Model')     
-    
-        plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis')
+        plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = -25, vmax = 25)
+
         # Plot the samples taken by the robot
         if self.GP.xvals is not None:
             scatter = ax2.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c=self.GP.zvals.ravel(), s = 10.0, cmap = 'viridis')        
-        if maxes is not None:
-            print "Plotting maxes"            
-            ax2.scatter(maxes[:, 0], maxes[:, 1], color = 'r', s = 50.0)
         if screen:
             plt.show()           
         else:
-            if not os.path.exists('./figures'):
-                os.makedirs('./figures')            
-            fig2.savefig('figures/world_model.' + str(filename) + '.png')
+            if not os.path.exists('./figures/' + str(self.f_rew)):
+                os.makedirs('./figures/' + str(self.f_rew))
+            fig.savefig('./figures/' + str(self.f_rew)+ '/world_model.' + str(filename) + '.png')
+            plt.close()
     
     def plot_information(self):
         ''' Visualizes the accumulation of reward and aquisition functions ''' 
@@ -784,7 +805,11 @@ class Robot(object):
 class Nonmyopic_Robot(Robot):
     '''This robot inherits from the Robot class, but uses a MCTS in order to perform global horizon planning'''
     
-    def __init__(self, sample_world, start_loc = (0.0, 0.0, 0.0), extent = (-10., 10., -10., 10.), kernel_file = None, kernel_dataset = None, prior_dataset = None, init_lengthscale = 10.0, init_variance = 100.0, noise = 0.05, path_generator = 'default', frontier_size = 6, horizon_length = 5, turning_radius = 1, sample_step = 0.5, evaluation = None, f_rew = 'mean', create_animation = False, computation_budget = 60, rollout_length = 6):
+    def __init__(self, sample_world, start_loc = (0.0, 0.0, 0.0), extent = (-10., 10., -10., 10.), 
+            kernel_file = None, kernel_dataset = None, prior_dataset = None, init_lengthscale = 10.0, 
+            init_variance = 100.0, noise = 0.05, path_generator = 'default', frontier_size = 6, 
+            horizon_length = 5, turning_radius = 1, sample_step = 0.5, evaluation = None, 
+            f_rew = 'mean', create_animation = False, computation_budget = 60, rollout_length = 6):
         ''' Initialize the robot class with a GP model, initial location, path sets, and prior dataset'''
         
         super(Nonmyopic_Robot, self).__init__(sample_world, start_loc, extent, kernel_file, kernel_dataset, 
@@ -803,16 +828,15 @@ class Nonmyopic_Robot(Robot):
         self.trajectory = []
                  
         for t in xrange(T):
-            # print "[", t, "] Current Location:  ", self.loc            
+            print "[", t, "] Current Location:  ", self.loc            
             #computation_budget, belief, initial_pose, planning_limit, frontier_size, path_generator, aquisition_function, reward, time
-            mcts = MCTS(self.comp_budget, self.GP, self.loc, self.roll_length, self.fs, self.path_generator, self.aquisition_function, self.f_rew, t)
-            best_path, cost = mcts.choose_trajectory()
-            
+            mcts = MCTS(self.comp_budget, self.GP, self.loc, self.roll_length, self.fs, \
+                    self.path_generator, self.aquisition_function, self.f_rew, t)
+            best_path, best_val, all_paths, all_vals, max_locs = mcts.choose_trajectory()
+
             if self.create_animation:
-                #robot.visualize_world_model(screen = False, filename = t, maxes = max_locs)
-                self.visualize_trajectory(screen = False, filename = 'NM-' + str(t),  best_path = best_path, 
-                        maxes = None, all_paths = None, all_vals = None)                        
-                        
+                self.visualize_trajectory(screen = False, filename = str(t),  best_path = best_path,\
+                        maxes = max_locs, all_paths = all_paths, all_vals = all_vals)
             # Update relevent metrics with selected path
             data = np.array(best_path)
             x1 = data[:,0]
@@ -820,9 +844,10 @@ class Nonmyopic_Robot(Robot):
             xlocs = np.vstack([x1, x2]).T
             all_paths = self.path_generator.get_path_set(self.loc)
             self.eval.update_metrics(t, self.GP, all_paths, best_path) 
+
             self.collect_observations(xlocs)
             self.trajectory.append(best_path)        
-            
+
             if len(best_path) == 1:
                 # If the best past returned was into a wall, rotate by 1.14 radients clockwise
                 self.loc = (best_path[-1][0], best_path[-1][1], best_path[-1][2] - 1.14)
@@ -1092,20 +1117,19 @@ def hotspot_info_UCB(time, xvals, robot_model, param=None):
     return info_gain(time, xvals, robot_model) + LAMBDA * np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
 
 
-def sample_max_vals(robot_model, visualize = False):
+def sample_max_vals(robot_model, nK = 3, nFeatures = 300, visualize = True):
     ''' The mutual information between a potential set of samples and the local maxima'''
     # If the robot has not samples yet, return a constant value
     if robot_model.xvals is None:
         return None, None
-    
-    nK =  1# The number of samples maximum values
-    nFeatures = 200 # number of random features samples to approximate GP
+
     d = robot_model.xvals.shape[1] # The dimension of the points (should be 2D)     
-    
+
     ''' Sample Maximum values i.e. return sampled max values for the posterior GP, conditioned on 
     current observations. Construct random freatures and optimize functions drawn from posterior GP.'''
     samples = np.zeros((nK, 1))
     locs = np.zeros((nK, 2))
+    delete_locs = []
 
     for i in xrange(nK):
         # Draw the weights for the random features
@@ -1113,68 +1137,84 @@ def sample_max_vals(robot_model, visualize = False):
         b = 2 * np.pi * np.random.uniform(low = 0.0, high = 1.0, size = (nFeatures, 1))
         
         # Compute the features for xx
-        Z = np.sqrt(2 * robot_model.variance / nFeatures) * np.cos(np.dot(W, robot_model.xvals.transpose()) + b)
-        #print Z.shape
+        Z = np.sqrt(2 * robot_model.variance / nFeatures) * np.cos(np.dot(W, robot_model.xvals.T) + b)
         
         # Draw the coefficient theta
         noise = np.random.normal(loc = 0.0, scale = 1.0, size = (nFeatures, 1))
-     
+
         # TODO: Figure this code out
-        if robot_model.xvals.shape[0] < nFeatures and False:
-            Sigma = np.dot(Z.transpose(), Z) + robot_model.noise * np.eye(robot_model.xvals.shape[0])
+        if robot_model.xvals.shape[0] < nFeatures:
+            #We adopt the formula $theta \sim \N(Z(Z'Z + \sigma^2 I)^{-1} y, I-Z(Z'Z + \sigma^2 I)Z')$.            
+            Sigma = np.dot(Z.T, Z) + robot_model.noise * np.eye(robot_model.xvals.shape[0])
             mu = np.dot(np.dot(Z, np.linalg.inv(Sigma)), robot_model.zvals)
-            [U, D] = np.linalg.eig(Sigma)
-            D = np.diag(D)
-            R = (np.sqrt(D))        
+            [D, U] = np.linalg.eig(Sigma)
+            D = np.reshape(D, (D.shape[0], 1))
+            R = np.reciprocal((np.sqrt(D) *(np.sqrt(D) + np.sqrt(robot_model.noise))))
+            theta = noise - np.dot(Z, np.dot(U, R*(np.dot(U.T, np.dot(Z.T, noise))))) + mu
         else:
+            # $theta \sim \N((ZZ'/\sigma^2 + I)^{-1} Z y / \sigma^2, (ZZ'/\sigma^2 + I)^{-1})$.            
             Sigma = np.dot(Z, Z.transpose()) / robot_model.noise + np.eye(nFeatures)
             Sigma = np.linalg.inv(Sigma)
             mu = np.dot(np.dot(Sigma, Z), robot_model.zvals) / robot_model.noise
-            theta = mu + np.dot(np.linalg.cholesky(Sigma), noise)
+            theta = mu + np.dot(np.linalg.cholesky(Sigma), noise)            
             #theta = np.random.multivariate_normal(mean = np.reshape(mu, (nFeatures,)), cov = Sigma, size = (nFeatures, 1))
             
         # Obtain a function samples from posterior GP
-        target = lambda x: np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), \
-                        np.cos(np.dot(W, x.T) + b)).transpose()
+        target = lambda x: np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures),                         np.cos(np.dot(W, x.T) + b)).transpose()
         target_vector_n = lambda x: -float(target(x)[0,0])
         
         # Can only take a 1D input
-        target_gradient = lambda x: np.dot(theta.T * -np.sqrt(2.0 * robot_model.variance / nFeatures), \
-                        np.sin(np.dot(W, x.reshape((2,1))) + b) * W)
+        target_gradient = lambda x: np.dot(theta.T * -np.sqrt(2.0 * robot_model.variance / nFeatures),                         np.sin(np.dot(W, x.reshape((2,1))) + b) * W)
         target_vector_gradient_n = lambda x: -np.asarray(target_gradient(x).reshape(2,))
-                                                                  
+                                                                    
         # Optimize the function
-        maxima, max_val = global_maximization(target, target_vector_n, target_gradient, 
-                            target_vector_gradient_n, robot_model.ranges, robot_model.xvals, visualize)
+        status = False
+        count = 0
+        # Retry optimization up to 5 times; if hasn't converged, give up on this simulated world
+        while status == False and count < 5:
+            maxima, max_val, max_inv_hess, status = global_maximization(target, target_vector_n, target_gradient, 
+                                target_vector_gradient_n, robot_model.ranges, robot_model.xvals, visualize)
+            count += 1
+        if status == False:
+            delete_locs.append(i)
+            continue
+        
         samples[i] = max_val
+        print "Max val in optmization \t \t", samples[i]
         locs[i, :] = maxima
         
         if max_val < np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise):
             samples[i] = np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise)
+            print "Max observed is bigger than max in opt:", samples[i]
             locs[i, :] = robot_model.xvals[np.argmax(robot_model.zvals)]
             #locs[i, :] = locs[i-1, :]
-        
-        return samples, locs
+
+    samples = np.delete(samples, delete_locs, axis = 0)
+    locs = np.delete(locs, delete_locs, axis = 0)
+    
+    return samples, locs
       
 
 def mves(time, xvals, robot_model, param):
     ''' Define the Acquisition Function and the Gradient of MES'''
     # Compute the aquisition function value f and garident g at the queried point x using MES, given samples
     # function maxes and a previous set of functino maxes
+    maxes = param
+    # If no max values are provided, return default value
+    if maxes is None:
+        return 1.0
+
     data = np.array(xvals)
     x1 = data[:,0]
     x2 = data[:,1]
-    queries = np.vstack([x1, x2]).T   
-    maxes = param
+    queries = np.vstack([x1, x2]).T        
     
     #print "Evaluation points:", queries
-    nK = 1 # The number of samples maximum values
-    nFeatures = 200 # number of random features samples to approximate GP
     d = queries.shape[1] # The dimension of the points (should be 2D)     
 
     # Initialize f, g
     f = 0
-    for i in xrange(nK):
+    for i in xrange(maxes.shape[0]):
         # Compute the posterior mean/variance predictions and gradients.
         #[meanVector, varVector, meangrad, vargrad] = mean_var(x, xx, ...
         #    yy, KernelMatrixInv{i}, l(i,:), sigma(i), sigma0(i));
@@ -1187,14 +1227,40 @@ def mves(time, xvals, robot_model, param):
         cdfgamma = sp.stats.norm.cdf(gamma)
         f += sum(gamma * pdfgamma / (2.0 * cdfgamma) - np.log(cdfgamma))        
     # Average f
-    f = f / nK
+    f = f / maxes.shape[0]
     # f is an np array; return scalar value
     return f[0]
-      
+    
+def entropy_of_n(var):    
+    return np.log(np.sqrt(2.0 * np.pi * var))
+
+def entropy_of_tn(a, b, mu, var):
+    ''' a (float) is the upper bound
+        b (float) is the lower bound '''
+    if a is None:
+        Phi_alpha = 0
+        phi_alpha = 0
+        alpha = 0
+    else:
+        alpha = (a - mu) / var        
+        Phi_alpha = sp.stats.norm.cdf(alpha)
+        phi_alpha = sp.stats.norm.pdf(alpha)
+    if b is None:
+        Phi_beta = 1
+        phi_beta = 0
+        beta = 0
+    else:
+        beta = (b - mu) / var        
+        Phi_beta = sp.stats.norm.cdf(beta)
+        phi_beta = sp.stats.norm.pdf(beta)
+
+    Z = Phi_beta - Phi_alpha
+    
+    return np.log(Z * np.sqrt(2.0 * np.pi * var)) + (alpha * phi_alpha - beta * phi_beta) / (2.0 * Z)
 
 def global_maximization(target, target_vector_n, target_grad, target_vector_gradient_n, ranges, guesses, visualize):
     ''' Perform efficient global maximization'''
-    gridSize = 10
+    gridSize = 30
     
     # Uniformly sample gridSize number of points in interval xmin to xmax
     x1 = np.random.uniform(ranges[0], ranges[1], size = gridSize)
@@ -1209,9 +1275,12 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
     max_index = np.argmax(y)   
     start = np.asarray(Xgrid[max_index, :])
     #print "Starting optimization at", start
-    res = sp.optimize.minimize(fun = target_vector_n, x0 = start, method = 'SLSQP', jac = target_vector_gradient_n, \
-                               bounds = ((ranges[0], ranges[1]), (ranges[2], ranges[3])))
-    
+    res = sp.optimize.minimize(fun = target_vector_n, x0 = start, method = 'SLSQP', \
+            jac = target_vector_gradient_n, bounds = ((ranges[0], ranges[1]), (ranges[2], ranges[3])))
+    if res['success'] == False:
+        print "Failed to converge!"
+        #print res
+        return 0, 0, 0, False
     
     # Generate a set of observations from robot model with which to make contour plots
     x1vals = np.linspace(ranges[0], ranges[1], 100)
@@ -1219,42 +1288,41 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
     x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
     data = np.vstack([x1.ravel(), x2.ravel()]).T
     observations = target(data)
-    
     if visualize:
         fig2, ax2 = plt.subplots(figsize=(8, 6))
-        #ax2 = fig2.add_subplot(111)
         ax2.set_xlim(ranges[0:2])
         ax2.set_ylim(ranges[2:])        
         ax2.set_title('Countour Plot of the Approximated World Model')     
         plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis')
+        scatter = ax2.scatter(guesses[:, 0], guesses[:, 1], color = 'k', s = 20.0)
         scatter = ax2.scatter(res['x'][0], res['x'][1], color = 'r', s = 100.0)      
         plt.show()
 
-    return res['x'], res['fun']
+    return res['x'], -res['fun'], res['jac'], True
 
 
 def exp_improvement(time, xvals, robot_model, param=None):
-	''' The aquisition function using expected information, as defined in Hennig and Schuler Entropy Search'''
-	data = np.array(xvals)
-	x1 = data[:,0]
-	x2 = data[:,1]
-	queries = np.vstack([x1,x2]).T
+    ''' The aquisition function using expected information, as defined in Hennig and Schuler Entropy Search'''
+    data = np.array(xvals)
+    x1 = data[:,0]
+    x2 = data[:,1]
+    queries = np.vstack([x1,x2]).T
 
-	mu, var = robot_model.predict_value(queries)
-	current_max = -10000
-	avg_reward = 0
-	delta = 0.9
-	d = 20
-	pit = np.pi**2 * (time + 1)**2 / 6.
-	beta_t = 2 * np.log(d * pit / delta)
+    mu, var = robot_model.predict_value(queries)
+    current_max = -10000
+    avg_reward = 0
+    delta = 0.9
+    d = 20
+    pit = np.pi**2 * (time + 1)**2 / 6.
+    beta_t = 2 * np.log(d * pit / delta)
 
-	if param == None:
-   		eta = 0.5
-	else:
-		eta = sum(param)/len(param)
-    	z = (np.sum(mu)-eta)/np.sum(np.fabs(var))
-    	big_phi = 0.5 * (1 + sp.special.erf(z/np.sqrt(2)))
-    	small_phi = 1/np.sqrt(2*np.pi) * np.exp(-z**2 / 2) 
-    	avg_reward = (np.sum(mu)-eta)*big_phi + np.sum(np.fabs(var))*small_phi
-	    
-	return avg_reward
+    if param == None:
+            eta = 0.5
+    else:
+            eta = sum(param)/len(param)
+    z = (np.sum(mu)-eta)/np.sum(np.fabs(var))
+    big_phi = 0.5 * (1 + sp.special.erf(z/np.sqrt(2)))
+    small_phi = 1/np.sqrt(2*np.pi) * np.exp(-z**2 / 2) 
+    avg_reward = (np.sum(mu)-eta)*big_phi + np.sum(np.fabs(var))*small_phi
+        
+    return avg_reward
