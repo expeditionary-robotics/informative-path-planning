@@ -761,7 +761,7 @@ class Robot(object):
             if not os.path.exists('./figures/' + str(self.f_rew)):
                 os.makedirs('./figures/' + str(self.f_rew))
             fig.savefig('./figures/' + str(self.f_rew)+ '/trajectory-N.' + str(filename) + '.png')
-            plt.show()
+            #plt.show()
             plt.close()
             
         
@@ -896,8 +896,8 @@ class Evaluation:
             self.f_rew = self.info_gain_reward
             self.f_aqu = info_gain    
         elif reward_function == 'exp_improve':
-        	self.f_rew = self.info_gain_reward
-        	self.f_agu = info_gain           
+            self.f_rew = self.info_gain_reward
+            self.f_aqu = info_gain           
         else:
             raise ValueError('Only \'mean\' and \'hotspot_info\' and \'info_gain\' and \' mew\' and \'exp_improve\' reward functions currently supported.')    
     
@@ -1301,7 +1301,7 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
     return res['x'], -res['fun'], res['jac'], True
 
 
-def exp_improvement(time, xvals, robot_model, param=None):
+def exp_improvement(time, xvals, robot_model, param = None):
     ''' The aquisition function using expected information, as defined in Hennig and Schuler Entropy Search'''
     data = np.array(xvals)
     x1 = data[:,0]
@@ -1317,9 +1317,10 @@ def exp_improvement(time, xvals, robot_model, param=None):
     beta_t = 2 * np.log(d * pit / delta)
 
     if param == None:
-            eta = 0.5
+        eta = 0.5
     else:
-            eta = sum(param)/len(param)
+        eta = sum(param)/len(param)
+
     z = (np.sum(mu)-eta)/np.sum(np.fabs(var))
     big_phi = 0.5 * (1 + sp.special.erf(z/np.sqrt(2)))
     small_phi = 1/np.sqrt(2*np.pi) * np.exp(-z**2 / 2) 
