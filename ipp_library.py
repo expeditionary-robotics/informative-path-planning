@@ -13,6 +13,7 @@ import GPy as GPy
 import dubins
 import time
 from itertools import chain
+import pdb
 
 ''' 
 This library file aggregates a number of classes that are useful for performing the informative path planning (IPP) problem. Detailed documentation is provided for each of the classes inline.
@@ -239,7 +240,7 @@ class Environment:
             fig2 = plt.figure(figsize=(8, 6))
             ax2 = fig2.add_subplot(111)
             ax2.set_title('Countour Plot of the Simulated Environment')     
-            plot = ax2.contourf(x1vals, x2vals, zsamples.reshape(x1vals.shape), cmap = 'viridis')
+            plot = ax2.contourf(x1vals, x2vals, zsamples.reshape(x1vals.shape), cmap = 'viridis', vmin = -25., vmax = 25.)
             scatter = ax2.scatter(data[:, 0], data[:, 1], c = zsamples.ravel(), s = 4.0, cmap = 'viridis')
             maxind = np.argmax(zsamples)
             ax2.scatter(xsamples[maxind, 0], xsamples[maxind,1], color = 'k', marker = '*', s = 500)
@@ -425,7 +426,6 @@ class MCTS:
     	Output:
     		path to take, cost of that path
     	'''
-        
         # initialize tree
         self.tree = self.initialize_tree() 
         i = 0 #iteration count
@@ -534,13 +534,14 @@ class MCTS:
         Output:
         	(string, float) node name of the best child, the cost of that child
         '''
-        best = -1000
+        best = -float('inf')
         best_child = None
         value = {}
         for i in xrange(self.fs):
             r = self.tree['child '+ str(i)][2]
             value[i] = r
-            if r > best:
+            #if r > best and len(self.tree['child '+ str(i)][0]) > 1: 
+            if r > best: 
                 best = r
                 best_child = 'child '+ str(i)
         return best_child, best, value
@@ -721,7 +722,7 @@ class Robot(object):
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.set_xlim(self.ranges[0:2])
         ax.set_ylim(self.ranges[2:])
-        plot = ax.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = -25, vmax = 25)
+        plot = ax.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = -25., vmax = 25.)
         if self.GP.xvals is not None:
             scatter = ax.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c='k', s = 20.0, cmap = 'viridis')                
         color = iter(plt.cm.cool(np.linspace(0,1,len(self.trajectory))))
@@ -736,6 +737,7 @@ class Robot(object):
         # by their value (red: low, yellow: high)
         if all_paths is not None:
             all_vals = [x for x in all_vals.values()]   
+            #print "Values:", all_vals
             path_color = iter(plt.cm.autumn(np.linspace(0, max(all_vals),len(all_vals))/ max(all_vals)))        
             path_order = np.argsort(all_vals)
             
@@ -761,7 +763,7 @@ class Robot(object):
             if not os.path.exists('./figures/' + str(self.f_rew)):
                 os.makedirs('./figures/' + str(self.f_rew))
             fig.savefig('./figures/' + str(self.f_rew)+ '/trajectory-N.' + str(filename) + '.png')
-            #plt.show()
+            plt.show()
             plt.close()
             
         
@@ -784,7 +786,7 @@ class Robot(object):
         ax2.set_xlim(self.ranges[0:2])
         ax2.set_ylim(self.ranges[2:])        
         ax2.set_title('Countour Plot of the Robot\'s World Model')     
-        plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = -25, vmax = 25)
+        plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = -25., vmax = 25.)
 
         # Plot the samples taken by the robot
         if self.GP.xvals is not None:
@@ -837,8 +839,16 @@ class Nonmyopic_Robot(Robot):
             if self.create_animation:
                 self.visualize_trajectory(screen = False, filename = str(t),  best_path = best_path,\
                         maxes = max_locs, all_paths = all_paths, all_vals = all_vals)
+
             # Update relevent metrics with selected path
+            '''
+            print "All paths:"
+            for i, path in enumerate(all_paths.items()):
+                print "[", all_vals[i], '] \t', len(path[1]),  '\t', path
+            '''
+
             data = np.array(best_path)
+            #print "Best path:", "[", best_val, '] \t', data
             x1 = data[:,0]
             x2 = data[:,1]
             xlocs = np.vstack([x1, x2]).T
@@ -849,12 +859,15 @@ class Nonmyopic_Robot(Robot):
             self.trajectory.append(best_path)        
 
             if len(best_path) == 1:
+                #print "The best path goes into a wall, of length 1" 
                 # If the best past returned was into a wall, rotate by 1.14 radients clockwise
                 self.loc = (best_path[-1][0], best_path[-1][1], best_path[-1][2] - 1.14)
             elif best_path[-1][0] < self.ranges[0]+0.5 or best_path[-1][0] > self.ranges[1]-0.5:
+                #print "The best path is too near the wall, get out of here" 
                 # If the best path is too near the edge of the space, rotate by 1.1.4 radians clockwise
                 self.loc = (best_path[-1][0],best_path[-1][1],best_path[-1][2]-1.14)
             elif best_path[-1][1] < self.ranges[2]+0.5 or best_path[-1][0] > self.ranges[3]-0.5:
+                #print "The best path is too near the wall, get out of here" 
                 # IF the pest path is too near the edge of space, rotat by 1.14 radients clockwise
                 self.loc = (best_path[-1][0],best_path[-1][1],best_path[-1][2]-1.14)
             else:
@@ -1117,8 +1130,9 @@ def hotspot_info_UCB(time, xvals, robot_model, param=None):
     return info_gain(time, xvals, robot_model) + LAMBDA * np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
 
 
-def sample_max_vals(robot_model, nK = 3, nFeatures = 300, visualize = True):
+def sample_max_vals(robot_model, nK = 2, nFeatures = 300, visualize = False):
     ''' The mutual information between a potential set of samples and the local maxima'''
+    #pdb.set_trace()
     # If the robot has not samples yet, return a constant value
     if robot_model.xvals is None:
         return None, None
@@ -1133,7 +1147,7 @@ def sample_max_vals(robot_model, nK = 3, nFeatures = 300, visualize = True):
 
     for i in xrange(nK):
         # Draw the weights for the random features
-        W = np.random.normal(loc = 0.0, scale = robot_model.lengthscale, size = (nFeatures, d))
+        W = np.random.normal(loc = 0.0, scale = np.sqrt(robot_model.lengthscale), size = (nFeatures, d))
         b = 2 * np.pi * np.random.uniform(low = 0.0, high = 1.0, size = (nFeatures, 1))
         
         # Compute the features for xx
@@ -1148,23 +1162,30 @@ def sample_max_vals(robot_model, nK = 3, nFeatures = 300, visualize = True):
             Sigma = np.dot(Z.T, Z) + robot_model.noise * np.eye(robot_model.xvals.shape[0])
             mu = np.dot(np.dot(Z, np.linalg.inv(Sigma)), robot_model.zvals)
             [D, U] = np.linalg.eig(Sigma)
-            D = np.reshape(D, (D.shape[0], 1))
-            R = np.reciprocal((np.sqrt(D) *(np.sqrt(D) + np.sqrt(robot_model.noise))))
+            U = np.real(U)
+            D = np.real(np.reshape(D, (D.shape[0], 1)))
+
+            R = np.reciprocal((np.sqrt(D) * (np.sqrt(D) + np.sqrt(robot_model.noise))))
             theta = noise - np.dot(Z, np.dot(U, R*(np.dot(U.T, np.dot(Z.T, noise))))) + mu
         else:
             # $theta \sim \N((ZZ'/\sigma^2 + I)^{-1} Z y / \sigma^2, (ZZ'/\sigma^2 + I)^{-1})$.            
-            Sigma = np.dot(Z, Z.transpose()) / robot_model.noise + np.eye(nFeatures)
+            Sigma = np.dot(Z, Z.T) / robot_model.noise + np.eye(nFeatures)
             Sigma = np.linalg.inv(Sigma)
             mu = np.dot(np.dot(Sigma, Z), robot_model.zvals) / robot_model.noise
             theta = mu + np.dot(np.linalg.cholesky(Sigma), noise)            
             #theta = np.random.multivariate_normal(mean = np.reshape(mu, (nFeatures,)), cov = Sigma, size = (nFeatures, 1))
             
         # Obtain a function samples from posterior GP
-        target = lambda x: np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures),                         np.cos(np.dot(W, x.T) + b)).transpose()
-        target_vector_n = lambda x: -float(target(x)[0,0])
+        def target(x): 
+            #pdb.set_trace()
+            return np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
+        #target = lambda x: np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
+        target_vector_n = lambda x: -target(x.reshape(1,2))
         
         # Can only take a 1D input
-        target_gradient = lambda x: np.dot(theta.T * -np.sqrt(2.0 * robot_model.variance / nFeatures),                         np.sin(np.dot(W, x.reshape((2,1))) + b) * W)
+        def target_gradient(x): 
+            return np.dot(theta.T * -np.sqrt(2.0 * robot_model.variance / nFeatures), np.sin(np.dot(W, x.reshape((2,1))) + b) * W)
+        #target_gradient = lambda x: np.dot(theta.T * -np.sqrt(2.0 * robot_model.variance / nFeatures), np.sin(np.dot(W, x.reshape((2,1))) + b) * W)
         target_vector_gradient_n = lambda x: -np.asarray(target_gradient(x).reshape(2,))
                                                                     
         # Optimize the function
@@ -1260,7 +1281,9 @@ def entropy_of_tn(a, b, mu, var):
 
 def global_maximization(target, target_vector_n, target_grad, target_vector_gradient_n, ranges, guesses, visualize):
     ''' Perform efficient global maximization'''
-    gridSize = 30
+    gridSize = 500
+    #gridSize = 2 
+    print "Starting global maximization, sampling:", gridSize
     
     # Uniformly sample gridSize number of points in interval xmin to xmax
     x1 = np.random.uniform(ranges[0], ranges[1], size = gridSize)
@@ -1277,9 +1300,9 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
     #print "Starting optimization at", start
     res = sp.optimize.minimize(fun = target_vector_n, x0 = start, method = 'SLSQP', \
             jac = target_vector_gradient_n, bounds = ((ranges[0], ranges[1]), (ranges[2], ranges[3])))
+
     if res['success'] == False:
         print "Failed to converge!"
-        #print res
         return 0, 0, 0, False
     
     # Generate a set of observations from robot model with which to make contour plots
@@ -1293,11 +1316,13 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
         ax2.set_xlim(ranges[0:2])
         ax2.set_ylim(ranges[2:])        
         ax2.set_title('Countour Plot of the Approximated World Model')     
-        plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis')
+        plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = -35., vmax = 35.)
         scatter = ax2.scatter(guesses[:, 0], guesses[:, 1], color = 'k', s = 20.0)
         scatter = ax2.scatter(res['x'][0], res['x'][1], color = 'r', s = 100.0)      
         plt.show()
 
+    #print res
+    #pdb.set_trace()
     return res['x'], -res['fun'], res['jac'], True
 
 
