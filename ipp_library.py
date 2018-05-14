@@ -341,7 +341,7 @@ class Path_Generator:
                     x = (y-self.cp[1])*np.cos(self.cp[2]+a)+self.cp[0]
             p = self.cp[2]+a
             if np.linalg.norm([self.cp[0]-x, self.cp[1]-y]) <= self.tr:
-            # if np.fabs(self.cp[0]-x) <= self.tr and np.fabs(self.cp[1]-y) <= self.tr:
+                logger.info("Goal point too close to current point: {}, {}, {}".format(x, y, self.cp))
                 pass
             else:
                 goals.append((x,y,p))
@@ -409,7 +409,7 @@ class Dubins_Path_Generator(Path_Generator):
                 if config[0] > self.extent[0] and config[0] < self.extent[1] and config[1] > self.extent[2] and config[1] < self.extent[3]:
                     temp.append(config)
                 else:
-                    # temp = []
+                    temp = []
                     break
 
             if len(temp) < 2:
@@ -572,6 +572,7 @@ class MCTS:
         #TODO use the cost metric to signal action termination, for now using horizon
         for i in xrange(self.rl):
             actions = self.path_generator.get_path_set(self.tree[node][0][-1]) #plan from the last point in the sample
+            if actions == 
             try:
                 a = np.random.randint(0,len(actions)-1) #choose a random path
                 keys = actions.keys()
@@ -1332,7 +1333,7 @@ def hotspot_info_UCB(time, xvals, robot_model, param=None):
     return info_gain(time, xvals, robot_model) + LAMBDA * np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
 
 
-def sample_max_vals(robot_model, t, nK = 1, nFeatures = 300, visualize = True):
+def sample_max_vals(robot_model, t, nK = 2, nFeatures = 300, visualize = True):
     ''' The mutual information between a potential set of samples and the local maxima'''
     # If the robot has not samples yet, return a constant value
     if robot_model.xvals is None:
