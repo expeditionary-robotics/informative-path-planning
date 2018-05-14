@@ -319,6 +319,10 @@ class Path_Generator:
         angle = np.linspace(-2.35,2.35,self.fs) #fix the possibilities to 75% of the unit circle, ignoring points directly behind the vehicle
         goals = []
         for a in angle:
+            # x = self.hl*np.cos(self.cp[2]+a)+self.cp[0]
+            # y = self.hl*np.sin(self.cp[2]+a)+self.cp[1]
+
+
             x = self.hl*np.cos(self.cp[2]+a)+self.cp[0]
             if x >= self.extent[1]-3*self.tr:
                 x = self.extent[1]-3*self.tr
@@ -335,13 +339,14 @@ class Path_Generator:
                     y = self.extent[2]+3*self.tr
                     x = (y-self.cp[1])*np.cos(self.cp[2]+a)+self.cp[0]
             p = self.cp[2]+a
-            if np.fabs(self.cp[0]-x) <= self.tr or np.fabs(self.cp[1]-y) <= self.tr:
+            if np.linalg.norm([self.cp[0]-x, self.cp[1]-y]) <= self.tr:
+            # if np.fabs(self.cp[0]-x) <= self.tr and np.fabs(self.cp[1]-y) <= self.tr:
                 pass
             else:
                 goals.append((x,y,p))
             #goals.append((x,y,p))
 
-        print "Goals:", goals
+        # print "Goals:", goals
         self.goals = goals
         return self.goals
 
@@ -405,13 +410,16 @@ class Dubins_Path_Generator(Path_Generator):
                 if config[0] > self.extent[0] and config[0] < self.extent[1] and config[1] > self.extent[2] and config[1] < self.extent[3]:
                     temp.append(config)
                 else:
-                    temp = []
+                    # temp = []
                     break
 
             if len(temp) < 2:
                 pass
             else:
                 coords[i] = temp
+
+        if len(coords) == 0:
+            pdb.set_trace()
         return coords    
         
     def make_sample_paths(self):
@@ -420,7 +428,6 @@ class Dubins_Path_Generator(Path_Generator):
         
         if len(coords) == 0:
             print 'no viable path'
-            pass
             
         self.samples = coords
         return coords
@@ -578,7 +585,7 @@ class MCTS:
                 try:
                     node = sequence[-1]
                 except:
-                    print "Empty sequence", sequence
+                    print "Empty sequence", sequence, node
                     logger.warning('Bad sequence')
                     logger.warning(sequence)
         return sequence
@@ -978,17 +985,17 @@ class Nonmyopic_Robot(Robot):
             self.collect_observations(xlocs)
             self.trajectory.append(best_path)        
 
-            if len(best_path) == 1:
-                # If the best past returned was into a wall, rotate by 1.14 radients clockwise
-                self.loc = (best_path[-1][0], best_path[-1][1], best_path[-1][2] - 1.14)
-            elif best_path[-1][0] < self.ranges[0]+0.5 or best_path[-1][0] > self.ranges[1]-0.5:
-                # If the best path is too near the edge of the space, rotate by 1.1.4 radians clockwise
-                self.loc = (best_path[-1][0],best_path[-1][1],best_path[-1][2]-1.14)
-            elif best_path[-1][1] < self.ranges[2]+0.5 or best_path[-1][0] > self.ranges[3]-0.5:
-                # IF the pest path is too near the edge of space, rotat by 1.14 radients clockwise
-                self.loc = (best_path[-1][0],best_path[-1][1],best_path[-1][2]-1.14)
-            else:
-                self.loc = best_path[-1]
+            # if len(best_path) == 1:
+            #     # If the best past returned was into a wall, rotate by 1.14 radients clockwise
+            #     self.loc = (best_path[-1][0], best_path[-1][1], best_path[-1][2] - 1.14)
+            # elif best_path[-1][0] < self.ranges[0]+0.5 or best_path[-1][0] > self.ranges[1]-0.5:
+            #     # If the best path is too near the edge of the space, rotate by 1.1.4 radians clockwise
+            #     self.loc = (best_path[-1][0],best_path[-1][1],best_path[-1][2]-1.14)
+            # elif best_path[-1][1] < self.ranges[2]+0.5 or best_path[-1][0] > self.ranges[3]-0.5:
+            #     # IF the pest path is too near the edge of space, rotat by 1.14 radients clockwise
+            #     self.loc = (best_path[-1][0],best_path[-1][1],best_path[-1][2]-1.14)
+            # else:
+            #     self.loc = best_path[-1]
 
             self.loc = best_path[-1]
         
@@ -1327,7 +1334,7 @@ def hotspot_info_UCB(time, xvals, robot_model, param=None):
     return info_gain(time, xvals, robot_model) + LAMBDA * np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
 
 
-def sample_max_vals(robot_model, t, nK = 2, nFeatures = 300, visualize = True):
+def sample_max_vals(robot_model, t, nK = 1, nFeatures = 300, visualize = True):
     ''' The mutual information between a potential set of samples and the local maxima'''
     # If the robot has not samples yet, return a constant value
     if robot_model.xvals is None:
