@@ -14,6 +14,9 @@ import dubins
 import time
 from itertools import chain
 import pdb
+import logging
+logger = logging.getLogger('robot')
+
 
 ''' 
 This library file aggregates a number of classes that are useful for performing the informative path planning (IPP) problem. Detailed documentation is provided for each of the classes inline.
@@ -117,6 +120,7 @@ class GPModel:
         # Read pre-trained kernel parameters from file, if avaliable and no training data is provided
         if os.path.isfile(kernel_file):
             print "Loading kernel parameters from file"
+            logger.info("Loading kernel parameters from file")
             self.kern[:] = np.load(kernel_file)
         else:
             raise ValueError("Failed to load kernel. Kernel parameter file not found.")
@@ -136,6 +140,7 @@ class GPModel:
         # training data is provided
         if xvals is not None and zvals is not None:
             print "Optimizing kernel parameters given data"
+            logger.info("Optimizing kernel parameters given data")
             # Initilaize a GP model (used only for optmizing kernel hyperparamters)
             self.m = GPy.models.GPRegression(np.array(xvals), np.array(zvals), self.kern)
             self.m.initialize_parameter()
@@ -177,6 +182,7 @@ class Environment:
         self.variance = variance
         self.lengthscale = lengthscale
         self.dim = dim
+        self.noise = noise
         
         # Expect ranges to be a 4-tuple consisting of x1min, x1max, x2min, and x2max
         self.x1min = float(ranges[0])
@@ -195,39 +201,52 @@ class Environment:
         # dimension: NUM_PTS*NUM_PTS x 2
         data = np.vstack([x1vals.ravel(), x2vals.ravel()]).T 
 
-        # Take an initial sample in the GP prior, conditioned on no other data
-        # This is done to 
-        xsamples = np.reshape(np.array(data[0, :]), (1, dim)) # dimension: 1 x 2        
-        mean, var = self.GP.predict_value(xsamples)   
-        if seed is not None:
-            np.random.seed(seed)
-            seed += 1
-        zsamples = np.random.normal(loc = 0, scale = np.sqrt(var))
-        zsamples = np.reshape(zsamples, (1,1)) # dimension: 1 x 1 
-                            
-        # Add initial sample data point to the GP model
-        self.GP.add_data(xsamples, zsamples)                            
-                                 
-        # Iterate through the rest of the grid sequentially and sample a z values, 
-        # conditioned on previous samples
-        for index, point in enumerate(data[1:, :]):
-            # Get a new sample point
-            xs = np.reshape(np.array(point), (1, dim))
-    
-            # Compute the predicted mean and variance
-            mean, var = self.GP.predict_value(xs)
-            
-            # Sample a new observation, given the mean and variance
+        bb = ((ranges[1] - ranges[0])*0.05, (ranges[3] - ranges[2]) * 0.05)
+        ranges = (ranges[0] + bb[0], ranges[1] - bb[0], ranges[2] + bb[1], ranges[3] - bb[1])
+        # Initialize maxima arbitrarily to violate boundary constraints
+        maxima = [self.x1min, self.x2min]
+
+        # Continue to generate random environments until the global maximia 
+        # lives within the boundary constraints
+        while maxima[0] < ranges[0] or maxima[0] > ranges[1] or \
+              maxima[1] < ranges[2] or maxima[1] > ranges[3]:
+            print "Current environment in violation of boundary constraint. Regenerating!"
+            logger.warning("Current environment in violation of boundary constraint. Regenerating!")
+            # Take an initial sample in the GP prior, conditioned on no other data
+            # This is done to 
+            xsamples = np.reshape(np.array(data[0, :]), (1, dim)) # dimension: 1 x 2        
+            mean, var = self.GP.predict_value(xsamples)   
             if seed is not None:
                 np.random.seed(seed)
-                seed += 1            
-            zs = np.random.normal(loc = mean, scale = np.sqrt(var))
-            
-            # Add new sample point to the GP model
-            zsamples = np.vstack([zsamples, np.reshape(zs, (1, 1))])
-            xsamples = np.vstack([xsamples, np.reshape(xs, (1, dim))])
-            self.GP.add_data(np.reshape(xs, (1, dim)), np.reshape(zs, (1, 1)))
-      
+                seed += 1
+            zsamples = np.random.normal(loc = 0, scale = np.sqrt(var))
+            zsamples = np.reshape(zsamples, (1,1)) # dimension: 1 x 1 
+                                
+            # Add initial sample data point to the GP model
+            self.GP.add_data(xsamples, zsamples)                            
+                    
+            # Iterate through the rest of the grid sequentially and sample a z values, 
+            # conditioned on previous samples
+            for index, point in enumerate(data[1:, :]):
+                # Get a new sample point
+                xs = np.reshape(np.array(point), (1, dim))
+        
+                # Compute the predicted mean and variance
+                mean, var = self.GP.predict_value(xs)
+                
+                # Sample a new observation, given the mean and variance
+                if seed is not None:
+                    np.random.seed(seed)
+                    seed += 1            
+                zs = np.random.normal(loc = mean, scale = np.sqrt(var))
+                
+                # Add new sample point to the GP model
+                zsamples = np.vstack([zsamples, np.reshape(zs, (1, 1))])
+                xsamples = np.vstack([xsamples, np.reshape(xs, (1, dim))])
+                self.GP.add_data(np.reshape(xs, (1, dim)), np.reshape(zs, (1, 1)))
+        
+            maxima = self.GP.xvals[np.argmax(self.GP.zvals), :]
+
         # Plot the surface mesh and scatter plot representation of the samples points
         if visualize == True:   
             # the 3D surface
@@ -247,8 +266,9 @@ class Environment:
             fig2.colorbar(plot, ax=ax2)
             plt.show()           
         
-        print "Environment initialized with bounds X1: (", self.x1min, ",", self.x1max, ")  X2:(", self.x2min, ",", self.x2max, ")" 
-      
+        print "Environment initialized with bounds X1: (", self.x1min, ",", self.x1max, ")  X2:(", self.x2min, ",", self.x2max, ")"
+        logger.info("Environment initialized with bounds X1: ({}, {})  X2: ({}, {})".format(self.x1min, self.x1max, self.x2min, self.x2max)) 
+
     def sample_value(self, xvals):
         ''' The public interface to the Environment class. Returns a noisy sample of the true value of environment at a set of point. 
         Input:
@@ -261,7 +281,7 @@ class Environment:
         assert(xvals.shape[1] == self.dim)        
 
         mean, var = self.GP.predict_value(xvals)
-        return mean
+        return mean + np.random.normal(loc = 0, scale = np.sqrt(self.noise))
 
 
 class Path_Generator:
@@ -421,7 +441,7 @@ class MCTS:
         self.max_val = None
         self.max_locs = None
 
-    def choose_trajectory(self):
+    def choose_trajectory(self, t):
     	''' Main function loop which makes the tree and selects the best child
     	Output:
     		path to take, cost of that path
@@ -432,7 +452,7 @@ class MCTS:
 
         # randonly sample the world for entropy search function
         if self.f_rew == 'mes':
-            self.max_val, self.max_locs = sample_max_vals(self.GP)
+            self.max_val, self.max_locs = sample_max_vals(self.GP, t = t)
             
         time_start = time.clock()            
             
@@ -447,6 +467,7 @@ class MCTS:
         # get the best action to take with most promising futures
         best_sequence, best_val, all_vals = self.get_best_child()
         print "Number of rollouts:", i, "\t Size of tree:", len(self.tree)
+        logger.info("Number of rollouts: {} \t Size of tree: {}".format(i, len(self.tree)))
 
         paths = self.path_generator.get_path_set(self.cp)                
         return self.tree[best_sequence][0], best_val, paths, all_vals, self.max_locs
@@ -474,6 +495,7 @@ class MCTS:
         	the formula: avg_r + c_p * np.sqrt(2*np.log(N)/n)
        	'''
         leaf_eval = {}
+        # TODO: check initialization, when everything is zero. appears to be throwing error
         for i in xrange(self.fs):
             node = 'child '+ str(i)
             leaf_eval[node] = self.tree[node][2] + 0.1*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][3])
@@ -540,8 +562,7 @@ class MCTS:
         for i in xrange(self.fs):
             r = self.tree['child '+ str(i)][2]
             value[i] = r
-            #if r > best and len(self.tree['child '+ str(i)][0]) > 1: 
-            if r > best: 
+            if r > best and len(self.tree['child '+ str(i)][0]) > 1: 
                 best = r
                 best_child = 'child '+ str(i)
         return best_child, best, value
@@ -638,7 +659,7 @@ class Robot(object):
         
         max_locs = max_vals = None      
         if self.f_rew == 'mes':
-            max_val, max_locs = sample_max_vals(self.GP)
+            max_val, max_locs = sample_max_vals(self.GP, t = t)
             
         paths = self.path_generator.get_path_set(self.loc)
 
@@ -663,6 +684,24 @@ class Robot(object):
         zobs = self.sample_world(xobs)       
         self.GP.add_data(xobs, zobs)
 
+    def predict_max(self):
+        # If no observations have been collected, return default value
+        if self.GP.xvals is None:
+            return np.array([0., 0.]).reshape(1,2), 0.
+
+        ''' First option, return the max value observed so far '''
+        return self.GP.xvals[np.argmax(self.GP.zvals), :], np.max(self.GP.zvals)
+
+        ''' Second option: generate a set of predictions from model and return max '''
+        # Generate a set of observations from robot model with which to predict mean
+        x1vals = np.linspace(self.ranges[0], self.ranges[1], 100)
+        x2vals = np.linspace(self.ranges[2], self.ranges[3], 100)
+        x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') 
+        data = np.vstack([x1.ravel(), x2.ravel()]).T
+        observations, var = self.GP.predict_value(data)        
+
+        return data[np.argamx(observations), :], np.max(observations)
+        
     def planner(self, T):
         ''' Gather noisy samples of the environment and updates the robot's GP model  
         Input: 
@@ -672,10 +711,17 @@ class Robot(object):
         for t in xrange(T):
             # Select the best trajectory according to the robot's aquisition function
             print "[", t, "] Current Location:  ", self.loc
+            logger.info("[{}] Current Location: {}".format(t, self.loc))
             best_path, best_val, all_paths, all_values, max_locs = self.choose_trajectory(t = t)
             
             # Given this choice, update the evaluation metrics 
-            self.eval.update_metrics(t, self.GP, all_paths, best_path) 
+            # TODO: fix this
+            pred_loc, pred_val = self.predict_max()
+            print "Current predicted max and value: \t", pred_loc, "\t", pred_val
+            logger.info("Current predicted max and value: {} \t {}".format(pred_loc, pred_val))
+
+            self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, best_path, \
+                value = best_val, max_loc = pred_loc, max_val = pred_val) 
             
             if best_path == None:
                 break
@@ -696,7 +742,7 @@ class Robot(object):
                 self.loc = (best_path[-1][0], best_path[-1][1], best_path[-1][2]-0.45)
             else:
                 self.loc = best_path[-1]
-    
+
     def visualize_trajectory(self, screen = True, filename = 'SUMMARY', best_path = None, 
         maxes = None, all_paths = None, all_vals = None):      
         ''' Visualize the set of paths chosen by the robot 
@@ -737,7 +783,6 @@ class Robot(object):
         # by their value (red: low, yellow: high)
         if all_paths is not None:
             all_vals = [x for x in all_vals.values()]   
-            #print "Values:", all_vals
             path_color = iter(plt.cm.autumn(np.linspace(0, max(all_vals),len(all_vals))/ max(all_vals)))        
             path_order = np.argsort(all_vals)
             
@@ -813,10 +858,15 @@ class Nonmyopic_Robot(Robot):
             horizon_length = 5, turning_radius = 1, sample_step = 0.5, evaluation = None, 
             f_rew = 'mean', create_animation = False, computation_budget = 60, rollout_length = 6):
         ''' Initialize the robot class with a GP model, initial location, path sets, and prior dataset'''
-        
+       
+        self.__class__ = Nonmyopic_Robot
         super(Nonmyopic_Robot, self).__init__(sample_world, start_loc, extent, kernel_file, kernel_dataset, 
             prior_dataset, init_lengthscale, init_variance, noise, path_generator, frontier_size, 
             horizon_length, turning_radius, sample_step, evaluation, f_rew, create_animation)        
+    
+        #Robot.__init__(self, sample_world, start_loc, extent, kernel_file, kernel_dataset, 
+        #    prior_dataset, init_lengthscale, init_variance, noise, path_generator, frontier_size, 
+        #    horizon_length, turning_radius, sample_step, evaluation, f_rew, create_animation)        
         
         # Computation limits
         self.comp_budget = computation_budget
@@ -831,49 +881,46 @@ class Nonmyopic_Robot(Robot):
                  
         for t in xrange(T):
             print "[", t, "] Current Location:  ", self.loc            
+            logger.info("[{}] Current Location: {}".format(t, self.loc))
+
             #computation_budget, belief, initial_pose, planning_limit, frontier_size, path_generator, aquisition_function, reward, time
             mcts = MCTS(self.comp_budget, self.GP, self.loc, self.roll_length, self.fs, \
                     self.path_generator, self.aquisition_function, self.f_rew, t)
-            best_path, best_val, all_paths, all_vals, max_locs = mcts.choose_trajectory()
+            best_path, best_val, all_paths, all_vals, max_locs = mcts.choose_trajectory(t = t)
 
             if self.create_animation:
                 self.visualize_trajectory(screen = False, filename = str(t),  best_path = best_path,\
                         maxes = max_locs, all_paths = all_paths, all_vals = all_vals)
 
             # Update relevent metrics with selected path
-            '''
-            print "All paths:"
-            for i, path in enumerate(all_paths.items()):
-                print "[", all_vals[i], '] \t', len(path[1]),  '\t', path
-            '''
-
             data = np.array(best_path)
-            #print "Best path:", "[", best_val, '] \t', data
             x1 = data[:,0]
             x2 = data[:,1]
             xlocs = np.vstack([x1, x2]).T
             all_paths = self.path_generator.get_path_set(self.loc)
-            self.eval.update_metrics(t, self.GP, all_paths, best_path) 
+            
+            pred_loc, pred_val = self.predict_max()
+            print "Current predicted max and value: \t", pred_loc, "\t", pred_val
+            logger.info("Current predicted max and value: {} \t {}".format(pred_loc, pred_val))
+
+            self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, best_path, \
+                    value = best_val, max_loc = pred_loc, max_val = pred_val) 
 
             self.collect_observations(xlocs)
             self.trajectory.append(best_path)        
 
             if len(best_path) == 1:
-                #print "The best path goes into a wall, of length 1" 
                 # If the best past returned was into a wall, rotate by 1.14 radients clockwise
                 self.loc = (best_path[-1][0], best_path[-1][1], best_path[-1][2] - 1.14)
             elif best_path[-1][0] < self.ranges[0]+0.5 or best_path[-1][0] > self.ranges[1]-0.5:
-                #print "The best path is too near the wall, get out of here" 
                 # If the best path is too near the edge of the space, rotate by 1.1.4 radians clockwise
                 self.loc = (best_path[-1][0],best_path[-1][1],best_path[-1][2]-1.14)
             elif best_path[-1][1] < self.ranges[2]+0.5 or best_path[-1][0] > self.ranges[3]-0.5:
-                #print "The best path is too near the wall, get out of here" 
                 # IF the pest path is too near the edge of space, rotat by 1.14 radients clockwise
                 self.loc = (best_path[-1][0],best_path[-1][1],best_path[-1][2]-1.14)
             else:
                 self.loc = best_path[-1]
         
-
 class Evaluation:
     ''' The Evaluation class, which includes the ground truth world model and a selection of reward criteria.
     
@@ -884,16 +931,24 @@ class Evaluation:
     def __init__(self, world, reward_function = 'mean'):
         ''' Initialize the evaluation module and select reward function'''
         self.world = world
+        self.max_val = np.max(world.GP.zvals)
+        self.max_loc = world.GP.xvals[np.argmax(world.GP.zvals), :]
+
+        print "World max value", self.max_val, "at location", self.max_loc
+        logger.info("World max value {} at location {}".format(self.max_val, self.max_loc))
         
         self.metrics = {'aquisition_function': {},
                         'mean_reward': {}, 
                         'info_gain_reward': {},                         
                         'hotspot_info_reward': {}, 
                         'MSE': {},                         
+                        'hotspot_error': {},                         
                         'instant_regret': {},
-                        'regret_bound': {}
+                        'regret_bound': {},
+                        'simple_regret': {},
+                        'max_loc_error': {},
+                        'max_val_error': {}
                        }
-        
         self.reward_function = reward_function
         
         if reward_function == 'hotspot_info':
@@ -906,8 +961,7 @@ class Evaluation:
             self.f_rew = self.info_gain_reward
             self.f_aqu = info_gain   
         elif reward_function == 'mes':
-            self.f_rew = self.info_gain_reward
-            self.f_aqu = info_gain    
+            self.f_aqu = mves
         elif reward_function == 'exp_improve':
             self.f_rew = self.info_gain_reward
             self.f_aqu = info_gain           
@@ -929,7 +983,6 @@ class Evaluation:
         mu, var = self.world.GP.predict_value(queries)
         return np.sum(mu)   
 
-
     def hotspot_info_reward(self, time, xvals, robot_model):
         ''' The reward information gathered plus the exploitation value gathered'''    
         LAMBDA = 1.0# TOOD: should depend on time
@@ -945,10 +998,6 @@ class Evaluation:
         ''' The information reward gathered '''
         return info_gain(time, xvals, robot_model)
     
-    '''Other information-theoretic metrics; includes:
-    	regret
-    	mean-squared error (MSE)
-    '''        
     def inst_regret(self, t, all_paths, selected_path, robot_model):
         ''' The instantaneous Kapoor regret of a selected path, according to the specified reward function
         Input:
@@ -965,12 +1014,47 @@ class Evaluation:
 
         return value_max - value_selected
     
+    def simple_regret(self, xvals):
+        ''' The simple regret of a selected trajecotry
+        Input:
+            max_loc (nparray 1 x 2)
+        '''
+        error = 0.0
+        for point in xvals:
+            error += np.linalg.norm(np.array(point[0:-1]) -  self.max_loc)
+        error /= float(len(xvals))
+
+        return error
+    
+    def max_error(self, max_loc, max_val):
+        ''' The error of the current best guess for the global maximizer
+        Input:
+            max_loc (nparray 1 x 2)
+            max_val (float)
+        '''
+        return np.linalg.norm(max_loc - self.max_loc), np.linalg.norm(max_val - self.max_val)
+
+    def hotspot_error(self, robot_model, NTEST = 100, NHS = 100):
+        ''' Compute the hotspot error on a set of test points, randomly distributed throughout the environment'''
+        x1 = np.random.random_sample((NTEST, 1)) * (self.world.x1max - self.world.x1min) + self.world.x1min
+        x2 = np.random.random_sample((NTEST, 1)) * (self.world.x2max - self.world.x2min) + self.world.x2min
+        data = np.hstack((x1, x2))
+        
+        pred_world, var_world = self.world.GP.predict_value(data)
+        pred_robot, var_robot = robot_model.predict_value(data)      
+
+        # Get the NHOTSPOT most "valuable" points
+        order = np.argsort(pred_world)
+        pred_world = pred_world[order[0:NHS]]
+        pred_robot = pred_robot[order[0:NHS]]
+        
+        return ((pred_world - pred_robot) ** 2).mean()
+    
     def regret_bound(self, t, T):
         pass
         
-    def MSE(self, robot_model, NTEST = 10):
+    def MSE(self, robot_model, NTEST = 100):
         ''' Compute the MSE on a set of test points, randomly distributed throughout the environment'''
-        np.random.seed(0)
         x1 = np.random.random_sample((NTEST, 1)) * (self.world.x1max - self.world.x1min) + self.world.x1min
         x2 = np.random.random_sample((NTEST, 1)) * (self.world.x2max - self.world.x2min) + self.world.x2min
         data = np.hstack((x1, x2))
@@ -982,20 +1066,22 @@ class Evaluation:
     
     ''' Helper functions '''
 
-
-    def update_metrics(self, t, robot_model, all_paths, selected_path):
+    def update_metrics(self, t, robot_model, all_paths, selected_path, value = None, max_loc = None, max_val = None):
         ''' Function to update avaliable metrics'''    
-        # Compute aquisition function
-        self.metrics['aquisition_function'][t] = self.f_aqu(t, selected_path, robot_model)
+        if max_loc is None:
+            self.metrics['aquisition_function'][t] = self.f_aqu(t, selected_path, robot_model)
+            self.metrics['hotspot_info_reward'][t] = self.hotspot_info_reward(t, selected_path, robot_model)
+            self.metrics['mean_reward'][t] = self.mean_reward(t, selected_path, robot_model)
+            self.metrics['instant_regret'][t] = self.inst_regret(t, all_paths, selected_path, robot_model)
         
-        # Compute reward functions
-        self.metrics['mean_reward'][t] = self.mean_reward(t, selected_path, robot_model)
+        else:
+            self.metrics['aquisition_function'][t] = value
+            self.metrics['simple_regret'][t] = self.simple_regret(selected_path)
+            self.metrics['max_loc_error'][t], self.metrics['max_val_error'][t] = self.max_error(max_loc, max_val)
+        
         self.metrics['info_gain_reward'][t] = self.info_gain_reward(t, selected_path, robot_model)
-        self.metrics['hotspot_info_reward'][t] = self.hotspot_info_reward(t, selected_path, robot_model)
-        
-        # Compute other performance metrics
-        self.metrics['MSE'][t] = self.MSE(robot_model, NTEST = 25)
-        self.metrics['instant_regret'][t] = self.inst_regret(t, all_paths, selected_path, robot_model)
+        self.metrics['MSE'][t] = self.MSE(robot_model, NTEST = 30)
+        self.metrics['hotspot_error'][t] = self.hotspot_error(robot_model, NTEST = 30, NHS = 100)
     
     def plot_metrics(self):
         ''' Plots the performance metrics computed over the course of a info'''
@@ -1003,38 +1089,78 @@ class Evaluation:
         time = np.array(self.metrics['MSE'].keys())
         
         ''' Metrics that require a ground truth global model to compute'''        
-        MSE = np.array(self.metrics['MSE'].values())
-        regret = np.cumsum(np.array(self.metrics['instant_regret'].values()))
-        mean = np.cumsum(np.array(self.metrics['mean_reward'].values()))
-        hotspot_info = np.cumsum(np.array(self.metrics['hotspot_info_reward'].values()))
-        
-        ''' Metrics that the robot can compute online '''
         info_gain = np.cumsum(np.array(self.metrics['info_gain_reward'].values()))        
-        UCB = np.cumsum(np.array(self.metrics['aquisition_function'].values()))
+        aqu_fun = np.cumsum(np.array(self.metrics['aquisition_function'].values()))
+        MSE = np.array(self.metrics['MSE'].values())
+        hotspot_error = np.array(self.metrics['hotspot_error'].values())
         
-        fig, ax = plt.subplots(figsize=(8, 6))
-        ax.set_title('Accumulated UCB Aquisition Function')             
-        plt.plot(time, UCB, 'g')
+        max_loc_error = np.array(self.metrics['max_loc_error'].values())
+        max_val_error = np.array(self.metrics['max_val_error'].values())
+        simple_regret = np.array(self.metrics['simple_regret'].values())
+
+        #regret = np.cumsum(np.array(self.metrics['instant_regret'].values()))
+        #mean = np.cumsum(np.array(self.metrics['mean_reward'].values()))
+        #hotspot_info = np.cumsum(np.array(self.metrics['hotspot_info_reward'].values()))
+
+
+        if not os.path.exists('./figures/' + str(self.reward_function)):
+            os.makedirs('./figures/' + str(self.reward_function))
+        ''' Save the relevent metrics as csv files '''
+        np.savetxt('./figures/' + self.reward_function + '/info_gain.csv', (info_gain.T, aqu_fun.T, MSE.T, hotspot_error.T, max_loc_error.T, max_val_error.T, simple_regret.T))
+        #np.savetxt('./figures/' + self.reward_function + '/aqu_fun.csv', aqu_fun)
+        #np.savetxt('./figures/' + self.reward_function + '/MSE.csv', MSE)
+        #np.savetxt('./figures/' + self.reward_function + '/hotspot_MSE.csv', hotspot_error)
+        #np.savetxt('./figures/' + self.reward_function + '/max_loc_error.csv', max_loc_error)
+        #np.savetxt('./figures/' + self.reward_function + '/max_val_error.csv', max_val_error)
+        #np.savetxt('./figures/' + self.reward_function + '/simple_regret.csv', simple_regret)
         
+        
+        #fig, ax = plt.subplots(figsize=(8, 6))
+        #ax.set_title('Accumulated Mean Reward')                     
+        #plt.plot(time, mean, 'b')      
+        
+        #fig, ax = plt.subplots(figsize=(8, 6))
+        #ax.set_title('Accumulated Hotspot Information Gain Reward')                             
+        #plt.plot(time, hotspot_info, 'r')          
+        
+        #fig, ax = plt.subplots(figsize=(8, 6))
+        #ax.set_title('Average Regret w.r.t. ' + self.reward_function + ' Reward')                     
+        #plt.plot(time, regret/time, 'b')        
+
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.set_title('Accumulated Information Gain')                             
         plt.plot(time, info_gain, 'k')        
+        fig.savefig('./figures/' + self.reward_function + '/information_gain.png')
         
         fig, ax = plt.subplots(figsize=(8, 6))
-        ax.set_title('Accumulated Mean Reward')                     
-        plt.plot(time, mean, 'b')      
+        ax.set_title('Accumulated Aquisition Function')             
+        plt.plot(time, aqu_fun, 'g')
+        fig.savefig('./figures/' + self.reward_function + '/aqu_fun.png')
         
         fig, ax = plt.subplots(figsize=(8, 6))
-        ax.set_title('Accumulated Hotspot Information Gain Reward')                             
-        plt.plot(time, hotspot_info, 'r')          
+        ax.set_title('Max Location Error')                             
+        plt.plot(time, max_loc_error, 'k')        
+        fig.savefig('./figures/' + self.reward_function + '/location_error.png')
         
         fig, ax = plt.subplots(figsize=(8, 6))
-        ax.set_title('Average Regret w.r.t. ' + self.reward_function + ' Reward')                     
-        plt.plot(time, regret/time, 'b')        
+        ax.set_title('Max Value Error')                             
+        plt.plot(time, max_val_error, 'k')        
+        fig.savefig('./figures/' + self.reward_function + '/value_error.png')
+        
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.set_title('Simple Regret w.r.t. Global Maximizer')                     
+        plt.plot(time, simple_regret, 'b')        
+        fig.savefig('./figures/' + self.reward_function + '/simple_regret.png')
         
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.set_title('Map MSE at 100 Random Test Points')                             
         plt.plot(time, MSE, 'r')  
+        fig.savefig('./figures/' + self.reward_function + '/mse.png')
+        
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.set_title('Map Hotspot Error at 100 Random Test Points')                             
+        plt.plot(time, hotspot_error, 'r')  
+        fig.savefig('./figures/' + self.reward_function + '/hotspot_mse.png')
    
         plt.show() 
 
@@ -1130,9 +1256,8 @@ def hotspot_info_UCB(time, xvals, robot_model, param=None):
     return info_gain(time, xvals, robot_model) + LAMBDA * np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
 
 
-def sample_max_vals(robot_model, nK = 2, nFeatures = 300, visualize = False):
+def sample_max_vals(robot_model, t, nK = 2, nFeatures = 300, visualize = True):
     ''' The mutual information between a potential set of samples and the local maxima'''
-    #pdb.set_trace()
     # If the robot has not samples yet, return a constant value
     if robot_model.xvals is None:
         return None, None
@@ -1146,6 +1271,8 @@ def sample_max_vals(robot_model, nK = 2, nFeatures = 300, visualize = False):
     delete_locs = []
 
     for i in xrange(nK):
+        print "Starting global optimization", i, "of", nK
+        logger.info("Starting global optimization {} of {}".format(i, nK))
         # Draw the weights for the random features
         W = np.random.normal(loc = 0.0, scale = np.sqrt(robot_model.lengthscale), size = (nFeatures, d))
         b = 2 * np.pi * np.random.uniform(low = 0.0, high = 1.0, size = (nFeatures, 1))
@@ -1159,33 +1286,48 @@ def sample_max_vals(robot_model, nK = 2, nFeatures = 300, visualize = False):
         # TODO: Figure this code out
         if robot_model.xvals.shape[0] < nFeatures:
             #We adopt the formula $theta \sim \N(Z(Z'Z + \sigma^2 I)^{-1} y, I-Z(Z'Z + \sigma^2 I)Z')$.            
-            Sigma = np.dot(Z.T, Z) + robot_model.noise * np.eye(robot_model.xvals.shape[0])
-            mu = np.dot(np.dot(Z, np.linalg.inv(Sigma)), robot_model.zvals)
-            [D, U] = np.linalg.eig(Sigma)
-            U = np.real(U)
-            D = np.real(np.reshape(D, (D.shape[0], 1)))
+            try:
+                Sigma = np.dot(Z.T, Z) + robot_model.noise * np.eye(robot_model.xvals.shape[0])
+                mu = np.dot(np.dot(Z, np.linalg.inv(Sigma)), robot_model.zvals)
+                [D, U] = np.linalg.eig(Sigma)
+                U = np.real(U)
+                D = np.real(np.reshape(D, (D.shape[0], 1)))
 
-            R = np.reciprocal((np.sqrt(D) * (np.sqrt(D) + np.sqrt(robot_model.noise))))
-            theta = noise - np.dot(Z, np.dot(U, R*(np.dot(U.T, np.dot(Z.T, noise))))) + mu
+                R = np.reciprocal((np.sqrt(D) * (np.sqrt(D) + np.sqrt(robot_model.noise))))
+                theta = noise - np.dot(Z, np.dot(U, R*(np.dot(U.T, np.dot(Z.T, noise))))) + mu
+            except:
+                # If Sigma is not positive definite, ignore this simulation
+                print "[ERROR]: Sigma is not positive definite, ignoring simulation", i
+                logger.warning("[ERROR]: Sigma is not positive definite, ignoring simulation {}".format(i))
+                delete_locs.append(i)
+                continue
         else:
             # $theta \sim \N((ZZ'/\sigma^2 + I)^{-1} Z y / \sigma^2, (ZZ'/\sigma^2 + I)^{-1})$.            
-            Sigma = np.dot(Z, Z.T) / robot_model.noise + np.eye(nFeatures)
-            Sigma = np.linalg.inv(Sigma)
-            mu = np.dot(np.dot(Sigma, Z), robot_model.zvals) / robot_model.noise
-            theta = mu + np.dot(np.linalg.cholesky(Sigma), noise)            
+            try:
+                Sigma = np.dot(Z, Z.T) / robot_model.noise + np.eye(nFeatures)
+                Sigma = np.linalg.inv(Sigma)
+                mu = np.dot(np.dot(Sigma, Z), robot_model.zvals) / robot_model.noise
+                theta = mu + np.dot(np.linalg.cholesky(Sigma), noise)            
+            except:
+                # If Sigma is not positive definite, ignore this simulation
+                print "[ERROR]: Sigma is not positive definite, ignoring simulation", i
+                logger.warning("[ERROR]: Sigma is not positive definite, ignoring simulation {}".format(i))
+                delete_locs.append(i)
+                continue
+
             #theta = np.random.multivariate_normal(mean = np.reshape(mu, (nFeatures,)), cov = Sigma, size = (nFeatures, 1))
             
         # Obtain a function samples from posterior GP
-        def target(x): 
-            #pdb.set_trace()
-            return np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
-        #target = lambda x: np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
+        #def target(x): 
+        #    pdb.set_trace()
+        #    return np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
+        target = lambda x: np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
         target_vector_n = lambda x: -target(x.reshape(1,2))
         
         # Can only take a 1D input
-        def target_gradient(x): 
-            return np.dot(theta.T * -np.sqrt(2.0 * robot_model.variance / nFeatures), np.sin(np.dot(W, x.reshape((2,1))) + b) * W)
-        #target_gradient = lambda x: np.dot(theta.T * -np.sqrt(2.0 * robot_model.variance / nFeatures), np.sin(np.dot(W, x.reshape((2,1))) + b) * W)
+        #def target_gradient(x): 
+        #    return np.dot(theta.T * -np.sqrt(2.0 * robot_model.variance / nFeatures), np.sin(np.dot(W, x.reshape((2,1))) + b) * W)
+        target_gradient = lambda x: np.dot(theta.T * -np.sqrt(2.0 * robot_model.variance / nFeatures), np.sin(np.dot(W, x.reshape((2,1))) + b) * W)
         target_vector_gradient_n = lambda x: -np.asarray(target_gradient(x).reshape(2,))
                                                                     
         # Optimize the function
@@ -1194,7 +1336,7 @@ def sample_max_vals(robot_model, nK = 2, nFeatures = 300, visualize = False):
         # Retry optimization up to 5 times; if hasn't converged, give up on this simulated world
         while status == False and count < 5:
             maxima, max_val, max_inv_hess, status = global_maximization(target, target_vector_n, target_gradient, 
-                                target_vector_gradient_n, robot_model.ranges, robot_model.xvals, visualize)
+                target_vector_gradient_n, robot_model.ranges, robot_model.xvals, visualize, 't' + str(t) + '.nK' + str(i))
             count += 1
         if status == False:
             delete_locs.append(i)
@@ -1202,13 +1344,17 @@ def sample_max_vals(robot_model, nK = 2, nFeatures = 300, visualize = False):
         
         samples[i] = max_val
         print "Max val in optmization \t \t", samples[i]
+        logger.info("Max val in optmization \t {}".format(samples[i]))
         locs[i, :] = maxima
         
+        #if max_val < np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise) or \
+        #    maxima[0] == robot_model.ranges[0] or maxima[0] == robot_model.ranges[1] or \
+        #    maxima[1] == robot_model.ranges[2] or maxima[1] == robot_model.ranges[3]:
         if max_val < np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise):
             samples[i] = np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise)
-            print "Max observed is bigger than max in opt:", samples[i]
+            print "Max observed is bigger than max in opt or ignoring edges:", samples[i]
+            logger.info("Max observed is bigger than max in opt or ignoring edges: {}".format(samples[i]))
             locs[i, :] = robot_model.xvals[np.argmax(robot_model.zvals)]
-            #locs[i, :] = locs[i-1, :]
 
     samples = np.delete(samples, delete_locs, axis = 0)
     locs = np.delete(locs, delete_locs, axis = 0)
@@ -1230,7 +1376,6 @@ def mves(time, xvals, robot_model, param):
     x2 = data[:,1]
     queries = np.vstack([x1, x2]).T        
     
-    #print "Evaluation points:", queries
     d = queries.shape[1] # The dimension of the points (should be 2D)     
 
     # Initialize f, g
@@ -1279,11 +1424,13 @@ def entropy_of_tn(a, b, mu, var):
     
     return np.log(Z * np.sqrt(2.0 * np.pi * var)) + (alpha * phi_alpha - beta * phi_beta) / (2.0 * Z)
 
-def global_maximization(target, target_vector_n, target_grad, target_vector_gradient_n, ranges, guesses, visualize):
+def global_maximization(target, target_vector_n, target_grad, target_vector_gradient_n, ranges, guesses, visualize, filename):
     ''' Perform efficient global maximization'''
-    gridSize = 500
-    #gridSize = 2 
-    print "Starting global maximization, sampling:", gridSize
+    gridSize = 300
+    # Create a buffer around the boundary so the optmization doesn't always concentrate there
+    hold_ranges = ranges
+    bb = ((ranges[1] - ranges[0])*0.05, (ranges[3] - ranges[2]) * 0.05)
+    ranges = (ranges[0] + bb[0], ranges[1] - bb[0], ranges[2] + bb[1], ranges[3] - bb[1])
     
     # Uniformly sample gridSize number of points in interval xmin to xmax
     x1 = np.random.uniform(ranges[0], ranges[1], size = gridSize)
@@ -1297,32 +1444,42 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
     y = target(Xgrid)
     max_index = np.argmax(y)   
     start = np.asarray(Xgrid[max_index, :])
-    #print "Starting optimization at", start
+    
+    if visualize:
+        # Generate a set of observations from robot model with which to make contour plots
+        x1vals = np.linspace(ranges[0], ranges[1], 100)
+        x2vals = np.linspace(ranges[2], ranges[3], 100)
+        x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
+        data = np.vstack([x1.ravel(), x2.ravel()]).T
+        observations = target(data)
+        fig2, ax2 = plt.subplots(figsize=(8, 6))
+        ax2.set_xlim(hold_ranges[0:2])
+        ax2.set_ylim(hold_ranges[2:])        
+        ax2.set_title('Countour Plot of the Approximated World Model')     
+        plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = -35., vmax = 35.)
+
     res = sp.optimize.minimize(fun = target_vector_n, x0 = start, method = 'SLSQP', \
             jac = target_vector_gradient_n, bounds = ((ranges[0], ranges[1]), (ranges[2], ranges[3])))
 
     if res['success'] == False:
         print "Failed to converge!"
+        #print res
+
+        logger.warning("Failed to converge! \n")
         return 0, 0, 0, False
     
-    # Generate a set of observations from robot model with which to make contour plots
-    x1vals = np.linspace(ranges[0], ranges[1], 100)
-    x2vals = np.linspace(ranges[2], ranges[3], 100)
-    x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
-    data = np.vstack([x1.ravel(), x2.ravel()]).T
-    observations = target(data)
     if visualize:
-        fig2, ax2 = plt.subplots(figsize=(8, 6))
-        ax2.set_xlim(ranges[0:2])
-        ax2.set_ylim(ranges[2:])        
-        ax2.set_title('Countour Plot of the Approximated World Model')     
-        plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = -35., vmax = 35.)
+        # Generate a set of observations from robot model with which to make contour plots
         scatter = ax2.scatter(guesses[:, 0], guesses[:, 1], color = 'k', s = 20.0)
         scatter = ax2.scatter(res['x'][0], res['x'][1], color = 'r', s = 100.0)      
-        plt.show()
 
-    #print res
-    #pdb.set_trace()
+        if not os.path.exists('./figures/mes/opt'):
+            os.makedirs('./figures/mes/opt')
+        fig2.savefig('./figures/mes/opt/globalopt.' + str(filename) + '.png')
+        plt.show()
+        plt.close()
+
+    # print res
     return res['x'], -res['fun'], res['jac'], True
 
 
