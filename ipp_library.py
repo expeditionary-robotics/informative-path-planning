@@ -264,17 +264,16 @@ class Environment:
         return mean
 
 
-class Path_Generator:
-    '''The Path_Generator class which creates naive point-to-point straightline paths'''
-    
+'''The Path_Generator class which creates naive point-to-point straightline paths'''
+class Path_Generator:    
     def __init__(self, frontier_size, horizon_length, turning_radius, sample_step, extent):
         ''' Initialize a path generator
         Input:
-        	frontier_size (int) the number of points on the frontier we should consider for navigation
-        	horizon_length (float) distance between the vehicle and the horizon to consider
-        	turning_radius (float) the feasible turning radius for the vehicle
-        	sample_step (float) the unit length along the path from which to draw a sample
-        	extent (list of floats) the world boundaries
+            frontier_size (int) the number of points on the frontier we should consider for navigation
+            horizon_length (float) distance between the vehicle and the horizon to consider
+            turning_radius (float) the feasible turning radius for the vehicle
+            sample_step (float) the unit length along the path from which to draw a sample
+            extent (list of floats) the world boundaries
         '''
 
         # the parameters for the dubin trajectory
@@ -288,13 +287,36 @@ class Path_Generator:
         self.goals = [] #The frontier coordinates
         self.samples = {} #The sample points which form the paths
         self.cp = (0,0,0) #The current pose of the vehicle
-        
+
     def generate_frontier_points(self):
         '''From the frontier_size and horizon_length, generate the frontier points to goal'''
         angle = np.linspace(-2.35,2.35,self.fs) #fix the possibilities to 75% of the unit circle, ignoring points directly behind the vehicle
-        self.goals = [(self.hl*np.cos(self.cp[2]+a)+self.cp[0], self.hl*np.sin(self.cp[2]+a)+self.cp[1], self.cp[2]+a) for a in angle]
-        return self.goals
+        goals = []
+        for a in angle:
+            x = self.hl*np.cos(self.cp[2]+a)+self.cp[0]
+            if x >= self.extent[1]-2*self.tr:
+                x = self.extent[1]-2*self.tr
+                y = (x-self.cp[0])*np.sin(self.cp[2]+a)+self.cp[1]
+            elif x <= self.extent[0]+2*self.tr:
+                x = self.extent[0]+2*self.tr
+                y = (x-self.cp[0])*np.sin(self.cp[2]+a)+self.cp[1]
+            else:
+                y = self.hl*np.sin(self.cp[2]+a)+self.cp[1]
+                if y >= self.extent[3]-2*self.tr:
+                    y = self.extent[3]-2*self.tr
+                    x = (y-self.cp[1])*np.cos(self.cp[2]+a)+self.cp[0]
+                elif y <= self.extent[2]+2*self.tr:
+                    y = self.extent[2]+2*self.tr
+                    x = (y-self.cp[1])*np.cos(self.cp[2]+a)+self.cp[0]
+            p = self.cp[2]+a
+            if np.fabs(self.cp[0]-x) <= self.tr or np.fabs(self.cp[1]-y) <= self.tr:
+                pass
+            else:
+                goals.append((x,y,p))
         
+        self.goals = goals
+        return self.goals
+
     def make_sample_paths(self):
         '''Connect the current_pose to the goal places'''
         cp = np.array(self.cp)
@@ -303,7 +325,7 @@ class Path_Generator:
             g = np.array(goal)
             distance = np.sqrt((cp[0]-g[0])**2 + (cp[1]-g[1])**2)
             samples = int(round(distance/self.ss))
-            
+
             # Don't include the start location but do include the end point
             for j in range(0,samples):
                 x = cp[0]+((j+1)*self.ss)*np.cos(g[2])
@@ -316,23 +338,23 @@ class Path_Generator:
                     coords[i].append((x,y,a))
         self.samples = coords
         return self.samples
-    
+
     def get_path_set(self, current_pose):
         '''Primary interface for getting list of path sample points for evaluation
         Input:
-        	current_pose (tuple of x, y, z, a which are floats) current location of the robot in world coordinates
+            current_pose (tuple of x, y, z, a which are floats) current location of the robot in world coordinates
         Output:
-        	paths (dictionary of frontier keys and sample points)
+            paths (dictionary of frontier keys and sample points)
         '''
         self.cp = current_pose
         self.generate_frontier_points()
         paths = self.make_sample_paths()
         return paths
-    
+
     def get_frontier_points(self):
-    	''' Method to access the goal points'''
+        ''' Method to access the goal points'''
         return self.goals
-    
+
     def get_sample_points(self):
         return self.samples
 
@@ -342,16 +364,34 @@ class Dubins_Path_Generator(Path_Generator):
     The Dubins_Path_Generator class, which inherits from the Path_Generator class. Replaces the make_sample_paths
     method with paths generated using the dubins library
     '''
+    
+    def buffered_paths(self):
+        coords = {}
+        for i,goal in enumerate(self.goals):            
+            path = dubins.shortest_path(self.cp, goal, self.tr)
+            configurations, _ = path.sample_many(self.ss)
+            temp = []
+            for config in configurations:
+                if config[0] > self.extent[0] and config[0] < self.extent[1] and config[1] > self.extent[2] and config[1] < self.extent[3]:
+                    temp.append(config)
+                else:
+                    temp = []
+                    break
+
+            if len(temp) < 2:
+                pass
+            else:
+                coords[i] = temp
+        return coords    
         
     def make_sample_paths(self):
         '''Connect the current_pose to the goal places'''
-        coords = {}
-        for i,goal in enumerate(self.goals):
-            g = (goal[0],goal[1],self.cp[2])
-            path = dubins.shortest_path(self.cp, goal, self.tr)
-            configurations, _ = path.sample_many(self.ss)
-            coords[i] = [config for config in configurations if config[0] > self.extent[0] and config[0] < self.extent[1] and config[1] > self.extent[2] and config[1] < self.extent[3]]
+        coords = self.buffered_paths()
         
+        if len(coords) == 0:
+            print 'no viable path'
+            pass
+            
         self.samples = coords
         return coords
 
@@ -475,8 +515,11 @@ class MCTS:
        	'''
         leaf_eval = {}
         for i in xrange(self.fs):
-            node = 'child '+ str(i)
-            leaf_eval[node] = self.tree[node][2] + 0.1*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][3])
+            try:
+                node = 'child '+ str(i)
+                leaf_eval[node] = self.tree[node][2] + 0.1*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][3])
+            except:
+                pass
         return max(leaf_eval, key=leaf_eval.get)
 
     def rollout_policy(self, node):
@@ -491,11 +534,16 @@ class MCTS:
         #TODO use the cost metric to signal action termination, for now using horizon
         for i in xrange(self.rl):
             actions = self.path_generator.get_path_set(self.tree[node][0][-1]) #plan from the last point in the sample
-            a = np.random.randint(0,len(actions)) #choose a random path
-            #TODO add cost metrics
-            self.tree[node + ' child ' + str(a)] = (actions[a], 0, 0, 0) #add random path to the tree
-            node = node + ' child ' + str(a)
-            sequence.append(node)
+            try:
+                a = np.random.randint(0,len(actions)-1) #choose a random path
+                keys = actions.keys()
+                #TODO add cost metrics
+                self.tree[node + ' child ' + str(keys[a])] = (actions[keys[a]], 0, 0, 0) #add random path to the tree
+                node = node + ' child ' + str(keys[a])
+                sequence.append(node)
+            except:
+                sequence.remove(node)
+                node = sequence[-1]
         return sequence
 
     def get_reward(self, sequence):
@@ -538,12 +586,15 @@ class MCTS:
         best_child = None
         value = {}
         for i in xrange(self.fs):
-            r = self.tree['child '+ str(i)][2]
-            value[i] = r
-            #if r > best and len(self.tree['child '+ str(i)][0]) > 1: 
-            if r > best: 
-                best = r
-                best_child = 'child '+ str(i)
+            try:
+                r = self.tree['child '+ str(i)][2]
+                value[i] = r
+                #if r > best and len(self.tree['child '+ str(i)][0]) > 1: 
+                if r > best: 
+                    best = r
+                    best_child = 'child '+ str(i)
+            except:
+                pass
         return best_child, best, value
 
 
@@ -692,10 +743,10 @@ class Robot(object):
                 self.visualize_trajectory(screen = False, filename = t, best_path = best_path, 
                         maxes = max_locs, all_paths = all_paths, all_vals = all_values)            
 
-            if len(best_path) == 1:
-                self.loc = (best_path[-1][0], best_path[-1][1], best_path[-1][2]-0.45)
-            else:
-                self.loc = best_path[-1]
+            # if len(best_path) == 1:
+            #     self.loc = (best_path[-1][0], best_path[-1][1], best_path[-1][2]-0.45)
+            # else:
+            #     self.loc = best_path[-1]
     
     def visualize_trajectory(self, screen = True, filename = 'SUMMARY', best_path = None, 
         maxes = None, all_paths = None, all_vals = None):      
@@ -743,7 +794,7 @@ class Robot(object):
             
             for index in path_order:
                 c = next(path_color)                
-                points = all_paths[index]
+                points = all_paths[all_paths.keys()[index]]
                 f = np.array(points)
                 plt.plot(f[:,0], f[:,1], c = c, marker='.')
                
@@ -872,6 +923,8 @@ class Nonmyopic_Robot(Robot):
                 self.loc = (best_path[-1][0],best_path[-1][1],best_path[-1][2]-1.14)
             else:
                 self.loc = best_path[-1]
+
+            self.loc = best_path[-1]
         
 
 class Evaluation:
