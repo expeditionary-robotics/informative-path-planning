@@ -254,6 +254,9 @@ class Environment:
             ax = fig.add_subplot(111, projection = '3d')
             ax.set_title('Surface of the Simulated Environment')
             surf = ax.plot_surface(x1vals, x2vals, zsamples.reshape(x1vals.shape), cmap = cm.coolwarm, linewidth = 1)
+            if not os.path.exists('./figures'):
+                os.makedirs('./figures')
+            fig.savefig('./figures/world_model_surface.png')
             
             # the contour map            
             fig2 = plt.figure(figsize=(8, 6))
@@ -264,7 +267,10 @@ class Environment:
             maxind = np.argmax(zsamples)
             ax2.scatter(xsamples[maxind, 0], xsamples[maxind,1], color = 'k', marker = '*', s = 500)
             fig2.colorbar(plot, ax=ax2)
+
+            fig2.savefig('./figures/world_model_countour.png')
             plt.show()           
+            plt.close()
         
         print "Environment initialized with bounds X1: (", self.x1min, ",", self.x1max, ")  X2:(", self.x2min, ",", self.x2max, ")"
         logger.info("Environment initialized with bounds X1: ({}, {})  X2: ({}, {})".format(self.x1min, self.x1max, self.x2min, self.x2max)) 
@@ -314,26 +320,28 @@ class Path_Generator:
         goals = []
         for a in angle:
             x = self.hl*np.cos(self.cp[2]+a)+self.cp[0]
-            if x >= self.extent[1]-2*self.tr:
-                x = self.extent[1]-2*self.tr
+            if x >= self.extent[1]-3*self.tr:
+                x = self.extent[1]-3*self.tr
                 y = (x-self.cp[0])*np.sin(self.cp[2]+a)+self.cp[1]
-            elif x <= self.extent[0]+2*self.tr:
-                x = self.extent[0]+2*self.tr
+            elif x <= self.extent[0]+3*self.tr:
+                x = self.extent[0]+3*self.tr
                 y = (x-self.cp[0])*np.sin(self.cp[2]+a)+self.cp[1]
             else:
                 y = self.hl*np.sin(self.cp[2]+a)+self.cp[1]
-                if y >= self.extent[3]-2*self.tr:
-                    y = self.extent[3]-2*self.tr
+                if y >= self.extent[3]-3*self.tr:
+                    y = self.extent[3]-3*self.tr
                     x = (y-self.cp[1])*np.cos(self.cp[2]+a)+self.cp[0]
-                elif y <= self.extent[2]+2*self.tr:
-                    y = self.extent[2]+2*self.tr
+                elif y <= self.extent[2]+3*self.tr:
+                    y = self.extent[2]+3*self.tr
                     x = (y-self.cp[1])*np.cos(self.cp[2]+a)+self.cp[0]
             p = self.cp[2]+a
             if np.fabs(self.cp[0]-x) <= self.tr or np.fabs(self.cp[1]-y) <= self.tr:
                 pass
             else:
                 goals.append((x,y,p))
-        
+            #goals.append((x,y,p))
+
+        print "Goals:", goals
         self.goals = goals
         return self.goals
 
@@ -390,6 +398,8 @@ class Dubins_Path_Generator(Path_Generator):
         for i,goal in enumerate(self.goals):            
             path = dubins.shortest_path(self.cp, goal, self.tr)
             configurations, _ = path.sample_many(self.ss)
+            configurations.append(goal)
+
             temp = []
             for config in configurations:
                 if config[0] > self.extent[0] and config[0] < self.extent[1] and config[1] > self.extent[2] and config[1] < self.extent[3]:
@@ -565,7 +575,12 @@ class MCTS:
                 sequence.append(node)
             except:
                 sequence.remove(node)
-                node = sequence[-1]
+                try:
+                    node = sequence[-1]
+                except:
+                    print "Empty sequence", sequence
+                    logger.warning('Bad sequence')
+                    logger.warning(sequence)
         return sequence
 
     def get_reward(self, sequence):
@@ -745,6 +760,7 @@ class Robot(object):
         return self.GP.xvals[np.argmax(self.GP.zvals), :], np.max(self.GP.zvals)
 
         ''' Second option: generate a set of predictions from model and return max '''
+        '''
         # Generate a set of observations from robot model with which to predict mean
         x1vals = np.linspace(self.ranges[0], self.ranges[1], 100)
         x2vals = np.linspace(self.ranges[2], self.ranges[3], 100)
@@ -753,6 +769,7 @@ class Robot(object):
         observations, var = self.GP.predict_value(data)        
 
         return data[np.argamx(observations), :], np.max(observations)
+        '''
         
     def planner(self, T):
         ''' Gather noisy samples of the environment and updates the robot's GP model  
@@ -1160,7 +1177,7 @@ class Evaluation:
         if not os.path.exists('./figures/' + str(self.reward_function)):
             os.makedirs('./figures/' + str(self.reward_function))
         ''' Save the relevent metrics as csv files '''
-        np.savetxt('./figures/' + self.reward_function + '/info_gain.csv', (info_gain.T, aqu_fun.T, MSE.T, hotspot_error.T, max_loc_error.T, max_val_error.T, simple_regret.T))
+        np.savetxt('./figures/' + self.reward_function + '/info_gain.csv', (time.T, info_gain.T, aqu_fun.T, MSE.T, hotspot_error.T, max_loc_error.T, max_val_error.T, simple_regret.T))
         #np.savetxt('./figures/' + self.reward_function + '/aqu_fun.csv', aqu_fun)
         #np.savetxt('./figures/' + self.reward_function + '/MSE.csv', MSE)
         #np.savetxt('./figures/' + self.reward_function + '/hotspot_MSE.csv', hotspot_error)
@@ -1406,8 +1423,8 @@ def sample_max_vals(robot_model, t, nK = 2, nFeatures = 300, visualize = True):
         #    maxima[1] == robot_model.ranges[2] or maxima[1] == robot_model.ranges[3]:
         if max_val < np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise):
             samples[i] = np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise)
-            print "Max observed is bigger than max in opt or ignoring edges:", samples[i]
-            logger.info("Max observed is bigger than max in opt or ignoring edges: {}".format(samples[i]))
+            print "Max observed is bigger than max in opt:", samples[i]
+            logger.info("Max observed is bigger than max in opt: {}".format(samples[i]))
             locs[i, :] = robot_model.xvals[np.argmax(robot_model.zvals)]
 
     samples = np.delete(samples, delete_locs, axis = 0)
@@ -1530,7 +1547,7 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
         if not os.path.exists('./figures/mes/opt'):
             os.makedirs('./figures/mes/opt')
         fig2.savefig('./figures/mes/opt/globalopt.' + str(filename) + '.png')
-        plt.show()
+        #plt.show()
         plt.close()
 
     # print res
