@@ -162,7 +162,7 @@ class Environment:
     '''The Environment class, which represents a retangular Gaussian world.
     ''' 
     def __init__(self, ranges, NUM_PTS, variance, lengthscale, noise = 0.0001, 
-            visualize = True, seed = None, dim = 2):
+            visualize = True, seed = None, dim = 2, model = None):
         ''' Initialize a random Gaussian environment using the input kernel, 
             assuming zero mean function.
         Input:
@@ -189,93 +189,97 @@ class Environment:
         self.x1min = float(ranges[0])
         self.x1max = float(ranges[1])
         self.x2min = float(ranges[2])
-        self.x2max = float(ranges[3]) 
+        self.x2max = float(ranges[3])
+
+        if model != None:
+            self.GP = model
+        else:
         
-        # Generate a set of discrete grid points, uniformly spread across the environment
-        x1 = np.linspace(self.x1min, self.x1max, NUM_PTS)
-        x2 = np.linspace(self.x2min, self.x2max, NUM_PTS)
-        # dimension: NUM_PTS x NUM_PTS
-        x1vals, x2vals = np.meshgrid(x1, x2, sparse = False, indexing = 'xy') 
-        # dimension: NUM_PTS*NUM_PTS x 2
-        data = np.vstack([x1vals.ravel(), x2vals.ravel()]).T 
+            # Generate a set of discrete grid points, uniformly spread across the environment
+            x1 = np.linspace(self.x1min, self.x1max, NUM_PTS)
+            x2 = np.linspace(self.x2min, self.x2max, NUM_PTS)
+            # dimension: NUM_PTS x NUM_PTS
+            x1vals, x2vals = np.meshgrid(x1, x2, sparse = False, indexing = 'xy') 
+            # dimension: NUM_PTS*NUM_PTS x 2
+            data = np.vstack([x1vals.ravel(), x2vals.ravel()]).T 
 
-        bb = ((ranges[1] - ranges[0])*0.05, (ranges[3] - ranges[2]) * 0.05)
-        ranges = (ranges[0] + bb[0], ranges[1] - bb[0], ranges[2] + bb[1], ranges[3] - bb[1])
-        # Initialize maxima arbitrarily to violate boundary constraints
-        maxima = [self.x1min, self.x2min]
+            bb = ((ranges[1] - ranges[0])*0.05, (ranges[3] - ranges[2]) * 0.05)
+            ranges = (ranges[0] + bb[0], ranges[1] - bb[0], ranges[2] + bb[1], ranges[3] - bb[1])
+            # Initialize maxima arbitrarily to violate boundary constraints
+            maxima = [self.x1min, self.x2min]
 
-        # Continue to generate random environments until the global maximia 
-        # lives within the boundary constraints
-        while maxima[0] < ranges[0] or maxima[0] > ranges[1] or \
-              maxima[1] < ranges[2] or maxima[1] > ranges[3]:
-            print "Current environment in violation of boundary constraint. Regenerating!"
-            logger.warning("Current environment in violation of boundary constraint. Regenerating!")
+            # Continue to generate random environments until the global maximia 
+            # lives within the boundary constraints
+            while maxima[0] < ranges[0] or maxima[0] > ranges[1] or \
+                  maxima[1] < ranges[2] or maxima[1] > ranges[3]:
+                print "Current environment in violation of boundary constraint. Regenerating!"
+                logger.warning("Current environment in violation of boundary constraint. Regenerating!")
 
-            # Intialize a GP model of the environment
-            self.GP = GPModel(ranges = ranges, lengthscale = lengthscale, variance = variance)         
+                # Intialize a GP model of the environment
+                self.GP = GPModel(ranges = ranges, lengthscale = lengthscale, variance = variance)         
 
-            # Take an initial sample in the GP prior, conditioned on no other data
-            # This is done to 
-            xsamples = np.reshape(np.array(data[0, :]), (1, dim)) # dimension: 1 x 2        
-            mean, var = self.GP.predict_value(xsamples)   
-            if seed is not None:
-                np.random.seed(seed)
-                seed += 1
-            zsamples = np.random.normal(loc = 0, scale = np.sqrt(var))
-            zsamples = np.reshape(zsamples, (1,1)) # dimension: 1 x 1 
-                                
-            # Add initial sample data point to the GP model
-            self.GP.add_data(xsamples, zsamples)                            
-                    
-            # Iterate through the rest of the grid sequentially and sample a z values, 
-            # conditioned on previous samples
-            for index, point in enumerate(data[1:, :]):
-                # Get a new sample point
-                xs = np.reshape(np.array(point), (1, dim))
-        
-                # Compute the predicted mean and variance
-                mean, var = self.GP.predict_value(xs)
-                
-                # Sample a new observation, given the mean and variance
+                # Take an initial sample in the GP prior, conditioned on no other data
+                # This is done to 
+                xsamples = np.reshape(np.array(data[0, :]), (1, dim)) # dimension: 1 x 2        
+                mean, var = self.GP.predict_value(xsamples)   
                 if seed is not None:
                     np.random.seed(seed)
-                    seed += 1            
-                zs = np.random.normal(loc = mean, scale = np.sqrt(var))
-                
-                # Add new sample point to the GP model
-                zsamples = np.vstack([zsamples, np.reshape(zs, (1, 1))])
-                xsamples = np.vstack([xsamples, np.reshape(xs, (1, dim))])
-                self.GP.add_data(np.reshape(xs, (1, dim)), np.reshape(zs, (1, 1)))
-        
-            maxima = self.GP.xvals[np.argmax(self.GP.zvals), :]
+                    seed += 1
+                zsamples = np.random.normal(loc = 0, scale = np.sqrt(var))
+                zsamples = np.reshape(zsamples, (1,1)) # dimension: 1 x 1 
+                                    
+                # Add initial sample data point to the GP model
+                self.GP.add_data(xsamples, zsamples)                            
+                        
+                # Iterate through the rest of the grid sequentially and sample a z values, 
+                # conditioned on previous samples
+                for index, point in enumerate(data[1:, :]):
+                    # Get a new sample point
+                    xs = np.reshape(np.array(point), (1, dim))
+            
+                    # Compute the predicted mean and variance
+                    mean, var = self.GP.predict_value(xs)
+                    
+                    # Sample a new observation, given the mean and variance
+                    if seed is not None:
+                        np.random.seed(seed)
+                        seed += 1            
+                    zs = np.random.normal(loc = mean, scale = np.sqrt(var))
+                    
+                    # Add new sample point to the GP model
+                    zsamples = np.vstack([zsamples, np.reshape(zs, (1, 1))])
+                    xsamples = np.vstack([xsamples, np.reshape(xs, (1, dim))])
+                    self.GP.add_data(np.reshape(xs, (1, dim)), np.reshape(zs, (1, 1)))
+            
+                maxima = self.GP.xvals[np.argmax(self.GP.zvals), :]
 
-            # Plot the surface mesh and scatter plot representation of the samples points
-            if visualize == True:   
-                # the 3D surface
-                fig = plt.figure(figsize=(8, 6))
-                ax = fig.add_subplot(111, projection = '3d')
-                ax.set_title('Surface of the Simulated Environment')
-                surf = ax.plot_surface(x1vals, x2vals, zsamples.reshape(x1vals.shape), cmap = cm.coolwarm, linewidth = 1)
-                if not os.path.exists('./figures'):
-                    os.makedirs('./figures')
-                fig.savefig('./figures/world_model_surface.png')
-                
-                # the contour map            
-                fig2 = plt.figure(figsize=(8, 6))
-                ax2 = fig2.add_subplot(111)
-                ax2.set_title('Countour Plot of the Simulated Environment')     
-                plot = ax2.contourf(x1vals, x2vals, zsamples.reshape(x1vals.shape), cmap = 'viridis', vmin = -25., vmax = 25.)
-                scatter = ax2.scatter(data[:, 0], data[:, 1], c = zsamples.ravel(), s = 4.0, cmap = 'viridis')
-                maxind = np.argmax(zsamples)
-                ax2.scatter(xsamples[maxind, 0], xsamples[maxind,1], color = 'k', marker = '*', s = 500)
-                fig2.colorbar(plot, ax=ax2)
+                # Plot the surface mesh and scatter plot representation of the samples points
+                if visualize == True:   
+                    # the 3D surface
+                    fig = plt.figure(figsize=(8, 6))
+                    ax = fig.add_subplot(111, projection = '3d')
+                    ax.set_title('Surface of the Simulated Environment')
+                    surf = ax.plot_surface(x1vals, x2vals, zsamples.reshape(x1vals.shape), cmap = cm.coolwarm, linewidth = 1)
+                    if not os.path.exists('./figures'):
+                        os.makedirs('./figures')
+                    fig.savefig('./figures/world_model_surface.png')
+                    
+                    # the contour map            
+                    fig2 = plt.figure(figsize=(8, 6))
+                    ax2 = fig2.add_subplot(111)
+                    ax2.set_title('Countour Plot of the Simulated Environment')     
+                    plot = ax2.contourf(x1vals, x2vals, zsamples.reshape(x1vals.shape), cmap = 'viridis', vmin = -25., vmax = 25.)
+                    scatter = ax2.scatter(data[:, 0], data[:, 1], c = zsamples.ravel(), s = 4.0, cmap = 'viridis')
+                    maxind = np.argmax(zsamples)
+                    ax2.scatter(xsamples[maxind, 0], xsamples[maxind,1], color = 'k', marker = '*', s = 500)
+                    fig2.colorbar(plot, ax=ax2)
 
-                fig2.savefig('./figures/world_model_countour.png')
-                #plt.show()           
-                plt.close()
+                    fig2.savefig('./figures/world_model_countour.png')
+                    #plt.show()           
+                    plt.close()
         
-        print "Environment initialized with bounds X1: (", self.x1min, ",", self.x1max, ")  X2:(", self.x2min, ",", self.x2max, ")"
-        logger.info("Environment initialized with bounds X1: ({}, {})  X2: ({}, {})".format(self.x1min, self.x1max, self.x2min, self.x2max)) 
+        # print "Environment initialized with bounds X1: (", self.x1min, ",", self.x1max, ")  X2:(", self.x2min, ",", self.x2max, ")"
+        # logger.info("Environment initialized with bounds X1: ({}, {})  X2: ({}, {})".format(self.x1min, self.x1max, self.x2min, self.x2max)) 
 
     def sample_value(self, xvals):
         ''' The public interface to the Environment class. Returns a noisy sample of the true value of environment at a set of point. 
@@ -859,7 +863,7 @@ class Robot(object):
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.set_xlim(self.ranges[0:2])
         ax.set_ylim(self.ranges[2:])
-        plot = ax.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = -25., vmax = 25.)
+        plot = ax.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = 3.007, vmax = 7.467, levels=np.linspace(3.007, 7.467, 15))
         if self.GP.xvals is not None:
             scatter = ax.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c='k', s = 20.0, cmap = 'viridis')                
         color = iter(plt.cm.cool(np.linspace(0,1,len(self.trajectory))))
@@ -922,7 +926,7 @@ class Robot(object):
         ax2.set_xlim(self.ranges[0:2])
         ax2.set_ylim(self.ranges[2:])        
         ax2.set_title('Countour Plot of the Robot\'s World Model')     
-        plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = -25., vmax = 25.)
+        plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = 2, vmax = 8)
 
         # Plot the samples taken by the robot
         if self.GP.xvals is not None:
