@@ -779,19 +779,17 @@ class Robot(object):
             return np.array([0., 0.]).reshape(1,2), 0.
 
         ''' First option, return the max value observed so far '''
-        return self.GP.xvals[np.argmax(self.GP.zvals), :], np.max(self.GP.zvals)
+        #return self.GP.xvals[np.argmax(self.GP.zvals), :], np.max(self.GP.zvals)
 
         ''' Second option: generate a set of predictions from model and return max '''
-        '''
         # Generate a set of observations from robot model with which to predict mean
-        x1vals = np.linspace(self.ranges[0], self.ranges[1], 100)
-        x2vals = np.linspace(self.ranges[2], self.ranges[3], 100)
+        x1vals = np.linspace(self.ranges[0], self.ranges[1], 30)
+        x2vals = np.linspace(self.ranges[2], self.ranges[3], 30)
         x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') 
         data = np.vstack([x1.ravel(), x2.ravel()]).T
         observations, var = self.GP.predict_value(data)        
 
-        return data[np.argamx(observations), :], np.max(observations)
-        '''
+        return data[np.argmax(observations), :], np.max(observations)
         
     def planner(self, T):
         ''' Gather noisy samples of the environment and updates the robot's GP model  
@@ -1013,6 +1011,8 @@ class Nonmyopic_Robot(Robot):
             #     self.loc = best_path[-1]
 
             self.loc = best_path[-1]
+       
+        np.savetxt('./figures/' + self.f_rew+ '/robot_model.csv', (self.GP.xvals[:, 0], self.GP.xvals[:, 1], self.GP.zvals[:, 0]))
         
 class Evaluation:
     ''' The Evaluation class, which includes the ground truth world model and a selection of reward criteria.
@@ -1039,6 +1039,9 @@ class Evaluation:
                         'instant_regret': {},
                         'regret_bound': {},
                         'simple_regret': {},
+                        'loc_regret': {},
+                        'sample_regret_loc': {},
+                        'sample_regret_val': {},
                         'max_loc_error': {},
                         'max_val_error': {}
                        }
@@ -1055,6 +1058,7 @@ class Evaluation:
             self.f_aqu = info_gain   
         elif reward_function == 'mes':
             self.f_aqu = mves
+            self.f_rew = mves
         elif reward_function == 'exp_improve':
             self.f_rew = self.info_gain_reward
             self.f_aqu = info_gain           
@@ -1091,19 +1095,28 @@ class Evaluation:
         ''' The information reward gathered '''
         return info_gain(time, xvals, robot_model)
     
-    def inst_regret(self, t, all_paths, selected_path, robot_model):
+    def inst_regret(self, t, all_paths, selected_path, robot_model, param = None):
         ''' The instantaneous Kapoor regret of a selected path, according to the specified reward function
         Input:
         	all_paths: the set of all avalaible paths to the robot at time t
         	selected path: the path selected by the robot at time t 
         	robot_model (GP Model)
         '''
+
         value_omni = {}        
         for path, points in all_paths.items():           
-            value_omni[path] =  self.f_rew(time = t, xvals = points, robot_model = robot_model)  
+            if self.reward_function == 'mes':
+                global_max_val = np.reshape(np.array(self.max_val), (1,1))
+                value_omni[path] =  self.f_rew(time = t, xvals = points, robot_model = robot_model, param = global_max_val)  
+            else:
+                value_omni[path] =  self.f_rew(time = t, xvals = points, robot_model = robot_model)  
+
         value_max = value_omni[max(value_omni, key = value_omni.get)]
         
-        value_selected = self.f_rew(time = t, xvals = selected_path, robot_model = robot_model)
+        if self.reward_function == 'mes':
+            value_selected = self.f_rew(time = t, xvals = selected_path, robot_model = robot_model, param = global_max_val)
+        else:
+            value_selected = self.f_rew(time = t, xvals = selected_path, robot_model = robot_model)
 
         return value_max - value_selected
     
@@ -1118,6 +1131,16 @@ class Evaluation:
         error /= float(len(xvals))
 
         return error
+
+    def sample_regret(self, robot_model):
+        if robot_model.xvals is None:
+            return 0., 0.
+
+        global_max_val = np.reshape(np.array(self.max_val), (1,1))
+        global_max_loc = np.reshape(np.array(self.max_loc), (1,2))
+        avg_loc_dist = sp.spatial.distance.cdist(global_max_loc, robot_model.xvals)
+        avg_val_dist = sp.spatial.distance.cdist(global_max_val, robot_model.zvals)
+        return np.mean(avg_loc_dist), np.mean(avg_val_dist)
     
     def max_error(self, max_loc, max_val):
         ''' The error of the current best guess for the global maximizer
@@ -1168,13 +1191,16 @@ class Evaluation:
         ''' Function to update avaliable metrics'''    
         if max_loc is None:
             self.metrics['aquisition_function'][t] = self.f_aqu(t, selected_path, robot_model)
+            self.metrics['instant_regret'][t] = self.inst_regret(t, all_paths, selected_path, robot_model)
             self.metrics['hotspot_info_reward'][t] = self.hotspot_info_reward(t, selected_path, robot_model)
             self.metrics['mean_reward'][t] = self.mean_reward(t, selected_path, robot_model)
-            self.metrics['instant_regret'][t] = self.inst_regret(t, all_paths, selected_path, robot_model)
         
         else:
             self.metrics['aquisition_function'][t] = value
+            self.metrics['instant_regret'][t] = self.inst_regret(t, all_paths, selected_path, robot_model, value)
             self.metrics['simple_regret'][t] = self.simple_regret(selected_path)
+            self.metrics['loc_regret'][t] = self.simple_regret(np.reshape(selected_path[0][0:-1], (1, 2)))
+            self.metrics['sample_regret_loc'][t], self.metrics['sample_regret_val'][t] = self.sample_regret(robot_model)
             self.metrics['max_loc_error'][t], self.metrics['max_val_error'][t] = self.max_error(max_loc, max_val)
         
         self.metrics['info_gain_reward'][t] = self.info_gain_reward(t, selected_path, robot_model)
@@ -1192,11 +1218,16 @@ class Evaluation:
         MSE = np.array(self.metrics['MSE'].values())
         hotspot_error = np.array(self.metrics['hotspot_error'].values())
         
+        regret = np.cumsum(np.array(self.metrics['instant_regret'].values()))
+
         max_loc_error = np.array(self.metrics['max_loc_error'].values())
         max_val_error = np.array(self.metrics['max_val_error'].values())
         simple_regret = np.array(self.metrics['simple_regret'].values())
+        loc_regret = np.array(self.metrics['loc_regret'].values())
 
-        #regret = np.cumsum(np.array(self.metrics['instant_regret'].values()))
+        sample_regret_loc = np.array(self.metrics['sample_regret_loc'].values())
+        sample_regret_val = np.array(self.metrics['sample_regret_val'].values())
+
         #mean = np.cumsum(np.array(self.metrics['mean_reward'].values()))
         #hotspot_info = np.cumsum(np.array(self.metrics['hotspot_info_reward'].values()))
 
@@ -1204,7 +1235,10 @@ class Evaluation:
         if not os.path.exists('./figures/' + str(self.reward_function)):
             os.makedirs('./figures/' + str(self.reward_function))
         ''' Save the relevent metrics as csv files '''
-        np.savetxt('./figures/' + self.reward_function + '/metrics.csv', (time.T, info_gain.T, aqu_fun.T, MSE.T, hotspot_error.T, max_loc_error.T, max_val_error.T, simple_regret.T))
+        np.savetxt('./figures/' + self.reward_function + '/metrics.csv', \
+            (time.T, info_gain.T, aqu_fun.T, MSE.T, hotspot_error.T, max_loc_error.T, \
+            max_val_error.T, simple_regret.T, loc_regret.T, sample_regret_loc.T, sample_regret_val.T, \
+            regret.T))
         #np.savetxt('./figures/' + self.reward_function + '/aqu_fun.csv', aqu_fun)
         #np.savetxt('./figures/' + self.reward_function + '/MSE.csv', MSE)
         #np.savetxt('./figures/' + self.reward_function + '/hotspot_MSE.csv', hotspot_error)
@@ -1221,9 +1255,10 @@ class Evaluation:
         #ax.set_title('Accumulated Hotspot Information Gain Reward')                             
         #plt.plot(time, hotspot_info, 'r')          
         
-        #fig, ax = plt.subplots(figsize=(8, 6))
-        #ax.set_title('Average Regret w.r.t. ' + self.reward_function + ' Reward')                     
-        #plt.plot(time, regret/time, 'b')        
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.set_title('Cumulatiave Regret w.r.t. ' + self.reward_function + ' Reward')                     
+        plt.plot(time, regret, 'b')        
+        fig.savefig('./figures/' + self.reward_function + '/snapping_regret.png')
 
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.set_title('Accumulated Information Gain')                             
@@ -1251,6 +1286,11 @@ class Evaluation:
         fig.savefig('./figures/' + self.reward_function + '/simple_regret.png')
         
         fig, ax = plt.subplots(figsize=(8, 6))
+        ax.set_title('Loc Regret w.r.t. Global Maximizer')                     
+        plt.plot(time, loc_regret, 'b')        
+        fig.savefig('./figures/' + self.reward_function + '/loc_regret.png')
+        
+        fig, ax = plt.subplots(figsize=(8, 6))
         ax.set_title('Map MSE at 100 Random Test Points')                             
         plt.plot(time, MSE, 'r')  
         fig.savefig('./figures/' + self.reward_function + '/mse.png')
@@ -1259,7 +1299,17 @@ class Evaluation:
         ax.set_title('Map Hotspot Error at 100 Random Test Points')                             
         plt.plot(time, hotspot_error, 'r')  
         fig.savefig('./figures/' + self.reward_function + '/hotspot_mse.png')
+        
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.set_title('Average sample loc distance to Maximizer')                             
+        plt.plot(time, sample_regret_loc, 'r')
+        fig.savefig('./figures/' + self.reward_function + '/sample_regret_loc.png')
   
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.set_title('Average sample val distance to Maximizer')
+        plt.plot(time, sample_regret_val, 'r')  
+        fig.savefig('./figures/' + self.reward_function + '/sample_regret_val.png')
+        
         plt.close()
         #plt.show() 
 
@@ -1442,8 +1492,8 @@ def sample_max_vals(robot_model, t, nK = 2, nFeatures = 300, visualize = True):
             continue
         
         samples[i] = max_val
-        print "Max val in optmization \t \t", samples[i]
-        logger.info("Max val in optmization \t {}".format(samples[i]))
+        print "Max Value in Optimization \t \t", samples[i]
+        logger.info("Max Value in Optimization \t {}".format(samples[i]))
         locs[i, :] = maxima
         
         #if max_val < np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise) or \
@@ -1460,7 +1510,7 @@ def sample_max_vals(robot_model, t, nK = 2, nFeatures = 300, visualize = True):
 
     # If all global optimizations fail, just return the max value seen so far
     if len(delete_locs) == nK:
-        samples[0, :] = np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise)
+        samples[0] = np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise)
         locs[0, :] = robot_model.xvals[np.argmax(robot_model.zvals)]
    
     return samples, locs
