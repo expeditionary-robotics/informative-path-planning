@@ -191,9 +191,6 @@ class Environment:
         self.x2min = float(ranges[2])
         self.x2max = float(ranges[3]) 
         
-        # Intialize a GP model of the environment
-        self.GP = GPModel(ranges = ranges, lengthscale = lengthscale, variance = variance)         
-                            
         # Generate a set of discrete grid points, uniformly spread across the environment
         x1 = np.linspace(self.x1min, self.x1max, NUM_PTS)
         x2 = np.linspace(self.x2min, self.x2max, NUM_PTS)
@@ -213,6 +210,10 @@ class Environment:
               maxima[1] < ranges[2] or maxima[1] > ranges[3]:
             print "Current environment in violation of boundary constraint. Regenerating!"
             logger.warning("Current environment in violation of boundary constraint. Regenerating!")
+
+            # Intialize a GP model of the environment
+            self.GP = GPModel(ranges = ranges, lengthscale = lengthscale, variance = variance)         
+
             # Take an initial sample in the GP prior, conditioned on no other data
             # This is done to 
             xsamples = np.reshape(np.array(data[0, :]), (1, dim)) # dimension: 1 x 2        
@@ -248,30 +249,30 @@ class Environment:
         
             maxima = self.GP.xvals[np.argmax(self.GP.zvals), :]
 
-        # Plot the surface mesh and scatter plot representation of the samples points
-        if visualize == True:   
-            # the 3D surface
-            fig = plt.figure(figsize=(8, 6))
-            ax = fig.add_subplot(111, projection = '3d')
-            ax.set_title('Surface of the Simulated Environment')
-            surf = ax.plot_surface(x1vals, x2vals, zsamples.reshape(x1vals.shape), cmap = cm.coolwarm, linewidth = 1)
-            if not os.path.exists('./figures'):
-                os.makedirs('./figures')
-            fig.savefig('./figures/world_model_surface.png')
-            
-            # the contour map            
-            fig2 = plt.figure(figsize=(8, 6))
-            ax2 = fig2.add_subplot(111)
-            ax2.set_title('Countour Plot of the Simulated Environment')     
-            plot = ax2.contourf(x1vals, x2vals, zsamples.reshape(x1vals.shape), cmap = 'viridis', vmin = -25., vmax = 25.)
-            scatter = ax2.scatter(data[:, 0], data[:, 1], c = zsamples.ravel(), s = 4.0, cmap = 'viridis')
-            maxind = np.argmax(zsamples)
-            ax2.scatter(xsamples[maxind, 0], xsamples[maxind,1], color = 'k', marker = '*', s = 500)
-            fig2.colorbar(plot, ax=ax2)
+            # Plot the surface mesh and scatter plot representation of the samples points
+            if visualize == True:   
+                # the 3D surface
+                fig = plt.figure(figsize=(8, 6))
+                ax = fig.add_subplot(111, projection = '3d')
+                ax.set_title('Surface of the Simulated Environment')
+                surf = ax.plot_surface(x1vals, x2vals, zsamples.reshape(x1vals.shape), cmap = cm.coolwarm, linewidth = 1)
+                if not os.path.exists('./figures'):
+                    os.makedirs('./figures')
+                fig.savefig('./figures/world_model_surface.png')
+                
+                # the contour map            
+                fig2 = plt.figure(figsize=(8, 6))
+                ax2 = fig2.add_subplot(111)
+                ax2.set_title('Countour Plot of the Simulated Environment')     
+                plot = ax2.contourf(x1vals, x2vals, zsamples.reshape(x1vals.shape), cmap = 'viridis', vmin = -25., vmax = 25.)
+                scatter = ax2.scatter(data[:, 0], data[:, 1], c = zsamples.ravel(), s = 4.0, cmap = 'viridis')
+                maxind = np.argmax(zsamples)
+                ax2.scatter(xsamples[maxind, 0], xsamples[maxind,1], color = 'k', marker = '*', s = 500)
+                fig2.colorbar(plot, ax=ax2)
 
-            fig2.savefig('./figures/world_model_countour.png')
-            plt.show()           
-            plt.close()
+                fig2.savefig('./figures/world_model_countour.png')
+                #plt.show()           
+                plt.close()
         
         print "Environment initialized with bounds X1: (", self.x1min, ",", self.x1max, ")  X2:(", self.x2min, ",", self.x2max, ")"
         logger.info("Environment initialized with bounds X1: ({}, {})  X2: ({}, {})".format(self.x1min, self.x1max, self.x2min, self.x2max)) 
@@ -559,9 +560,6 @@ class MCTS:
         for i, val in actions.items():
             try:
                 node = 'child '+ str(i)
-                # if self.tree['root'][1] == 0 or self.tree[node][3] == 0:
-                #     leaf_eval[node] = self.tree[node][2] 
-                # else:
                 leaf_eval[node] = self.tree[node][2] + 0.1*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][3])
             except:
                 pass
@@ -901,7 +899,7 @@ class Robot(object):
             if not os.path.exists('./figures/' + str(self.f_rew)):
                 os.makedirs('./figures/' + str(self.f_rew))
             fig.savefig('./figures/' + str(self.f_rew)+ '/trajectory-N.' + str(filename) + '.png')
-            plt.show()
+            #plt.show()
             plt.close()
             
         
@@ -1139,9 +1137,14 @@ class Evaluation:
         pred_robot, var_robot = robot_model.predict_value(data)      
 
         # Get the NHOTSPOT most "valuable" points
-        order = np.argsort(pred_world)
+        #print pred_world
+        order = np.argsort(pred_world, axis = None)
         pred_world = pred_world[order[0:NHS]]
         pred_robot = pred_robot[order[0:NHS]]
+
+        #print pred_world
+        #print pred_robot
+        #print order
         
         return ((pred_world - pred_robot) ** 2).mean()
     
@@ -1175,8 +1178,8 @@ class Evaluation:
             self.metrics['max_loc_error'][t], self.metrics['max_val_error'][t] = self.max_error(max_loc, max_val)
         
         self.metrics['info_gain_reward'][t] = self.info_gain_reward(t, selected_path, robot_model)
-        self.metrics['MSE'][t] = self.MSE(robot_model, NTEST = 30)
-        self.metrics['hotspot_error'][t] = self.hotspot_error(robot_model, NTEST = 30, NHS = 100)
+        self.metrics['MSE'][t] = self.MSE(robot_model, NTEST = 200)
+        self.metrics['hotspot_error'][t] = self.hotspot_error(robot_model, NTEST = 200, NHS = 100)
     
     def plot_metrics(self):
         ''' Plots the performance metrics computed over the course of a info'''
@@ -1201,7 +1204,7 @@ class Evaluation:
         if not os.path.exists('./figures/' + str(self.reward_function)):
             os.makedirs('./figures/' + str(self.reward_function))
         ''' Save the relevent metrics as csv files '''
-        np.savetxt('./figures/' + self.reward_function + '/info_gain.csv', (time.T, info_gain.T, aqu_fun.T, MSE.T, hotspot_error.T, max_loc_error.T, max_val_error.T, simple_regret.T))
+        np.savetxt('./figures/' + self.reward_function + '/metrics.csv', (time.T, info_gain.T, aqu_fun.T, MSE.T, hotspot_error.T, max_loc_error.T, max_val_error.T, simple_regret.T))
         #np.savetxt('./figures/' + self.reward_function + '/aqu_fun.csv', aqu_fun)
         #np.savetxt('./figures/' + self.reward_function + '/MSE.csv', MSE)
         #np.savetxt('./figures/' + self.reward_function + '/hotspot_MSE.csv', hotspot_error)
@@ -1256,8 +1259,9 @@ class Evaluation:
         ax.set_title('Map Hotspot Error at 100 Random Test Points')                             
         plt.plot(time, hotspot_error, 'r')  
         fig.savefig('./figures/' + self.reward_function + '/hotspot_mse.png')
-   
-        plt.show() 
+  
+        plt.close()
+        #plt.show() 
 
 
 
