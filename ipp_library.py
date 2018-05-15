@@ -24,6 +24,8 @@ This library file aggregates a number of classes that are useful for performing 
 Maintainers: Genevieve Flaspohler and Victoria Preston
 License: MIT
 '''
+MIN_COLOR = 3.0
+MAX_COLOR = 7.5
 
 class GPModel:
     '''The GPModel class, which is a wrapper on top of GPy.'''     
@@ -191,10 +193,32 @@ class Environment:
         self.x2min = float(ranges[2])
         self.x2max = float(ranges[3])
 
-        if model != None:
+        if model is not None:
             self.GP = model
+            # Plot the surface mesh and scatter plot representation of the samples points
+            if visualize == True:   
+                # Generate a set of observations from robot model with which to make contour plots
+                x1vals = np.linspace(ranges[0], ranges[1], 40)
+                x2vals = np.linspace(ranges[2], ranges[3], 40)
+                x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
+                data = np.vstack([x1.ravel(), x2.ravel()]).T
+                observations, var = self.GP.predict_value(data)        
+                
+                fig2, ax2 = plt.subplots(figsize=(8, 6))
+                ax2.set_xlim(ranges[0:2])
+                ax2.set_ylim(ranges[2:])        
+                ax2.set_title('Countour Plot of the True World Model')     
+                plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR, levels=np.linspace(MIN_COLOR, MAX_COLOR, 15))
+
+                scatter = ax2.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c = self.GP.zvals.ravel(), s = 4.0, cmap = 'viridis')
+                maxind = np.argmax(self.GP.zvals)
+                ax2.scatter(self.GP.xvals[maxind, 0], self.GP.xvals[maxind,1], color = 'k', marker = '*', s = 500)
+                fig2.colorbar(plot, ax=ax2)
+
+                fig2.savefig('./figures/world_model_countour.png')
+                #plt.show()           
+                plt.close()
         else:
-        
             # Generate a set of discrete grid points, uniformly spread across the environment
             x1 = np.linspace(self.x1min, self.x1max, NUM_PTS)
             x2 = np.linspace(self.x2min, self.x2max, NUM_PTS)
@@ -268,7 +292,7 @@ class Environment:
                     fig2 = plt.figure(figsize=(8, 6))
                     ax2 = fig2.add_subplot(111)
                     ax2.set_title('Countour Plot of the Simulated Environment')     
-                    plot = ax2.contourf(x1vals, x2vals, zsamples.reshape(x1vals.shape), cmap = 'viridis', vmin = -25., vmax = 25.)
+                    plot = ax2.contourf(x1vals, x2vals, zsamples.reshape(x1vals.shape), cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR, levels=np.linspace(MIN_COLOR, MAX_COLOR, 15))
                     scatter = ax2.scatter(data[:, 0], data[:, 1], c = zsamples.ravel(), s = 4.0, cmap = 'viridis')
                     maxind = np.argmax(zsamples)
                     ax2.scatter(xsamples[maxind, 0], xsamples[maxind,1], color = 'k', marker = '*', s = 500)
@@ -278,8 +302,8 @@ class Environment:
                     #plt.show()           
                     plt.close()
         
-        # print "Environment initialized with bounds X1: (", self.x1min, ",", self.x1max, ")  X2:(", self.x2min, ",", self.x2max, ")"
-        # logger.info("Environment initialized with bounds X1: ({}, {})  X2: ({}, {})".format(self.x1min, self.x1max, self.x2min, self.x2max)) 
+            print "Environment initialized with bounds X1: (", self.x1min, ",", self.x1max, ")  X2:(", self.x2min, ",", self.x2max, ")"
+            logger.info("Environment initialized with bounds X1: ({}, {})  X2: ({}, {})".format(self.x1min, self.x1max, self.x2min, self.x2max)) 
 
     def sample_value(self, xvals):
         ''' The public interface to the Environment class. Returns a noisy sample of the true value of environment at a set of point. 
@@ -861,7 +885,7 @@ class Robot(object):
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.set_xlim(self.ranges[0:2])
         ax.set_ylim(self.ranges[2:])
-        plot = ax.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = 3.007, vmax = 7.467, levels=np.linspace(3.007, 7.467, 15))
+        plot = ax.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR, levels=np.linspace(MIN_COLOR, MAX_COLOR, 15))
         if self.GP.xvals is not None:
             scatter = ax.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c='k', s = 20.0, cmap = 'viridis')                
         color = iter(plt.cm.cool(np.linspace(0,1,len(self.trajectory))))
@@ -924,7 +948,7 @@ class Robot(object):
         ax2.set_xlim(self.ranges[0:2])
         ax2.set_ylim(self.ranges[2:])        
         ax2.set_title('Countour Plot of the Robot\'s World Model')     
-        plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = 2, vmax = 8)
+        plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR, levels=np.linspace(MIN_COLOR, MAX_COLOR, 15))
 
         # Plot the samples taken by the robot
         if self.GP.xvals is not None:
@@ -1314,8 +1338,8 @@ class Evaluation:
         plt.plot(time, sample_regret_val, 'r')  
         fig.savefig('./figures/' + self.reward_function + '/sample_regret_val.png')
         
-        plt.close()
         #plt.show() 
+        plt.close()
 
 
 
@@ -1427,7 +1451,8 @@ def sample_max_vals(robot_model, t, nK = 2, nFeatures = 300, visualize = True):
         print "Starting global optimization", i, "of", nK
         logger.info("Starting global optimization {} of {}".format(i, nK))
         # Draw the weights for the random features
-        W = np.random.normal(loc = 0.0, scale = np.sqrt(robot_model.lengthscale), size = (nFeatures, d))
+        # TODO: make sure this formula is correct
+        W = np.random.normal(loc = 0.0, scale = np.sqrt(1./robot_model.lengthscale), size = (nFeatures, d))
         b = 2 * np.pi * np.random.uniform(low = 0.0, high = 1.0, size = (nFeatures, 1))
         
         # Compute the features for xx
@@ -1620,7 +1645,7 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
         ax2.set_xlim(hold_ranges[0:2])
         ax2.set_ylim(hold_ranges[2:])        
         ax2.set_title('Countour Plot of the Approximated World Model')     
-        plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = -35., vmax = 35.)
+        plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR, levels=np.linspace(MIN_COLOR, MAX_COLOR, 15))
 
     res = sp.optimize.minimize(fun = target_vector_n, x0 = start, method = 'SLSQP', \
             jac = target_vector_gradient_n, bounds = ((ranges[0], ranges[1]), (ranges[2], ranges[3])))
