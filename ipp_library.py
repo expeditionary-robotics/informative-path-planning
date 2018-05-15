@@ -555,7 +555,10 @@ class MCTS:
         for i in xrange(self.fs):
             try:
                 node = 'child '+ str(i)
-                leaf_eval[node] = self.tree[node][2] + 0.1*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][3])
+                if self.tree['root'][1] == 0 or self.tree[node][3] == 0:
+                    leaf_eval[node] = self.tree[node][2] 
+                else:
+                    leaf_eval[node] = self.tree[node][2] + 0.1*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][3])
             except:
                 pass
         return max(leaf_eval, key=leaf_eval.get)
@@ -572,7 +575,6 @@ class MCTS:
         #TODO use the cost metric to signal action termination, for now using horizon
         for i in xrange(self.rl):
             actions = self.path_generator.get_path_set(self.tree[node][0][-1]) #plan from the last point in the sample
-            if actions == 
             try:
                 a = np.random.randint(0,len(actions)-1) #choose a random path
                 keys = actions.keys()
