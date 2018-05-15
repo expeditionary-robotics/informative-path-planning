@@ -183,6 +183,7 @@ class Environment:
         self.lengthscale = lengthscale
         self.dim = dim
         self.noise = noise
+        logger.info('Environment seed: {}'.format(seed))
         
         # Expect ranges to be a 4-tuple consisting of x1min, x1max, x2min, and x2max
         self.x1min = float(ranges[0])
@@ -347,9 +348,7 @@ class Path_Generator:
                 pass
             else:
                 goals.append((x,y,p))
-            #goals.append((x,y,p))
 
-        # print "Goals:", goals
         self.goals = goals
         return self.goals
 
@@ -560,7 +559,10 @@ class MCTS:
         for i, val in actions.items():
             try:
                 node = 'child '+ str(i)
-                leaf_eval[node] = self.tree[node][2] + 0.1*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][3])
+                if self.tree['root'][1] == 0 or self.tree[node][3] == 0:
+                    leaf_eval[node] = self.tree[node][2] 
+                else:
+                    leaf_eval[node] = self.tree[node][2] + 0.1*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][3])
             except:
                 pass
         return max(leaf_eval, key=leaf_eval.get)
@@ -603,7 +605,6 @@ class MCTS:
                 except:
                     print "Empty sequence", sequence, node
                     logger.warning('Bad sequence')
-                    logger.warning(sequence)
         return sequence
 
     def get_reward(self, sequence):
@@ -1350,7 +1351,7 @@ def hotspot_info_UCB(time, xvals, robot_model, param=None):
     return info_gain(time, xvals, robot_model) + LAMBDA * np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
 
 
-def sample_max_vals(robot_model, t, nK = 1, nFeatures = 300, visualize = True):
+def sample_max_vals(robot_model, t, nK = 2, nFeatures = 300, visualize = True):
     ''' The mutual information between a potential set of samples and the local maxima'''
     # If the robot has not samples yet, return a constant value
     if robot_model.xvals is None:
@@ -1452,7 +1453,12 @@ def sample_max_vals(robot_model, t, nK = 1, nFeatures = 300, visualize = True):
 
     samples = np.delete(samples, delete_locs, axis = 0)
     locs = np.delete(locs, delete_locs, axis = 0)
-    
+
+    # If all global optimizations fail, just return the max value seen so far
+    if len(delete_locs) == nK:
+        samples[0, :] = np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise)
+        locs[0, :] = robot_model.xvals[np.argmax(robot_model.zvals)]
+   
     return samples, locs
       
 
@@ -1531,13 +1537,19 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
     x2 = np.random.uniform(ranges[2], ranges[3], size = gridSize)
     x1, x2 = np.meshgrid(x1, x2, sparse = False, indexing = 'xy')  
     
-    Xgrid = np.vstack([x1.ravel(), x2.ravel()]).T    
-    Xgrid = np.vstack([Xgrid, guesses])   
+    Xgrid_sample = np.vstack([x1.ravel(), x2.ravel()]).T    
+    Xgrid = np.vstack([Xgrid_sample, guesses])   
     
     # Get the function value at Xgrid locations
     y = target(Xgrid)
     max_index = np.argmax(y)   
     start = np.asarray(Xgrid[max_index, :])
+
+    # If the highest sample point seen is ouside of the boundary, find the highest inside the boundary
+    if start[0] < ranges[0] or start[0] > ranges[1] or start[1] < ranges[2] or start[1] > ranges[3]:
+        y = target(Xgrid_sample)
+        max_index = np.argmax(y)
+        start = np.asarray(Xgrid_sample[max_index, :])
     
     if visualize:
         # Generate a set of observations from robot model with which to make contour plots
