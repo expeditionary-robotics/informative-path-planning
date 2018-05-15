@@ -559,10 +559,10 @@ class MCTS:
         for i, val in actions.items():
             try:
                 node = 'child '+ str(i)
-                if self.tree['root'][1] == 0 or self.tree[node][3] == 0:
-                    leaf_eval[node] = self.tree[node][2] 
-                else:
-                    leaf_eval[node] = self.tree[node][2] + 0.1*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][3])
+                # if self.tree['root'][1] == 0 or self.tree[node][3] == 0:
+                #     leaf_eval[node] = self.tree[node][2] 
+                # else:
+                leaf_eval[node] = self.tree[node][2] + 0.1*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][3])
             except:
                 pass
         return max(leaf_eval, key=leaf_eval.get)
