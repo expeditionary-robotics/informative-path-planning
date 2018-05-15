@@ -12,7 +12,6 @@ pushd experiments
             if [ ! -d $workdir ]; then mkdir $workdir; fi
 
             pushd $workdir
-            cmd="topics.refine.txy --in.words=../../words/words.compressed.texton.csv --in.position=../../words/words.compressed.texton.position.csv --cell.space=32 --retime=1 --alpha=${alpha} --beta=${beta}  -V 500 --gamma=${gamma} --grow.topics.size=1  --threads=8 --online --online.mint=500 "
             cmd="python ../../nonmyopic_experiments.py ${seed} ${reward_func}"
             echo $cmd
             $cmd
