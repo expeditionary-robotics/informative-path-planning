@@ -334,13 +334,16 @@ class Path_Generator:
                 y = self.hl*np.sin(self.cp[2]+a)+self.cp[1]
                 if y >= self.extent[3]-3*self.tr:
                     y = self.extent[3]-3*self.tr
-                    x = (y-self.cp[1])*np.cos(self.cp[2]+a)+self.cp[0]
+                    x = (y-self.cp[1])*-np.cos(self.cp[2]+a)+self.cp[0]
                 elif y <= self.extent[2]+3*self.tr:
                     y = self.extent[2]+3*self.tr
-                    x = (y-self.cp[1])*np.cos(self.cp[2]+a)+self.cp[0]
+                    x = (y-self.cp[1])*-np.cos(self.cp[2]+a)+self.cp[0]
             p = self.cp[2]+a
             if np.linalg.norm([self.cp[0]-x, self.cp[1]-y]) <= self.tr:
-            # if np.fabs(self.cp[0]-x) <= self.tr and np.fabs(self.cp[1]-y) <= self.tr:
+                pass
+            elif x > self.extent[1]-3*self.tr or x < self.extent[0]+3*self.tr:
+                pass
+            elif y > self.extent[3]-3*self.tr or y < self.extent[2]+3*self.tr:
                 pass
             else:
                 goals.append((x,y,p))
@@ -410,7 +413,7 @@ class Dubins_Path_Generator(Path_Generator):
                 if config[0] > self.extent[0] and config[0] < self.extent[1] and config[1] > self.extent[2] and config[1] < self.extent[3]:
                     temp.append(config)
                 else:
-                    # temp = []
+                    temp = []
                     break
 
             if len(temp) < 2:
@@ -553,7 +556,8 @@ class MCTS:
        	'''
         leaf_eval = {}
         # TODO: check initialization, when everything is zero. appears to be throwing error
-        for i in xrange(self.fs):
+        actions = self.path_generator.get_path_set(self.cp)
+        for i, val in actions.items():
             try:
                 node = 'child '+ str(i)
                 leaf_eval[node] = self.tree[node][2] + 0.1*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][3])
@@ -573,14 +577,26 @@ class MCTS:
         #TODO use the cost metric to signal action termination, for now using horizon
         for i in xrange(self.rl):
             actions = self.path_generator.get_path_set(self.tree[node][0][-1]) #plan from the last point in the sample
+            if len(actions) == 0:
+                print 'No actions were viably generated'
             try:
-                a = np.random.randint(0,len(actions)-1) #choose a random path
+                
+                try:
+                    a = np.random.randint(0,len(actions)-1) #choose a random path
+                except:
+                    if len(actions) != 0:
+                        a = 0
+
                 keys = actions.keys()
+                # print keys
+                if len(keys) <= 1:
+                    print 'few paths available!'
                 #TODO add cost metrics
                 self.tree[node + ' child ' + str(keys[a])] = (actions[keys[a]], 0, 0, 0) #add random path to the tree
                 node = node + ' child ' + str(keys[a])
                 sequence.append(node)
             except:
+                print 'rolling back'
                 sequence.remove(node)
                 try:
                     node = sequence[-1]
