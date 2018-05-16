@@ -24,8 +24,10 @@ This library file aggregates a number of classes that are useful for performing 
 Maintainers: Genevieve Flaspohler and Victoria Preston
 License: MIT
 '''
-MIN_COLOR = 3.0
-MAX_COLOR = 7.5
+#MIN_COLOR = 3.0
+#MAX_COLOR = 7.5
+MIN_COLOR = -25.
+MAX_COLOR = 25.
 
 class GPModel:
     '''The GPModel class, which is a wrapper on top of GPy.'''     
@@ -1067,7 +1069,6 @@ class Evaluation:
                         'instant_regret': {},
                         'regret_bound': {},
                         'simple_regret': {},
-                        'loc_regret': {},
                         'sample_regret_loc': {},
                         'sample_regret_val': {},
                         'max_loc_error': {},
@@ -1086,10 +1087,9 @@ class Evaluation:
             self.f_aqu = info_gain   
         elif reward_function == 'mes':
             self.f_aqu = mves
-            self.f_rew = mves
+            self.f_rew = self.mean_reward 
         elif reward_function == 'exp_improve':
-            self.f_rew = self.info_gain_reward
-            self.f_aqu = info_gain           
+            raise ValueError('Need to implement this for EI')
         else:
             raise ValueError('Only \'mean\' and \'hotspot_info\' and \'info_gain\' and \' mew\' and \'exp_improve\' reward functions currently supported.')    
     
@@ -1133,18 +1133,10 @@ class Evaluation:
 
         value_omni = {}        
         for path, points in all_paths.items():           
-            if self.reward_function == 'mes':
-                global_max_val = np.reshape(np.array(self.max_val), (1,1))
-                value_omni[path] =  self.f_rew(time = t, xvals = points, robot_model = robot_model, param = global_max_val)  
-            else:
                 value_omni[path] =  self.f_rew(time = t, xvals = points, robot_model = robot_model)  
 
         value_max = value_omni[max(value_omni, key = value_omni.get)]
-        
-        if self.reward_function == 'mes':
-            value_selected = self.f_rew(time = t, xvals = selected_path, robot_model = robot_model, param = global_max_val)
-        else:
-            value_selected = self.f_rew(time = t, xvals = selected_path, robot_model = robot_model)
+        value_selected = self.f_rew(time = t, xvals = selected_path, robot_model = robot_model)
 
         return value_max - value_selected
     
@@ -1227,7 +1219,6 @@ class Evaluation:
             self.metrics['aquisition_function'][t] = value
             self.metrics['instant_regret'][t] = self.inst_regret(t, all_paths, selected_path, robot_model, value)
             self.metrics['simple_regret'][t] = self.simple_regret(selected_path)
-            self.metrics['loc_regret'][t] = self.simple_regret(np.reshape(selected_path[0][0:-1], (1, 2)))
             self.metrics['sample_regret_loc'][t], self.metrics['sample_regret_val'][t] = self.sample_regret(robot_model)
             self.metrics['max_loc_error'][t], self.metrics['max_val_error'][t] = self.max_error(max_loc, max_val)
         
@@ -1251,7 +1242,6 @@ class Evaluation:
         max_loc_error = np.array(self.metrics['max_loc_error'].values())
         max_val_error = np.array(self.metrics['max_val_error'].values())
         simple_regret = np.array(self.metrics['simple_regret'].values())
-        loc_regret = np.array(self.metrics['loc_regret'].values())
 
         sample_regret_loc = np.array(self.metrics['sample_regret_loc'].values())
         sample_regret_val = np.array(self.metrics['sample_regret_val'].values())
@@ -1265,7 +1255,7 @@ class Evaluation:
         ''' Save the relevent metrics as csv files '''
         np.savetxt('./figures/' + self.reward_function + '/metrics.csv', \
             (time.T, info_gain.T, aqu_fun.T, MSE.T, hotspot_error.T, max_loc_error.T, \
-            max_val_error.T, simple_regret.T, loc_regret.T, sample_regret_loc.T, sample_regret_val.T, \
+            max_val_error.T, simple_regret.T,  sample_regret_loc.T, sample_regret_val.T, \
             regret.T))
         #np.savetxt('./figures/' + self.reward_function + '/aqu_fun.csv', aqu_fun)
         #np.savetxt('./figures/' + self.reward_function + '/MSE.csv', MSE)
@@ -1284,8 +1274,8 @@ class Evaluation:
         #plt.plot(time, hotspot_info, 'r')          
         
         fig, ax = plt.subplots(figsize=(8, 6))
-        ax.set_title('Cumulatiave Regret w.r.t. ' + self.reward_function + ' Reward')                     
-        plt.plot(time, regret, 'b')        
+        ax.set_title('Average Regret w.r.t. ' + self.reward_function + ' Reward')                     
+        plt.plot(time, regret/time, 'b')        
         fig.savefig('./figures/' + self.reward_function + '/snapping_regret.png')
 
         fig, ax = plt.subplots(figsize=(8, 6))
@@ -1301,22 +1291,17 @@ class Evaluation:
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.set_title('Max Location Error')                             
         plt.plot(time, max_loc_error, 'k')        
-        fig.savefig('./figures/' + self.reward_function + '/location_error.png')
+        fig.savefig('./figures/' + self.reward_function + '/error_location.png')
         
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.set_title('Max Value Error')                             
         plt.plot(time, max_val_error, 'k')        
-        fig.savefig('./figures/' + self.reward_function + '/value_error.png')
+        fig.savefig('./figures/' + self.reward_function + '/error_value.png')
         
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.set_title('Simple Regret w.r.t. Global Maximizer')                     
         plt.plot(time, simple_regret, 'b')        
         fig.savefig('./figures/' + self.reward_function + '/simple_regret.png')
-        
-        fig, ax = plt.subplots(figsize=(8, 6))
-        ax.set_title('Loc Regret w.r.t. Global Maximizer')                     
-        plt.plot(time, loc_regret, 'b')        
-        fig.savefig('./figures/' + self.reward_function + '/loc_regret.png')
         
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.set_title('Map MSE at 100 Random Test Points')                             
@@ -1452,7 +1437,7 @@ def sample_max_vals(robot_model, t, nK = 2, nFeatures = 300, visualize = True):
         logger.info("Starting global optimization {} of {}".format(i, nK))
         # Draw the weights for the random features
         # TODO: make sure this formula is correct
-        W = np.random.normal(loc = 0.0, scale = np.sqrt(1./robot_model.lengthscale), size = (nFeatures, d))
+        W = np.random.normal(loc = 0.0, scale = np.sqrt(1./(robot_model.lengthscale ** 2.)), size = (nFeatures, d))
         b = 2 * np.pi * np.random.uniform(low = 0.0, high = 1.0, size = (nFeatures, 1))
         
         # Compute the features for xx
