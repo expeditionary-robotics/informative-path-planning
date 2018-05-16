@@ -40,18 +40,6 @@ world = Environment(ranges = ranges, # x1min, x1max, x2min, x2max constraints
 
 evaluation = Evaluation(world = world, reward_function = reward_function)
 
-# Gather some prior observations to train the kernel (optional)
-#x1observe = np.linspace(ranges[0]+0.5, ranges[1]-0,5, 15)
-#x2observe = np.linspace(ranges[2]+0.5, ranges[3]-0.5, 15)
-x1observe = np.linspace(0., 10., 10)
-x2observe = np.linspace(0., 10., 10)
-x1observe, x2observe = np.meshgrid(x1observe, x2observe, sparse = False, indexing = 'xy')  
-data = np.vstack([x1observe.ravel(), x2observe.ravel()]).T
-
-# TODO: make the edges less appealing!
-
-observations = world.sample_value(data)
-
 # Create the point robot
 robot = Nonmyopic_Robot(sample_world = world.sample_value, 
               start_loc = (5.0, 5.0, 0.0), 
