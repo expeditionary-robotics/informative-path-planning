@@ -1087,6 +1087,7 @@ class Evaluation:
                         'MSE': {},                         
                         'hotspot_error': {},                         
                         'instant_regret': {},
+                        'max_val_regret': {},
                         'regret_bound': {},
                         'simple_regret': {},
                         'sample_regret_loc': {},
@@ -1104,7 +1105,7 @@ class Evaluation:
                         'star_obs_loc_y_1': {},
                         'robot_location_x': {},
                         'robot_location_y': {},
-                        'robot_location_a': {}
+                        'robot_location_a': {},
                        }
         self.reward_function = reward_function
         
@@ -1166,11 +1167,16 @@ class Evaluation:
 
         value_omni = {}        
         for path, points in all_paths.items():           
+            if param is None:
                 value_omni[path] =  self.f_rew(time = t, xvals = points, robot_model = robot_model)  
+            else:
+                value_omni[path] =  mves(time = t, xvals = points, robot_model = robot_model, param = (self.max_val).reshape(1,1))  
 
         value_max = value_omni[max(value_omni, key = value_omni.get)]
-        value_selected = self.f_rew(time = t, xvals = selected_path, robot_model = robot_model)
-
+        if param is None:
+            value_selected = self.f_rew(time = t, xvals = selected_path, robot_model = robot_model)
+        else:
+            value_selected =  mves(time = t, xvals = selected_path, robot_model = robot_model, param = (self.max_val).reshape(1,1))  
         return value_max - value_selected
     
     def simple_regret(self, xvals):
@@ -1240,30 +1246,30 @@ class Evaluation:
     
     ''' Helper functions '''
 
-    def update_metrics(self, t, robot_model, all_paths, selected_path, value = None, max_loc = None, max_val = None, params=None):
+    def update_metrics(self, t, robot_model, all_paths, selected_path, value = None, max_loc = None, max_val = None, params = None):
         ''' Function to update avaliable metrics'''    
-        if max_loc is None:
-            self.metrics['aquisition_function'][t] = self.f_aqu(t, selected_path, robot_model)
-            self.metrics['instant_regret'][t] = self.inst_regret(t, all_paths, selected_path, robot_model)
-            self.metrics['hotspot_info_reward'][t] = self.hotspot_info_reward(t, selected_path, robot_model)
-            self.metrics['mean_reward'][t] = self.mean_reward(t, selected_path, robot_model)
+        #self.metrics['hotspot_info_reward'][t] = self.hotspot_info_reward(t, selected_path, robot_model, max_val)
+        #self.metrics['mean_reward'][t] = self.mean_reward(t, selected_path, robot_model)
+        self.metrics['aquisition_function'][t] = value
+
+        self.metrics['simple_regret'][t] = self.simple_regret(selected_path)
+        self.metrics['sample_regret_loc'][t], self.metrics['sample_regret_val'][t] = self.sample_regret(robot_model)
+        self.metrics['max_loc_error'][t], self.metrics['max_val_error'][t] = self.max_error(max_loc, max_val)
         
-        else:
-            self.metrics['aquisition_function'][t] = value
-            self.metrics['instant_regret'][t] = self.inst_regret(t, all_paths, selected_path, robot_model, value)
-            self.metrics['simple_regret'][t] = self.simple_regret(selected_path)
-            self.metrics['sample_regret_loc'][t], self.metrics['sample_regret_val'][t] = self.sample_regret(robot_model)
-            self.metrics['max_loc_error'][t], self.metrics['max_val_error'][t] = self.max_error(max_loc, max_val)
-        
+        self.metrics['instant_regret'][t] = self.inst_regret(t, all_paths, selected_path, robot_model)
+        self.metrics['max_val_regret'][t] = self.inst_regret(t, all_paths, selected_path, robot_model, param = 'info_regret')
+
         self.metrics['star_obs_0'][t] = params[2][0]
         self.metrics['star_obs_1'][t] = params[2][1]
         self.metrics['star_obs_loc_x_0'][t] = params[3][0][0]
         self.metrics['star_obs_loc_x_1'][t] = params[3][1][0]
         self.metrics['star_obs_loc_y_0'][t] = params[3][0][1]
         self.metrics['star_obs_loc_y_1'][t] = params[3][1][1]
+
         self.metrics['info_gain_reward'][t] = self.info_gain_reward(t, selected_path, robot_model)
         self.metrics['MSE'][t] = self.MSE(robot_model, NTEST = 200)
         self.metrics['hotspot_error'][t] = self.hotspot_error(robot_model, NTEST = 200, NHS = 100)
+
         self.metrics['current_highest_obs'][t] = params[0]
         self.metrics['current_highest_obs_loc_x'][t] = params[1][0]
         self.metrics['current_highest_obs_loc_y'][t] = params[1][1]
@@ -1283,6 +1289,7 @@ class Evaluation:
         hotspot_error = np.array(self.metrics['hotspot_error'].values())
         
         regret = np.cumsum(np.array(self.metrics['instant_regret'].values()))
+        info_regret = np.cumsum(np.array(self.metrics['max_val_regret'].values()))
 
         max_loc_error = np.array(self.metrics['max_loc_error'].values())
         max_val_error = np.array(self.metrics['max_val_error'].values())
@@ -1315,7 +1322,7 @@ class Evaluation:
         np.savetxt('./figures/' + self.reward_function + '/metrics.csv', \
             (time.T, info_gain.T, aqu_fun.T, MSE.T, hotspot_error.T, max_loc_error.T, \
             max_val_error.T, simple_regret.T,  sample_regret_loc.T, sample_regret_val.T, \
-            regret.T, current_highest_obs.T, current_highest_obs_loc_x.T,current_highest_obs_loc_y.T, \
+            regret.T, info_regret.T, current_highest_obs.T, current_highest_obs_loc_x.T,current_highest_obs_loc_y.T, \
             robot_location_x.T, robot_location_y.T, robot_location_a.T, \
             star_obs_0.T, star_obs_loc_x_0.T, star_obs_loc_y_0.T, \
             star_obs_1.T, star_obs_loc_x_1.T, star_obs_loc_y_1.T))
@@ -1337,8 +1344,13 @@ class Evaluation:
         
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.set_title('Average Regret w.r.t. ' + self.reward_function + ' Reward')                     
-        plt.plot(time, regret/time, 'b')        
+        plt.plot(time, regret/time, 'b')
         fig.savefig('./figures/' + self.reward_function + '/snapping_regret.png')
+        
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.set_title('Average Info Regret w.r.t. ' + self.reward_function + ' Reward')                     
+        plt.plot(time, info_regret/time, 'b')
+        fig.savefig('./figures/' + self.reward_function + '/snapping_info_regret.png')
 
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.set_title('Accumulated Information Gain')                             
