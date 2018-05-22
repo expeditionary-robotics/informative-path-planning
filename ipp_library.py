@@ -34,14 +34,14 @@ class GPModel:
     
     def __init__(self, ranges, lengthscale, variance, noise = 0.0001, dimension = 2, kernel = 'rbf'):
         '''Initialize a GP regression model with given kernel parameters. 
-	    Inputs:
-	    	ranges (list of floats) the bounds of the world
-	    	lengthscale (float) the lengthscale parameter of kernel
-	    	variance (float) the variance parameter of kernel
-	    	noise (float) the sensor noise parameter of kernel
-	    	dimension (float) the dimension of the environment; only 2D supported
-	    	kernel (string) the type of kernel; only 'rbf' supported now
-	    '''
+        Inputs:
+            ranges (list of floats) the bounds of the world
+            lengthscale (float) the lengthscale parameter of kernel
+            variance (float) the variance parameter of kernel
+            noise (float) the sensor noise parameter of kernel
+            dimension (float) the dimension of the environment; only 2D supported
+            kernel (string) the type of kernel; only 'rbf' supported now
+        '''
         
         # Model parameterization (noise, lengthscale, variance)
         self.noise = noise
@@ -71,11 +71,11 @@ class GPModel:
     def predict_value(self, xvals):
         ''' Public method returns the mean and variance predictions at a set of input locations.
         Inputs:
-        	xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2
+            xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2
         
         Returns: 
-        	mean (float array): an nparray of floats representing predictive mean, with dimension NUM_PTS x 1         
-        	var (float array): an nparray of floats representing predictive variance, with dimension NUM_PTS x 1 
+            mean (float array): an nparray of floats representing predictive mean, with dimension NUM_PTS x 1         
+            var (float array): an nparray of floats representing predictive variance, with dimension NUM_PTS x 1 
         '''        
 
         assert(xvals.shape[0] >= 1)            
@@ -94,8 +94,8 @@ class GPModel:
     def add_data(self, xvals, zvals):
         ''' Public method that adds data to an the GP model.
         Inputs:
-        	xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2
-        	zvals (float array): an nparray of floats representing sensor observations, with dimension NUM_PTS x 1 
+            xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2
+            zvals (float array): an nparray of floats representing sensor observations, with dimension NUM_PTS x 1 
         ''' 
         
         if self.xvals is None:
@@ -118,7 +118,7 @@ class GPModel:
     def load_kernel(self, kernel_file = 'kernel_model.npy'):
         ''' Public method that loads kernel parameters from file.
         Inputs:
-        	kernel_file (string): a filename string with the location of the kernel parameters 
+            kernel_file (string): a filename string with the location of the kernel parameters 
         '''    
         
         # Read pre-trained kernel parameters from file, if avaliable and no training data is provided
@@ -133,11 +133,11 @@ class GPModel:
     def train_kernel(self, xvals = None, zvals = None, kernel_file = 'kernel_model.npy'):
         ''' Public method that optmizes kernel parameters based on input data and saves to files.
         Inputs:
-        	xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2
-        	zvals (float array): an nparray of floats representing sensor observations, with dimension NUM_PTS x 1        
-        	kernel_file (string): a filename string with the location to save the kernel parameters 
+            xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2
+            zvals (float array): an nparray of floats representing sensor observations, with dimension NUM_PTS x 1        
+            kernel_file (string): a filename string with the location to save the kernel parameters 
         Outputs:
-        	nothing is returned, but a kernel file is created.
+            nothing is returned, but a kernel file is created.
         '''      
         
         # Read pre-trained kernel parameters from file, if available and no 
@@ -170,17 +170,17 @@ class Environment:
         ''' Initialize a random Gaussian environment using the input kernel, 
             assuming zero mean function.
         Input:
-    	ranges (tuple of floats): a tuple representing the max/min of 2D 
+        ranges (tuple of floats): a tuple representing the max/min of 2D 
             rectangular domain i.e. (-10, 10, -50, 50)
-    	NUM_PTS (int): the number of points in each dimension to sample for 
+        NUM_PTS (int): the number of points in each dimension to sample for 
             initialization, resulting in a sample grid of size NUM_PTS x NUM_PTS
-    	variance (float): the variance parameter of the kernel
-    	lengthscale (float): the lengthscale parameter of the kernel
-    	noise (float): the sensor noise parameter of the kernel
-    	visualize (boolean): flag to plot the surface of the environment 
-    	seed (int): an integer seed for the random draws. If set to \'None\', 
+        variance (float): the variance parameter of the kernel
+        lengthscale (float): the lengthscale parameter of the kernel
+        noise (float): the sensor noise parameter of the kernel
+        visualize (boolean): flag to plot the surface of the environment 
+        seed (int): an integer seed for the random draws. If set to \'None\', 
             no seed is used 
-    	'''
+        '''
 
         # Save the parmeters of GP model
         self.variance = variance
@@ -310,10 +310,10 @@ class Environment:
     def sample_value(self, xvals):
         ''' The public interface to the Environment class. Returns a noisy sample of the true value of environment at a set of point. 
         Input:
-        	xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2 
+            xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2 
         
         Returns:
-        	mean (float array): an nparray of floats representing predictive mean, with dimension NUM_PTS x 1 
+            mean (float array): an nparray of floats representing predictive mean, with dimension NUM_PTS x 1 
         '''
         assert(xvals.shape[0] >= 1)            
         assert(xvals.shape[1] == self.dim)        
@@ -498,7 +498,7 @@ class Dubins_EqualPath_Generator(Path_Generator):
 class MCTS:
     '''Class that establishes a MCTS for nonmyopic planning'''
 
-    def __init__(self, computation_budget, belief, initial_pose, rollout_length, frontier_size, path_generator, aquisition_function, f_rew, time):
+    def __init__(self, computation_budget, belief, initial_pose, rollout_length, frontier_size, path_generator, aquisition_function, f_rew, time, aq_param = None):
         '''Initialize with constraints for the planning, including whether there is a budget or planning horizon
         Inputs:
             computation_budget (float) number of seconds to run the tree building procedure
@@ -530,12 +530,13 @@ class MCTS:
         self.params = None
         self.max_val = None
         self.max_locs = None
+        self.current_max = aq_param
 
     def choose_trajectory(self, t):
-    	''' Main function loop which makes the tree and selects the best child
-    	Output:
-    		path to take, cost of that path
-    	'''
+        ''' Main function loop which makes the tree and selects the best child
+        Output:
+            path to take, cost of that path
+        '''
         # initialize tree
         self.tree = self.initialize_tree() 
         i = 0 #iteration count
@@ -546,7 +547,7 @@ class MCTS:
             
         time_start = time.clock()            
             
-       	# while we still have time to compute, generate the tree
+        # while we still have time to compute, generate the tree
         while time.clock() - time_start < self.comp_budget:
             i += 1
             current_node = self.tree_policy()
@@ -560,12 +561,12 @@ class MCTS:
         logger.info("Number of rollouts: {} \t Size of tree: {}".format(i, len(self.tree)))
 
         paths = self.path_generator.get_path_set(self.cp)                
-        return self.tree[best_sequence][0], best_val, paths, all_vals, self.max_locs
+        return self.tree[best_sequence][0], best_val, paths, all_vals, self.max_locs, self.max_val
 
     def initialize_tree(self):
         '''Creates a tree instance, which is a dictionary, that keeps track of the nodes in the world
         Output:
-        	tree (dictionary) an initial tree
+            tree (dictionary) an initial tree
         '''
         tree = {}
         # root of the tree is current location of the vehicle
@@ -578,12 +579,12 @@ class MCTS:
 
     def tree_policy(self):
         '''Implements the UCB policy to select the child to expand and forward simulate. From Arora paper, the following is defined:
-        	avg_r - average reward of all rollouts that have passed through node n
-        	c_p - some arbitrary constant, they use 0.1
-        	N - number of times parent has been evaluated
-        	n - number of times that node has been evaluated
-        	the formula: avg_r + c_p * np.sqrt(2*np.log(N)/n)
-       	'''
+            avg_r - average reward of all rollouts that have passed through node n
+            c_p - some arbitrary constant, they use 0.1
+            N - number of times parent has been evaluated
+            n - number of times that node has been evaluated
+            the formula: avg_r + c_p * np.sqrt(2*np.log(N)/n)
+        '''
         leaf_eval = {}
         # TODO: check initialization, when everything is zero. appears to be throwing error
         actions = self.path_generator.get_path_set(self.cp)
@@ -598,9 +599,9 @@ class MCTS:
     def rollout_policy(self, node):
         '''Select random actions to expand the child node
         Input:
-        	node (the name of the child node that is to be expanded)
+            node (the name of the child node that is to be expanded)
         Output:
-        	sequence (list of names of nodes that make the sequence in the tree)
+            sequence (list of names of nodes that make the sequence in the tree)
         '''
 
         sequence = [node] #include the child node
@@ -638,9 +639,9 @@ class MCTS:
     def get_reward(self, sequence):
         '''Evaluate the sequence to get the reward, defined by the percentage of entropy reduction.
         Input:
-        	sequence (list of strings) names of the nodes in the tree
+            sequence (list of strings) names of the nodes in the tree
         Outut:
-        	reward value from the aquisition function of choice
+            reward value from the aquisition function of choice
         '''
         sim_world = self.GP
         samples = []
@@ -648,14 +649,20 @@ class MCTS:
         for seq in sequence:
             samples.append(self.tree[seq][0])
         obs = list(chain.from_iterable(samples))
-        
-        return self.aquisition_function(time = self.t, xvals = obs, robot_model = sim_world, param = self.max_val)
+
+        if self.f_rew == 'mes':
+            return self.aquisition_function(time = self.t, xvals = obs, robot_model = sim_world, param = self.max_val)
+        elif self.f_rew == 'exp_improve':
+            return self.aquisition_function(time=self.t, xvals = obs, robot_model = sim_world, param = [self.current_max])
+        else:
+            return self.aquisition_function(time=self.t, xvals = obs, robot_model = sim_world)
+
     
     def update_tree(self, reward, sequence):
         '''Propogate the reward for the sequence
         Input:
-        	reward (float) the reward or utility value of the sequence
-        	sequence (list of strings) the names of nodes that form the sequence
+            reward (float) the reward or utility value of the sequence
+            sequence (list of strings) the names of nodes that form the sequence
         '''
         #TODO update costs as well
         self.tree['root'] = (self.tree['root'][0], self.tree['root'][1]+1)
@@ -669,7 +676,7 @@ class MCTS:
     def get_best_child(self):
         '''Query the tree for the best child in the actions
         Output:
-        	(string, float) node name of the best child, the cost of that child
+            (string, float) node name of the best child, the cost of that child
         '''
         best = -float('inf')
         best_child = None
@@ -724,6 +731,11 @@ class Robot(object):
         self.sample_world = sample_world
         self.f_rew = f_rew
         self.fs = frontier_size
+        self.maxes = []
+        self.current_max = -1000
+        self.current_max_loc = [0,0]
+        self.max_val = None
+        self.max_locs = None
         
         if f_rew == 'hotspot_info':
             self.aquisition_function = hotspot_info_UCB
@@ -734,7 +746,7 @@ class Robot(object):
         elif f_rew == 'mes':
             self.aquisition_function = mves
         elif f_rew == 'exp_improve':
-        	self.aquisition_function = exp_improvement
+            self.aquisition_function = exp_improvement
         else:
             raise ValueError('Only \'hotspot_info\' and \'mean\' and \'info_gain\' and \'mes\' and \'exp_improve\' reward fucntions supported.')
 
@@ -769,27 +781,27 @@ class Robot(object):
     def choose_trajectory(self, t):
         ''' Select the best trajectory avaliable to the robot at the current pose, according to the aquisition function.
         Input: 
-        	t (int > 0): the current planning iteration (value of a point can change with algortihm progress)
+            t (int > 0): the current planning iteration (value of a point can change with algortihm progress)
         Output:
-        	either None or the (best path, best path value, all paths, all values, the max_locs for some functions)
+            either None or the (best path, best path value, all paths, all values, the max_locs for some functions)
         '''
         value = {}
         param = None    
         
         max_locs = max_vals = None      
         if self.f_rew == 'mes':
-            max_val, max_locs = sample_max_vals(self.GP, t = t)
+            self.max_val, self.max_locs = sample_max_vals(self.GP, t = t)
             
         paths = self.path_generator.get_path_set(self.loc)
 
         for path, points in paths.items():
             if self.f_rew == 'mes':
-                param = max_val
+                param = self.max_val
             elif self.f_rew == 'exp_improve':
-            	if len(self.maxes) == 0:
-            	    param = [self.current_max]
+                if len(self.maxes) == 0:
+                    param = [self.current_max]
                 else:
-            	    param = self.maxes
+                    param = self.maxes
             value[path] = self.aquisition_function(time = t, xvals = points, robot_model = self.GP, param = param)            
         try:
             return paths[max(value, key = value.get)], value[max(value, key = value.get)], paths, value, max_locs
@@ -799,9 +811,14 @@ class Robot(object):
     def collect_observations(self, xobs):
         ''' Gather noisy samples of the environment and updates the robot's GP model.
         Input: 
-        	xobs (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2 '''
+            xobs (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2 '''
         zobs = self.sample_world(xobs)       
         self.GP.add_data(xobs, zobs)
+
+        for z, x in zip (zobs, xobs):
+            if z[0] > self.current_max:
+                self.current_max = z[0]
+                self.current_max_loc = [x[0],x[1]]
 
     def predict_max(self):
         # If no observations have been collected, return default value
@@ -824,7 +841,7 @@ class Robot(object):
     def planner(self, T):
         ''' Gather noisy samples of the environment and updates the robot's GP model  
         Input: 
-        	T (int > 0): the length of the planning horization (number of planning iterations)'''
+            T (int > 0): the length of the planning horization (number of planning iterations)'''
         self.trajectory = []
         
         for t in xrange(T):
@@ -840,7 +857,7 @@ class Robot(object):
             logger.info("Current predicted max and value: {} \t {}".format(pred_loc, pred_val))
 
             self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, best_path, \
-                value = best_val, max_loc = pred_loc, max_val = pred_val) 
+                value = best_val, max_loc = pred_loc, max_val = pred_val, params = [self.current_max, self.current_max_loc, self.max_val, self.max_locs]) 
             
             if best_path == None:
                 break
@@ -930,7 +947,6 @@ class Robot(object):
             #plt.show()
             plt.close()
             
-        
     def visualize_world_model(self, screen = True, filename = 'SUMMARY'):
         ''' Visaulize the robots current world model by sampling points uniformly in space and 
         plotting the predicted function value at those locations.
@@ -994,7 +1010,7 @@ class Nonmyopic_Robot(Robot):
     def planner(self, T = 3):
         ''' Use a monte carlo tree search in order to perform long-horizon planning
         Input:
-        	T (int) time, or number of steps to take in the real world
+            T (int) time, or number of steps to take in the real world
         '''
         self.trajectory = []
                  
@@ -1002,10 +1018,16 @@ class Nonmyopic_Robot(Robot):
             print "[", t, "] Current Location:  ", self.loc            
             logger.info("[{}] Current Location: {}".format(t, self.loc))
 
+            if self.f_rew == "exp_improve":
+                param = self.current_max
+            else:
+                param = None
+
             #computation_budget, belief, initial_pose, planning_limit, frontier_size, path_generator, aquisition_function, reward, time
             mcts = MCTS(self.comp_budget, self.GP, self.loc, self.roll_length, self.fs, \
-                    self.path_generator, self.aquisition_function, self.f_rew, t)
-            best_path, best_val, all_paths, all_vals, max_locs = mcts.choose_trajectory(t = t)
+                    self.path_generator, self.aquisition_function, self.f_rew, t, aq_param = param)
+            best_path, best_val, all_paths, all_vals, max_locs, max_val = mcts.choose_trajectory(t = t)
+
 
             if self.create_animation:
                 self.visualize_trajectory(screen = False, filename = str(t),  best_path = best_path,\
@@ -1022,23 +1044,20 @@ class Nonmyopic_Robot(Robot):
             print "Current predicted max and value: \t", pred_loc, "\t", pred_val
             logger.info("Current predicted max and value: {} \t {}".format(pred_loc, pred_val))
 
-            self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, best_path, \
-                    value = best_val, max_loc = pred_loc, max_val = pred_val) 
+            print max_locs
+            print max_val
+            try:
+                self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, best_path, \
+                        value = best_val, max_loc = pred_loc, max_val = pred_val, params = [self.current_max, self.current_max_loc, max_val, max_locs]) 
+            except:
+                max_locs = [[-1, -1], [-1, -1]]
+                max_val = [-1,-1]
+                self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, best_path, \
+                        value = best_val, max_loc = pred_loc, max_val = pred_val, params = [self.current_max, self.current_max_loc, max_val, max_locs]) 
+
 
             self.collect_observations(xlocs)
             self.trajectory.append(best_path)        
-
-            # if len(best_path) == 1:
-            #     # If the best past returned was into a wall, rotate by 1.14 radients clockwise
-            #     self.loc = (best_path[-1][0], best_path[-1][1], best_path[-1][2] - 1.14)
-            # elif best_path[-1][0] < self.ranges[0]+0.5 or best_path[-1][0] > self.ranges[1]-0.5:
-            #     # If the best path is too near the edge of the space, rotate by 1.1.4 radians clockwise
-            #     self.loc = (best_path[-1][0],best_path[-1][1],best_path[-1][2]-1.14)
-            # elif best_path[-1][1] < self.ranges[2]+0.5 or best_path[-1][0] > self.ranges[3]-0.5:
-            #     # IF the pest path is too near the edge of space, rotat by 1.14 radients clockwise
-            #     self.loc = (best_path[-1][0],best_path[-1][1],best_path[-1][2]-1.14)
-            # else:
-            #     self.loc = best_path[-1]
 
             self.loc = best_path[-1]
        
@@ -1056,6 +1075,7 @@ class Evaluation:
         self.world = world
         self.max_val = np.max(world.GP.zvals)
         self.max_loc = world.GP.xvals[np.argmax(world.GP.zvals), :]
+        self.reward_function = reward_function
 
         print "World max value", self.max_val, "at location", self.max_loc
         logger.info("World max value {} at location {}".format(self.max_val, self.max_loc))
@@ -1072,7 +1092,19 @@ class Evaluation:
                         'sample_regret_loc': {},
                         'sample_regret_val': {},
                         'max_loc_error': {},
-                        'max_val_error': {}
+                        'max_val_error': {},
+                        'current_highest_obs': {},
+                        'current_highest_obs_loc_x': {},
+                        'current_highest_obs_loc_y': {},
+                        'star_obs_0': {},
+                        'star_obs_1': {},
+                        'star_obs_loc_x_0': {},
+                        'star_obs_loc_x_1': {},
+                        'star_obs_loc_y_0': {},
+                        'star_obs_loc_y_1': {},
+                        'robot_location_x': {},
+                        'robot_location_y': {},
+                        'robot_location_a': {}
                        }
         self.reward_function = reward_function
         
@@ -1089,14 +1121,15 @@ class Evaluation:
             self.f_aqu = mves
             self.f_rew = self.mean_reward 
         elif reward_function == 'exp_improve':
-            raise ValueError('Need to implement this for EI')
+            self.f_aqu = exp_improvement
+            self.f_rew = self.mean_reward
         else:
             raise ValueError('Only \'mean\' and \'hotspot_info\' and \'info_gain\' and \' mew\' and \'exp_improve\' reward functions currently supported.')    
     
     '''Reward Functions - should have the form (def reward(time, xvals, robot_model)), where:
-    	time (int): the current timestep of planning
-    	xvals (list of float tuples): representing a path i.e. [(3.0, 4.0), (5.6, 7.2), ... ])
-    	robot_model (GPModel)
+        time (int): the current timestep of planning
+        xvals (list of float tuples): representing a path i.e. [(3.0, 4.0), (5.6, 7.2), ... ])
+        robot_model (GPModel)
     '''
     def mean_reward(self, time, xvals, robot_model):
         ''' Predcited mean (true) reward function'''
@@ -1126,9 +1159,9 @@ class Evaluation:
     def inst_regret(self, t, all_paths, selected_path, robot_model, param = None):
         ''' The instantaneous Kapoor regret of a selected path, according to the specified reward function
         Input:
-        	all_paths: the set of all avalaible paths to the robot at time t
-        	selected path: the path selected by the robot at time t 
-        	robot_model (GP Model)
+            all_paths: the set of all avalaible paths to the robot at time t
+            selected path: the path selected by the robot at time t 
+            robot_model (GP Model)
         '''
 
         value_omni = {}        
@@ -1207,7 +1240,7 @@ class Evaluation:
     
     ''' Helper functions '''
 
-    def update_metrics(self, t, robot_model, all_paths, selected_path, value = None, max_loc = None, max_val = None):
+    def update_metrics(self, t, robot_model, all_paths, selected_path, value = None, max_loc = None, max_val = None, params=None):
         ''' Function to update avaliable metrics'''    
         if max_loc is None:
             self.metrics['aquisition_function'][t] = self.f_aqu(t, selected_path, robot_model)
@@ -1222,9 +1255,21 @@ class Evaluation:
             self.metrics['sample_regret_loc'][t], self.metrics['sample_regret_val'][t] = self.sample_regret(robot_model)
             self.metrics['max_loc_error'][t], self.metrics['max_val_error'][t] = self.max_error(max_loc, max_val)
         
+        self.metrics['star_obs_0'][t] = params[2][0]
+        self.metrics['star_obs_1'][t] = params[2][1]
+        self.metrics['star_obs_loc_x_0'][t] = params[3][0][0]
+        self.metrics['star_obs_loc_x_1'][t] = params[3][1][0]
+        self.metrics['star_obs_loc_y_0'][t] = params[3][0][1]
+        self.metrics['star_obs_loc_y_1'][t] = params[3][1][1]
         self.metrics['info_gain_reward'][t] = self.info_gain_reward(t, selected_path, robot_model)
         self.metrics['MSE'][t] = self.MSE(robot_model, NTEST = 200)
         self.metrics['hotspot_error'][t] = self.hotspot_error(robot_model, NTEST = 200, NHS = 100)
+        self.metrics['current_highest_obs'][t] = params[0]
+        self.metrics['current_highest_obs_loc_x'][t] = params[1][0]
+        self.metrics['current_highest_obs_loc_y'][t] = params[1][1]
+        self.metrics['robot_location_x'][t] = selected_path[0][0]
+        self.metrics['robot_location_y'][t] = selected_path[0][1]
+        self.metrics['robot_location_a'][t] = selected_path[0][2]
     
     def plot_metrics(self):
         ''' Plots the performance metrics computed over the course of a info'''
@@ -1246,6 +1291,20 @@ class Evaluation:
         sample_regret_loc = np.array(self.metrics['sample_regret_loc'].values())
         sample_regret_val = np.array(self.metrics['sample_regret_val'].values())
 
+        current_highest_obs = np.array(self.metrics['current_highest_obs'].values())
+        current_highest_obs_loc_x = np.array(self.metrics['current_highest_obs_loc_x'].values())
+        current_highest_obs_loc_y = np.array(self.metrics['current_highest_obs_loc_y'].values())
+        robot_location_x = np.array(self.metrics['robot_location_x'].values())
+        robot_location_y = np.array(self.metrics['robot_location_y'].values())
+        robot_location_a = np.array(self.metrics['robot_location_a'].values())
+        star_obs_0 = np.array(self.metrics['star_obs_0'].values())
+        star_obs_1 = np.array(self.metrics['star_obs_1'].values())
+        star_obs_loc_x_0 = np.array(self.metrics['star_obs_loc_x_0'].values())
+        star_obs_loc_x_1 = np.array(self.metrics['star_obs_loc_x_1'].values())
+        star_obs_loc_y_0 = np.array(self.metrics['star_obs_loc_y_0'].values())
+        star_obs_loc_y_1 = np.array(self.metrics['star_obs_loc_y_1'].values())
+        # star_obs_loc = np.array(self.metrics['star_obs_loc'].values())
+
         #mean = np.cumsum(np.array(self.metrics['mean_reward'].values()))
         #hotspot_info = np.cumsum(np.array(self.metrics['hotspot_info_reward'].values()))
 
@@ -1256,7 +1315,10 @@ class Evaluation:
         np.savetxt('./figures/' + self.reward_function + '/metrics.csv', \
             (time.T, info_gain.T, aqu_fun.T, MSE.T, hotspot_error.T, max_loc_error.T, \
             max_val_error.T, simple_regret.T,  sample_regret_loc.T, sample_regret_val.T, \
-            regret.T))
+            regret.T, current_highest_obs.T, current_highest_obs_loc_x.T,current_highest_obs_loc_y.T, \
+            robot_location_x.T, robot_location_y.T, robot_location_a.T, \
+            star_obs_0.T, star_obs_loc_x_0.T, star_obs_loc_y_0.T, \
+            star_obs_1.T, star_obs_loc_x_1.T, star_obs_loc_y_1.T))
         #np.savetxt('./figures/' + self.reward_function + '/aqu_fun.csv', aqu_fun)
         #np.savetxt('./figures/' + self.reward_function + '/MSE.csv', MSE)
         #np.savetxt('./figures/' + self.reward_function + '/hotspot_MSE.csv', hotspot_error)
@@ -1331,10 +1393,10 @@ class Evaluation:
 '''%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                                     Aquisition Functions - should have the form:
     def alpha(time, xvals, robot_model, param), where:
-    	time (int): the current timestep of planning
-    	xvals (list of float tuples): representing a path i.e. [(3.0, 4.0), (5.6, 7.2), ... ])
-    	robot_model (GPModel object): the robot's current model of the environment
-    	param (mixed): some functions require specialized parameters, which is there this can be used
+        time (int): the current timestep of planning
+        xvals (list of float tuples): representing a path i.e. [(3.0, 4.0), (5.6, 7.2), ... ])
+        robot_model (GPModel object): the robot's current model of the environment
+        param (mixed): some functions require specialized parameters, which is there this can be used
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'''
 
