@@ -804,7 +804,7 @@ class Robot(object):
                     param = self.maxes
             value[path] = self.aquisition_function(time = t, xvals = points, robot_model = self.GP, param = param)            
         try:
-            return paths[max(value, key = value.get)], value[max(value, key = value.get)], paths, value, max_locs
+            return paths[max(value, key = value.get)], value[max(value, key = value.get)], paths, value, self.max_locs
         except:
             return None
     
@@ -1044,8 +1044,6 @@ class Nonmyopic_Robot(Robot):
             print "Current predicted max and value: \t", pred_loc, "\t", pred_val
             logger.info("Current predicted max and value: {} \t {}".format(pred_loc, pred_val))
 
-            print max_locs
-            print max_val
             try:
                 self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, best_path, \
                         value = best_val, max_loc = pred_loc, max_val = pred_val, params = [self.current_max, self.current_max_loc, max_val, max_locs]) 
