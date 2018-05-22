@@ -3,3 +3,4 @@
 *.pyc
 figures/*
 experiments/*
+old_exp/*

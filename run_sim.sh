@@ -5,9 +5,9 @@ fi
 
 pushd experiments
     #for seed in 5000 10000 15000 20000 25000 30000 35000 40000 45000 
-    for seed in 0 500 1000 1500 2000 2500 3000 3500 4000 4500 
+    for seed in 0 500 1000 1500 2000 2500 3000 3500 4000 4500 5000 10000 15000 20000 25000 30000 35000 40000 45000
     do
-        for reward_func in mes
+        for reward_func in mes mean exp_improve
         do
             workdir=nonmyopic_seed${seed}
             if [ ! -d $workdir ]; then mkdir $workdir; fi
