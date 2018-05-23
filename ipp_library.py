@@ -142,7 +142,21 @@ class GPModel:
         
         # Read pre-trained kernel parameters from file, if available and no 
         # training data is provided
-        if xvals is not None and zvals is not None:
+        # if xvals is not None and zvals is not None:
+        #     if self.xvals is None:
+        #         self.xvals = xvals
+        #     else:
+        #         self.xvals = np.vstack([self.xvals, xvals])
+                
+        #     if self.zvals is None:
+        #         self.zvals = zvals
+        #     else:
+        #         self.zvals = np.vstack([self.zvals, zvals])
+
+        if self.xvals is not None and self.zvals is not None:
+            xvals = self.xvals[::5]
+            zvals = self.zvals[::5]
+
             print "Optimizing kernel parameters given data"
             logger.info("Optimizing kernel parameters given data")
             # Initilaize a GP model (used only for optmizing kernel hyperparamters)
@@ -868,6 +882,8 @@ class Robot(object):
             
             if len(best_path) != 1:
                 self.collect_observations(xlocs)
+            if t < T/3:
+                self.GP.train_kernel()
             self.trajectory.append(best_path)
             
             if self.create_animation:
@@ -1055,6 +1071,8 @@ class Nonmyopic_Robot(Robot):
 
 
             self.collect_observations(xlocs)
+            if t < T/3:
+                self.GP.train_kernel()
             self.trajectory.append(best_path)        
 
             self.loc = best_path[-1]
