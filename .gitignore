@@ -4,3 +4,4 @@
 figures/*
 experiments/*
 old_exp/*
+*.png
