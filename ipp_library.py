@@ -24,10 +24,10 @@ This library file aggregates a number of classes that are useful for performing 
 Maintainers: Genevieve Flaspohler and Victoria Preston
 License: MIT
 '''
-#MIN_COLOR = 3.0
-#MAX_COLOR = 7.5
-MIN_COLOR = -25.
-MAX_COLOR = 25.
+MIN_COLOR = 3.0
+MAX_COLOR = 7.5
+# MIN_COLOR = -25.
+# MAX_COLOR = 25.
 
 class GPModel:
     '''The GPModel class, which is a wrapper on top of GPy.'''     
