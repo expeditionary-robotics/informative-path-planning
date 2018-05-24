@@ -24,10 +24,10 @@ This library file aggregates a number of classes that are useful for performing 
 Maintainers: Genevieve Flaspohler and Victoria Preston
 License: MIT
 '''
-MIN_COLOR = 3.0
-MAX_COLOR = 7.5
-# MIN_COLOR = -25.
-# MAX_COLOR = 25.
+# MIN_COLOR = 3.0
+# MAX_COLOR = 7.5
+MIN_COLOR = -25.
+MAX_COLOR = 25.
 
 class GPModel:
     '''The GPModel class, which is a wrapper on top of GPy.'''     
@@ -885,8 +885,8 @@ class Robot(object):
             
             if len(best_path) != 1:
                 self.collect_observations(xlocs)
-            if t < T/3:
-                self.GP.train_kernel()
+            # if t < T/3:
+            #     self.GP.train_kernel()
             self.trajectory.append(best_path)
             
             if self.create_animation:
@@ -1074,8 +1074,8 @@ class Nonmyopic_Robot(Robot):
 
 
             self.collect_observations(xlocs)
-            if t < T/3:
-                self.GP.train_kernel()
+            # if t < T/3:
+            #     self.GP.train_kernel()
             self.trajectory.append(best_path)        
 
             self.loc = best_path[-1]
