@@ -172,6 +172,9 @@ class GPModel:
 
             # Save the hyperparemters to file
             np.save(kernel_file, self.kern[:])
+            self.lengthscale = self.kern.lengthscale
+            self.variance = self.kern.variance
+            
         else:
             raise ValueError("Failed to train kernel. No training data provided.")
 
@@ -1767,9 +1770,12 @@ def exp_improvement(time, xvals, robot_model, param = None):
     else:
         eta = sum(param)/len(param)
 
-    z = (np.sum(mu)-eta)/np.sum(np.fabs(var))
+    # z = (np.sum(mu)-eta)/np.sum(np.fabs(var))
+    x = [m-eta for m in mu]
+    x = np.sum(x)
+    z = x/np.sum(np.fabs(var))
     big_phi = 0.5 * (1 + sp.special.erf(z/np.sqrt(2)))
     small_phi = 1/np.sqrt(2*np.pi) * np.exp(-z**2 / 2) 
-    avg_reward = (np.sum(mu)-eta)*big_phi + np.sum(np.fabs(var))*small_phi
+    avg_reward = x*big_phi + np.sum(np.fabs(var))*small_phi#(np.sum(mu)-eta)*big_phi + np.sum(np.fabs(var))*small_phi
         
     return avg_reward
