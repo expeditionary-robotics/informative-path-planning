@@ -24,10 +24,10 @@ This library file aggregates a number of classes that are useful for performing 
 Maintainers: Genevieve Flaspohler and Victoria Preston
 License: MIT
 '''
-MIN_COLOR = 3.0
-MAX_COLOR = 7.5
-# MIN_COLOR = -25.
-# MAX_COLOR = 25.
+# MIN_COLOR = 3.0
+# MAX_COLOR = 7.5
+MIN_COLOR = -25.
+MAX_COLOR = 25.
 
 class GPModel:
     '''The GPModel class, which is a wrapper on top of GPy.'''     
@@ -174,7 +174,7 @@ class GPModel:
             np.save(kernel_file, self.kern[:])
             self.lengthscale = self.kern.lengthscale
             self.variance = self.kern.variance
-            
+
         else:
             raise ValueError("Failed to train kernel. No training data provided.")
 
@@ -718,7 +718,7 @@ class Robot(object):
             kernel_file = None, kernel_dataset = None, prior_dataset = None, init_lengthscale = 10.0, 
             init_variance = 100.0, noise = 0.05, path_generator = 'default', frontier_size = 6, 
             horizon_length = 5, turning_radius = 1, sample_step = 0.5, evaluation = None, 
-            f_rew = 'mean', create_animation = False):
+            f_rew = 'mean', create_animation = False, learn_params = False):
         ''' Initialize the robot class with a GP model, initial location, path sets, and prior dataset
         Inputs:
             sample_world (method) a function handle that takes a set of locations as input and returns a set of observations
@@ -753,6 +753,7 @@ class Robot(object):
         self.current_max_loc = [0,0]
         self.max_val = None
         self.max_locs = None
+        self.learn_params = learn_params
         
         if f_rew == 'hotspot_info':
             self.aquisition_function = hotspot_info_UCB
@@ -885,7 +886,7 @@ class Robot(object):
             
             if len(best_path) != 1:
                 self.collect_observations(xlocs)
-            if t < T/3:
+            if t < T/3 and self.learn_params == True:
                 self.GP.train_kernel()
             self.trajectory.append(best_path)
             
@@ -1074,7 +1075,7 @@ class Nonmyopic_Robot(Robot):
 
 
             self.collect_observations(xlocs)
-            if t < T/3:
+            if t < T/3 and self.learn_params == True:
                 self.GP.train_kernel()
             self.trajectory.append(best_path)        
 
@@ -1758,12 +1759,7 @@ def exp_improvement(time, xvals, robot_model, param = None):
     queries = np.vstack([x1,x2]).T
 
     mu, var = robot_model.predict_value(queries)
-    current_max = -10000
     avg_reward = 0
-    delta = 0.9
-    d = 20
-    pit = np.pi**2 * (time + 1)**2 / 6.
-    beta_t = 2 * np.log(d * pit / delta)
 
     if param == None:
         eta = 0.5
