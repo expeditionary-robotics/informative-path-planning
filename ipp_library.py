@@ -751,8 +751,8 @@ class Robot(object):
         self.maxes = []
         self.current_max = -1000
         self.current_max_loc = [0,0]
-        self.max_val = None
         self.max_locs = None
+        self.max_val = None
         self.learn_params = learn_params
         
         if f_rew == 'hotspot_info':
@@ -874,8 +874,15 @@ class Robot(object):
             print "Current predicted max and value: \t", pred_loc, "\t", pred_val
             logger.info("Current predicted max and value: {} \t {}".format(pred_loc, pred_val))
 
-            self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, best_path, \
+            try:
+                self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, best_path, \
                 value = best_val, max_loc = pred_loc, max_val = pred_val, params = [self.current_max, self.current_max_loc, self.max_val, self.max_locs]) 
+            except:
+                max_locs = [[-1, -1], [-1, -1]]
+                max_val = [-1,-1]
+                self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, best_path, \
+                        value = best_val, max_loc = pred_loc, max_val = pred_val, params = [self.current_max, self.current_max_loc, max_val, max_locs]) 
+
             
             if best_path == None:
                 break
@@ -897,7 +904,9 @@ class Robot(object):
             # if len(best_path) == 1:
             #     self.loc = (best_path[-1][0], best_path[-1][1], best_path[-1][2]-0.45)
             # else:
-            #     self.loc = best_path[-1]
+            self.loc = best_path[-1]
+        np.savetxt('./figures/' + self.f_rew+ '/robot_model.csv', (self.GP.xvals[:, 0], self.GP.xvals[:, 1], self.GP.zvals[:, 0]))
+
     
     def visualize_trajectory(self, screen = True, filename = 'SUMMARY', best_path = None, 
         maxes = None, all_paths = None, all_vals = None):      
@@ -955,7 +964,9 @@ class Robot(object):
            
         # If available, plot the current location of the maxes for mes
         if maxes is not None:
-            plt.scatter(maxes[:, 0], maxes[:, 1], color = 'r', marker = '*', s = 500.0)
+            for coord in maxes:
+                plt.scatter(coord[0], coord[1], color = 'r', marker = '*', s = 500.0)
+            # plt.scatter(maxes[:, 0], maxes[:, 1], color = 'r', marker = '*', s = 500.0)
            
         # Either plot to screen or save to file
         if screen:
