@@ -138,8 +138,10 @@ class MCTS_Reachable:
         print "Number of rollouts:", i, "\t Size of tree:", len(self.tree)
         logger.info("Number of rollouts: {} \t Size of tree: {}".format(i, len(self.tree)))
 
-        # paths = self.path_generator.get_path_set(self.cp)                
-        return self.tree[best_sequence][0], best_val, self.goals, all_vals, self.max_locs, self.max_val
+        paths = {}
+        for i in xrange(len(self.goals)):
+            paths[i] = self.take_step(self.cp, self.goals[i])
+        return self.tree[best_sequence][0], best_val, paths, all_vals, self.max_locs, self.max_val
 
     def initialize_tree(self):
         '''Creates a tree instance, which is a dictionary, that keeps track of the nodes in the world
@@ -211,6 +213,7 @@ class MCTS_Reachable:
         obs = []
         for seq in sequence:
             samples.append(self.tree[seq][0])
+            # samples.append((self.goals[int(seq[-1])][0], self.goals[int(seq[-1])][1]))
         obs = list(chain.from_iterable(samples))
 
         if self.f_rew == 'mes':
@@ -284,13 +287,13 @@ class Reachable_Robot():
         if f_rew == 'hotspot_info':
             self.aquisition_function = il.hotspot_info_UCB
         elif f_rew == 'mean':
-            self.aquisition_function = mean_UCB_2  
+            self.aquisition_function = il.mean_UCB 
         elif f_rew == 'info_gain':
             self.aquisition_function = il.info_gain
         elif f_rew == 'mes':
-            self.aquisition_function = mves_2
+            self.aquisition_function = il.mves
         elif f_rew == 'exp_improve':
-            self.aquisition_function = exp_improvement_2
+            self.aquisition_function = il.exp_improvement
         else:
             raise ValueError('Only \'hotspot_info\' and \'mean\' and \'info_gain\' and \'mes\' and \'exp_improve\' reward fucntions supported.')
         
@@ -340,8 +343,8 @@ class Reachable_Robot():
         Input: t, step number
         Output: None or location index
         '''
-
         value = {}
+        paths = {}
         param = None
 
         max_locs = max_vals = None
@@ -353,13 +356,14 @@ class Reachable_Robot():
                 param = self.max_val
             elif self.f_rew == 'exp_improve':
                 param = [self.current_max]
+            xvals = self.take_step(goal)#[(goal[0], goal[1])]
+            paths[i] = xvals
             value[i] = self.aquisition_function(time=t,
-                                                   xvals=[goal[0], goal[1]],
-                                                   robot_model=self.GP,
-                                                   param=param)
-
+                                                xvals=xvals,
+                                                robot_model=self.GP,
+                                                param=param)
         try:
-            return self.goals[max(value, key=value.get)], value[max(value, key=value.get)], self.goals, value, self.max_locs
+            return self.goals[max(value, key=value.get)], value[max(value, key=value.get)], paths, value, self.max_locs
         except:
             return None
 
@@ -373,19 +377,10 @@ class Reachable_Robot():
 
         dist = np.sqrt((self.loc[0]-goal[0])**2 + (self.loc[1]-goal[1])**2)
         angle_to_goal = np.arctan2([goal[1]-self.loc[1]], [goal[0]-self.loc[0]])[0]
-        # print 'here'
-        # print self.loc
-        # print 'goal'
-        # print goal
-        # print 'angle_to_goal'
-        # print angle_to_goal
         if dist > self.step_size:
             new_goal = (self.loc[0]+self.step_size*np.sin(np.pi/2-angle_to_goal), self.loc[1]+self.step_size*np.sin(angle_to_goal), angle_to_goal)
         else:
             new_goal = (goal[0], goal[1], angle_to_goal)
-        # print 'new_goal'
-        # print new_goal
-
 
         path = dubins.shortest_path(self.loc, new_goal, self.turning_radius)
         configurations, _ = path.sample_many(self.sample_step)
@@ -397,8 +392,6 @@ class Reachable_Robot():
                 temp.append(config)
             else:
                 pass
-                # temp = []
-                # break
 
         return temp 
 
@@ -442,8 +435,7 @@ class Reachable_Robot():
             print "[", t, "] Current Location:  ", self.loc
             logger.info("[{}] Current Location: {}".format(t, self.loc))
             if self.use_mcts == False:
-                best_location, best_val, all_locations, all_values, max_locs = self.choose_destination(t = t)
-                print best_location, best_val
+                best_location, best_val, all_paths, all_values, max_locs = self.choose_destination(t = t)
                 sampling_path = self.take_step(best_location)
             else:
                 if self.f_rew == "exp_improve":
@@ -452,7 +444,7 @@ class Reachable_Robot():
                     param = None
 
                 mcts = MCTS_Reachable(self.comp_budget, self.GP, self.loc, self.roll_length, self.goals, self.f_rew, t, aq_param = param, turning_radius=self.turning_radius, sample_step=self.sample_step, step_size = self.step_size, ranges=self.ranges)
-                best_path, best_val, all_paths, all_vals, max_locs, max_val = mcts.choose_trajectory(t = t)
+                best_path, best_val, all_paths, all_values, max_locs, max_val = mcts.choose_trajectory(t = t)
                 sampling_path = best_path
 
 
@@ -460,14 +452,12 @@ class Reachable_Robot():
             pred_loc, pred_val = self.predict_max()
             print "Current predicted max and value: \t", pred_loc, "\t", pred_val
             logger.info("Current predicted max and value: {} \t {}".format(pred_loc, pred_val))
-             # try:
-            #     self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, best_path, \
-            #     value = best_val, max_loc = pred_loc, max_val = pred_val, params = [self.current_max, self.current_max_loc, self.max_val, self.max_locs]) 
-            # except:
-            #     max_locs = [[-1, -1], [-1, -1]]
-            #     max_val = [-1,-1]
-            #     self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, best_path, \
-            #             value = best_val, max_loc = pred_loc, max_val = pred_val, params = [self.current_max, self.current_max_loc, max_val, max_locs]) 
+            try:
+                self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, sampling_path, value = best_val, max_loc = pred_loc, max_val = pred_val, params = [self.current_max, self.current_max_loc, self.max_val, self.max_locs]) 
+            except:
+                max_locs = [[-1, -1], [-1, -1]]
+                max_val = [-1,-1]
+                self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, sampling_path, value = best_val, max_loc = pred_loc, max_val = pred_val, params = [self.current_max, self.current_max_loc, max_val, max_locs]) 
 
 
             # Given this choice, take a step in the right direction, obeying to the dynamics of the vehicle
@@ -486,13 +476,11 @@ class Reachable_Robot():
 
             self.trajectory.append(sampling_path)
 
-            
-            # if self.create_animation:
-            #     self.visualize_trajectory(screen = False, filename = t, best_path = sampling_path, 
-            #             maxes = max_locs, all_paths = all_locations, all_vals = all_values)            
+            if self.create_animation:
+                self.visualize_trajectory(screen = False, filename = t, best_path = sampling_path, maxes = max_locs, all_paths = all_paths, all_vals = all_values)            
 
             self.loc = sampling_path[-1]
-        # np.savetxt('./figures/' + self.f_rew+ '/robot_model.csv', (self.GP.xvals[:, 0], self.GP.xvals[:, 1], self.GP.zvals[:, 0]))
+        np.savetxt('./figures/' + self.f_rew+ '/robot_model.csv', (self.GP.xvals[:, 0], self.GP.xvals[:, 1], self.GP.zvals[:, 0]))
 
     def visualize_trajectory(self, screen = True, filename = 'SUMMARY', best_path = None, 
         maxes = None, all_paths = None, all_vals = None):      
@@ -532,16 +520,16 @@ class Reachable_Robot():
 
         # If available, plot the current set of options available to robot, colored
         # by their value (red: low, yellow: high)
-        if all_paths is not None:
-            all_vals = [x for x in all_vals.values()]   
-            path_color = iter(plt.cm.autumn(np.linspace(0, max(all_vals),len(all_vals))/ max(all_vals)))        
-            path_order = np.argsort(all_vals)
+        # if all_paths is not None:
+        #     all_vals = [x for x in all_vals.values()]   
+        #     path_color = iter(plt.cm.autumn(np.linspace(0, max(all_vals),len(all_vals))/ max(all_vals)))        
+        #     path_order = np.argsort(all_vals)
             
-            for index in path_order:
-                c = next(path_color)                
-                points = all_paths[all_paths.keys()[index]]
-                f = np.array(points)
-                plt.plot(f[:,0], f[:,1], c = c, marker='.')
+        #     for index in path_order:
+        #         c = next(path_color)                
+        #         points = all_paths[all_paths.keys()[index]]
+        #         f = np.array(points)
+        #         plt.plot(f[:,0], f[:,1], c = c, marker='.')
                
         # If available, plot the selected path in green
         if best_path is not None:
@@ -600,87 +588,9 @@ class Reachable_Robot():
         ''' Visualizes the accumulation of reward and aquisition functions ''' 
         self.eval.plot_metrics()
 
-
-def mean_UCB_2(time, xvals, robot_model, param=None):
-    ''' Computes the UCB for a set of points along a trajectory '''
-    data = xvals
-    x1 = data[0]
-    x2 = data[1]
-    queries = np.vstack([x1, x2]).T   
-                              
-    # The GPy interface can predict mean and variance at an array of points; this will be an overestimate
-    mu, var = robot_model.predict_value(queries)
-    
-    delta = 0.9
-    d = 20
-    pit = np.pi**2 * (time + 1)**2 / 6.
-    beta_t = 2 * np.log(d * pit / delta)
-
-    return np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
-
-def exp_improvement_2(time, xvals, robot_model, param = None):
-    ''' The aquisition function using expected information, as defined in Hennig and Schuler Entropy Search'''
-    data = xvals#np.array(xvals)
-    x1 = data[0]
-    x2 = data[1]
-    queries = np.vstack([x1,x2]).T
-
-    mu, var = robot_model.predict_value(queries)
-    avg_reward = 0
-
-    if param == None:
-        eta = 0.5
-    else:
-        eta = sum(param)/len(param)
-
-    # z = (np.sum(mu)-eta)/np.sum(np.fabs(var))
-    x = [m-eta for m in mu]
-    x = np.sum(x)
-    z = x/np.sum(np.fabs(var))
-    big_phi = 0.5 * (1 + sp.special.erf(z/np.sqrt(2)))
-    small_phi = 1/np.sqrt(2*np.pi) * np.exp(-z**2 / 2) 
-    avg_reward = x*big_phi + np.sum(np.fabs(var))*small_phi#(np.sum(mu)-eta)*big_phi + np.sum(np.fabs(var))*small_phi
-        
-    return avg_reward
-
-def mves_2(time, xvals, robot_model, param):
-    ''' Define the Acquisition Function and the Gradient of MES'''
-    # Compute the aquisition function value f and garident g at the queried point x using MES, given samples
-    # function maxes and a previous set of functino maxes
-    maxes = param
-    # If no max values are provided, return default value
-    if maxes is None:
-        return 1.0
-
-    data = xvals
-    x1 = data[0]
-    x2 = data[1]
-    queries = np.vstack([x1, x2]).T        
-    
-    d = queries.shape[1] # The dimension of the points (should be 2D)     
-
-    # Initialize f, g
-    f = 0
-    for i in xrange(maxes.shape[0]):
-        # Compute the posterior mean/variance predictions and gradients.
-        #[meanVector, varVector, meangrad, vargrad] = mean_var(x, xx, ...
-        #    yy, KernelMatrixInv{i}, l(i,:), sigma(i), sigma0(i));
-        mean, var = robot_model.predict_value(queries)
-        std_dev = np.sqrt(var)
-        
-        # Compute the acquisition function of MES.        
-        gamma = (maxes[i] - mean) / var
-        pdfgamma = sp.stats.norm.pdf(gamma)
-        cdfgamma = sp.stats.norm.cdf(gamma)
-        f += sum(gamma * pdfgamma / (2.0 * cdfgamma) - np.log(cdfgamma))        
-    # Average f
-    f = f / maxes.shape[0]
-    # f is an np array; return scalar value
-    return f[0]
-
 if __name__ == '__main__':
     seed = 0#int(sys.argv[1])
-    reward_function = 'mean'#sys.argv[2]
+    reward_function = 'exp_improve'#sys.argv[2]
 
     if not os.path.exists('./figures/' + str(reward_function)): 
         os.makedirs('./figures/' + str(reward_function))
@@ -720,10 +630,10 @@ if __name__ == '__main__':
                   create_animation = True,
                   discretization=(20,20),
                   use_mcts = True,
-                  computation_budget = 10.0,
+                  computation_budget = 3.0,
                   rollout_length = 5) 
 
-    robot.planner(T = 10)
+    robot.planner(T = 5)
     #robot.visualize_world_model(screen = True)
-    robot.visualize_trajectory(screen = False)
-    # robot.plot_information()
+    # robot.visualize_trajectory(screen = False)
+    robot.plot_information()
