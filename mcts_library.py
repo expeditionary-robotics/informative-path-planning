@@ -84,18 +84,18 @@ class MCTS:
             i += 1
             current_node = self.tree_policy()
             sequence = self.rollout_policy(current_node)
-            reward, cost= self.get_reward(sequence, loc)
+            reward, cost = self.get_reward(sequence, loc)
             self.update_tree(reward, cost, sequence)
 
         # get the best action to take with most promising futures
         if loc is None:
         	best_sequence, best_val, all_vals = self.get_best_child()
     	else:
-    		best_sequence, best_val, all_vals = self.get_best_child(True)
+    		best_sequence, best_val, all_vals = self.get_best_child(use_cost=True)
         print "Number of rollouts:", i, "\t Size of tree:", len(self.tree)
         logger.info("Number of rollouts: {} \t Size of tree: {}".format(i, len(self.tree)))
 
-        paths = self.path_generator.get_path_set(self.cp)                
+        paths = self.path_generator.get_path_set(self.cp) 
         return self.tree[best_sequence][0], best_val, paths, all_vals, self.max_locs, self.max_val
 
     def initialize_tree(self):
@@ -184,7 +184,7 @@ class MCTS:
         	samples.append(self.tree[seq][0])
         obs = list(chain.from_iterable(samples))
         if loc is not None:
-        	cost = self.path_generator.path_cost(self.tree[seq][0], loc)
+        	cost = self.path_generator.path_cost([self.tree[seq][0][-1]], loc)
 
         reward = 0
         for s in samples:
@@ -219,8 +219,7 @@ class MCTS:
             queries += 1
             n = queries
             rew = ((n-1)*rew+reward)/n
-            path_cost += self.path_generator.path_cost(self.tree[seq][0])
-            cos = ((n-1)*cos+(cost+path_cost))/n
+            cos = ((n-1)*cos+cost)/n
             self.tree[seq] = (samples, cos, rew, queries)
 
     def get_best_child(self, use_cost=False):
@@ -239,11 +238,15 @@ class MCTS:
                 	r = self.tree['child '+ str(i)][2]
                 	value[i] = r
             	else:
-            		r = self.tree['child '+ str(i)][2]/self.tree['child ' + str(i)][3]
+            		if self.tree['child ' + str(i)][3] == 0.0:
+            			r = self.tree['child '+ str(i)][2]/100.
+            		else:
+            			r = self.tree['child '+ str(i)][2]/self.tree['child ' + str(i)][3]
             		value[i] = r
                 if r > best: 
                     best = r
                     best_child = 'child '+ str(i)
             except:
+            	print 'here'
                 pass
         return best_child, best, value

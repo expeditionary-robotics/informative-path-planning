@@ -66,6 +66,7 @@ class Evaluation:
                         'robot_location_x': {},
                         'robot_location_y': {},
                         'robot_location_a': {},
+                        'distance_traveled': {},
                        }
         self.reward_function = reward_function
         
@@ -206,7 +207,7 @@ class Evaluation:
     
     ''' Helper functions '''
 
-    def update_metrics(self, t, robot_model, all_paths, selected_path, value = None, max_loc = None, max_val = None, params = None):
+    def update_metrics(self, t, robot_model, all_paths, selected_path, value = None, max_loc = None, max_val = None, params = None, dist = 0):
         ''' Function to update avaliable metrics'''    
         #self.metrics['hotspot_info_reward'][t] = self.hotspot_info_reward(t, selected_path, robot_model, max_val)
         #self.metrics['mean_reward'][t] = self.mean_reward(t, selected_path, robot_model)
@@ -236,6 +237,8 @@ class Evaluation:
         self.metrics['robot_location_x'][t] = selected_path[0][0]
         self.metrics['robot_location_y'][t] = selected_path[0][1]
         self.metrics['robot_location_a'][t] = selected_path[0][2]
+
+        self.metrics['distance_traveled'][t] = dist
     
     def plot_metrics(self):
         ''' Plots the performance metrics computed over the course of a info'''
@@ -270,6 +273,8 @@ class Evaluation:
         star_obs_loc_x_1 = np.array(self.metrics['star_obs_loc_x_1'].values())
         star_obs_loc_y_0 = np.array(self.metrics['star_obs_loc_y_0'].values())
         star_obs_loc_y_1 = np.array(self.metrics['star_obs_loc_y_1'].values())
+
+        distance = np.array(self.metrics['distance_traveled'].values())
         # star_obs_loc = np.array(self.metrics['star_obs_loc'].values())
 
         #mean = np.cumsum(np.array(self.metrics['mean_reward'].values()))
@@ -285,7 +290,7 @@ class Evaluation:
             regret.T, info_regret.T, current_highest_obs.T, current_highest_obs_loc_x.T,current_highest_obs_loc_y.T, \
             robot_location_x.T, robot_location_y.T, robot_location_a.T, \
             star_obs_0.T, star_obs_loc_x_0.T, star_obs_loc_y_0.T, \
-            star_obs_1.T, star_obs_loc_x_1.T, star_obs_loc_y_1.T))
+            star_obs_1.T, star_obs_loc_x_1.T, star_obs_loc_y_1.T, distance.T))
         #np.savetxt('./figures/' + self.reward_function + '/aqu_fun.csv', aqu_fun)
         #np.savetxt('./figures/' + self.reward_function + '/MSE.csv', MSE)
         #np.savetxt('./figures/' + self.reward_function + '/hotspot_MSE.csv', hotspot_error)
@@ -356,6 +361,11 @@ class Evaluation:
         ax.set_title('Average sample val distance to Maximizer')
         plt.plot(time, sample_regret_val, 'r')  
         fig.savefig('./figures/' + self.reward_function + '/sample_regret_val.png')
+
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.set_title('Distance Traveled in Time')
+        plt.plot(time, distance, 'r')  
+        fig.savefig('./figures/' + self.reward_function + '/distance_traveled.png')
         
         #plt.show() 
         plt.close()

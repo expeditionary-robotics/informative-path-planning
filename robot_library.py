@@ -153,7 +153,10 @@ class Robot(object):
         
         max_locs = max_vals = None      
         if self.f_rew == 'mes':
-            self.max_val, self.max_locs = sample_max_vals(self.GP, t = t)
+            print "MES is the reward function"
+            self.max_val, self.max_locs = aqlib.sample_max_vals(self.GP, t = t)
+
+        pred_loc, pred_val = self.predict_max()
             
         paths = self.path_generator.get_path_set(self.loc)
 
@@ -166,7 +169,24 @@ class Robot(object):
                 else:
                     param = self.maxes
 
-            cost = float(self.path_generator.path_cost(points))
+            cost = 0.0
+            if self.path_option == 'fully_reachable_goal':
+                cost = float(self.path_generator.path_cost(points))
+            else:
+                if self.f_rew == 'mes':
+                    avg_loc_x = 0
+                    avg_loc_y = 0
+                    try:
+                        for l in self.max_locs:
+                            avg_loc_x += l[0]
+                            avg_loc_y += l[1]
+                        avg_loc = [avg_loc_x/len(self.max_locs), avg_loc_y/len(self.max_locs)]
+                    except:
+                        avg_loc = [-1,-1]
+                    cost = float(self.path_generator.path_cost([points[-1]], avg_loc))
+                else:
+                    cost = float(self.path_generator.path_cost([points[-1]], pred_loc))
+            
             if cost == 0.0:
                 cost = 100.0
 
@@ -200,7 +220,7 @@ class Robot(object):
     def predict_max(self):
         # If no observations have been collected, return default value
         if self.GP.xvals is None:
-            return np.array([0., 0.]).reshape(1,2), 0.
+            return np.array([0., 0.]), 0.
 
         ''' First option, return the max value observed so far '''
         #return self.GP.xvals[np.argmax(self.GP.zvals), :], np.max(self.GP.zvals)
@@ -220,11 +240,18 @@ class Robot(object):
         Input: 
             T (int > 0): the length of the planning horization (number of planning iterations)'''
         self.trajectory = []
+        self.dist = 0
         
         for t in xrange(T):
             # Select the best trajectory according to the robot's aquisition function
             print "[", t, "] Current Location:  ", self.loc
             logger.info("[{}] Current Location: {}".format(t, self.loc))
+
+            # Let's figure out where the best point is in our world
+            pred_loc, pred_val = self.predict_max()
+            print "Current predicted max and value: \t", pred_loc, "\t", pred_val
+            logger.info("Current predicted max and value: {} \t {}".format(pred_loc, pred_val))
+
 
             if self.nonmyopic == False:
                 best_path, best_val, all_paths, all_values, max_locs = self.choose_trajectory(t = t)
@@ -233,27 +260,25 @@ class Robot(object):
                     param = self.current_max
                 else:
                     param = None
-
                 mcts = mctslib.MCTS(self.comp_budget, self.GP, self.loc, self.roll_length, self.path_generator, self.aquisition_function, self.f_rew, t, aq_param = param)
                 if self.use_cost == False:
-                    best_path, best_val, all_paths, all_values, max_locs, max_val = mcts.choose_trajectory(t = t)
+                    best_path, best_val, all_paths, all_values, self.max_locs, self.max_val = mcts.choose_trajectory(t = t)
                 else:
-                    best_path, best_val, all_paths, all_values, max_locs, max_val = mcts.choose_trajectory(t = t, loc = self.current_max_loc)
-            # Given this choice, update the evaluation metrics 
-            # TODO: fix this
-            pred_loc, pred_val = self.predict_max()
-            print "Current predicted max and value: \t", pred_loc, "\t", pred_val
-            logger.info("Current predicted max and value: {} \t {}".format(pred_loc, pred_val))
-
+                    best_path, best_val, all_paths, all_values, self.max_locs, self.max_val = mcts.choose_trajectory(t = t, loc = pred_loc)
+            # Update eval metrics
+            start = self.loc
+            print start
+            for m in best_path:
+                self.dist += np.sqrt((start[0]-m[0])**2 + (start[1]-m[1])**2)
+                start = m
             try:
                 self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, best_path, \
-                value = best_val, max_loc = pred_loc, max_val = pred_val, params = [self.current_max, self.current_max_loc, self.max_val, self.max_locs]) 
+                value = best_val, max_loc = pred_loc, max_val = pred_val, params = [self.current_max, self.current_max_loc, self.max_val, self.max_locs], dist = self.dist) 
             except:
                 max_locs = [[-1, -1], [-1, -1]]
                 max_val = [-1,-1]
                 self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, best_path, \
-                        value = best_val, max_loc = pred_loc, max_val = pred_val, params = [self.current_max, self.current_max_loc, max_val, max_locs]) 
-
+                        value = best_val, max_loc = pred_loc, max_val = pred_val, params = [self.current_max, self.current_max_loc, max_val, max_locs], dist = self.dist) 
             
             if best_path == None:
                 break
@@ -270,7 +295,7 @@ class Robot(object):
             
             if self.create_animation:
                 self.visualize_trajectory(screen = False, filename = t, best_path = best_path, 
-                        maxes = max_locs, all_paths = all_paths, all_vals = all_values)            
+                        maxes = self.max_locs, all_paths = all_paths, all_vals = all_values)            
 
             self.loc = best_path[-1]
         np.savetxt('./figures/' + self.f_rew+ '/robot_model.csv', (self.GP.xvals[:, 0], self.GP.xvals[:, 1], self.GP.zvals[:, 0]))

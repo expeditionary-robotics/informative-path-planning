@@ -283,6 +283,9 @@ def entropy_of_tn(a, b, mu, var):
     return np.log(Z * np.sqrt(2.0 * np.pi * var)) + (alpha * phi_alpha - beta * phi_beta) / (2.0 * Z)
 
 def global_maximization(target, target_vector_n, target_grad, target_vector_gradient_n, ranges, guesses, visualize, filename):
+    MIN_COLOR=-25.
+    MAX_COLOR=25.
+
     ''' Perform efficient global maximization'''
     gridSize = 300
     # Create a buffer around the boundary so the optmization doesn't always concentrate there
