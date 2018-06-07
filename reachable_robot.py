@@ -26,6 +26,7 @@ import pdb
 import logging
 logger = logging.getLogger('robot')
 import ipp_library as il
+import copy
 
 
 # globals for plotting
@@ -55,6 +56,7 @@ class MCTS_Reachable:
         # Parameterization for the search
         self.comp_budget = computation_budget
         self.GP = belief
+        self.model = copy.copy(belief)
         self.cp = initial_pose
         self.rl = rollout_length
         self.goals = goal_selections
@@ -208,12 +210,18 @@ class MCTS_Reachable:
         Outut:
             reward value from the aquisition function of choice
         '''
-        sim_world = self.GP
+        sim_world = self.model
         samples = []
         obs = []
         for seq in sequence:
             samples.append(self.tree[seq][0])
-            # samples.append((self.goals[int(seq[-1])][0], self.goals[int(seq[-1])][1]))
+            data = np.array(self.tree[seq][0])
+            x1 = data[:,0]
+            x2 = data[:,1]
+            xobs = np.vstack([x1, x2]).T
+            zobs, var = sim_world.predict_value(xobs)
+            sim_world.add_data(xobs, zobs)
+            # obs.append((self.goals[int(seq[-1])][0], self.goals[int(seq[-1])][1]))
         obs = list(chain.from_iterable(samples))
 
         if self.f_rew == 'mes':

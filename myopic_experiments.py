@@ -17,8 +17,19 @@ from itertools import chain
 import sys
 import logging
 
-seed = int(sys.argv[1])
-reward_function = sys.argv[2]
+import aq_library as aqlib
+import mcts_library as mctslib
+import gpmodel_library as gplib 
+import evaluation_library as evalib 
+import paths_library as pathlib 
+import envmodel_library as envlib 
+import robot_library as roblib
+
+seed = 0#int(sys.argv[1])
+reward_function = 'exp_improve'#sys.argv[2]
+
+MIN_COLOR = -25.
+MAX_COLOR = 25.
 
 if not os.path.exists('./figures/' + str(reward_function)): 
     os.makedirs('./figures/' + str(reward_function))
@@ -31,17 +42,19 @@ from ipp_library import *
 ''' Options include mean, info_gain, hotspot_info, and mes'''
 ranges = (0., 10., 0., 10.)
 
-world = Environment(ranges = ranges, # x1min, x1max, x2min, x2max constraints
+world = envlib.Environment(ranges = ranges, # x1min, x1max, x2min, x2max constraints
                     NUM_PTS = 20, 
                     variance = 100.0, 
                     lengthscale = 1.0, 
                     visualize = True,
-                    seed = seed)
+                    seed = seed,
+                    MIN_COLOR=MIN_COLOR, 
+                    MAX_COLOR=MAX_COLOR)
 
-evaluation = Evaluation(world = world, reward_function = reward_function)
+evaluation = evalib.Evaluation(world = world, reward_function = reward_function)
 
 # Create the point robot
-robot = Robot(sample_world = world.sample_value, 
+robot = roblib.Robot(sample_world = world.sample_value, 
               start_loc = (5.0, 5.0, 0.0), 
               extent = ranges,
               kernel_file = None,
@@ -52,16 +65,23 @@ robot = Robot(sample_world = world.sample_value,
               init_variance = 100.0, 
               noise = 0.0001,
               path_generator = 'dubins',
+              goal_only = False, #select only if using fully reachable step and you want the step to only be in the direction of the goal
               frontier_size = 20, 
               horizon_length = 1.5, 
               turning_radius = 0.05,
               sample_step = 0.5,
               evaluation = evaluation, 
               f_rew = reward_function, 
-              create_animation = True) 
+              create_animation = True,
+              learn_params=False,
+              nonmyopic=True, #select if you want to use MCTS
+              discretization=(20,20),
+              use_cost=False, #select if you want to use a cost heuristic
+              MIN_COLOR=MIN_COLOR,
+              MAX_COLOR=MAX_COLOR) 
 
-robot.planner(T = 175)
+robot.planner(T = 50)
 #robot.visualize_world_model(screen = True)
-#robot.visualize_trajectory(screen = True)
+robot.visualize_trajectory(screen = False)
 robot.plot_information()
 
