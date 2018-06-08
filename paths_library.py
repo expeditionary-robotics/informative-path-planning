@@ -64,7 +64,7 @@ class Path_Generator:
                 pass
             else:
                 goals.append((x,y,p))
-
+        goals.append(self.cp)
         self.goals = goals
         return self.goals
 
@@ -213,7 +213,6 @@ class Reachable_Frontier_Generator():
         sampling_path = {}
 
         for i,goal in enumerate(self.goals):
-            sampling_path[i] = []
             dist = np.sqrt((loc[0]-goal[0])**2 + (loc[1]-goal[1])**2)
             angle_to_goal = np.arctan2([goal[1]-loc[1]], [goal[0]-loc[0]])[0]
             new_goal = (goal[0], goal[1], angle_to_goal)
@@ -222,11 +221,17 @@ class Reachable_Frontier_Generator():
             configurations, _ = path.sample_many(self.sample_step)
             configurations.append(new_goal)
 
+            temp = []
             for config in configurations:
                 if config[0] > self.ranges[0] and config[0] < self.ranges[1] and config[1] > self.ranges[2] and config[1] < self.ranges[3]:
-                    sampling_path[i].append(config)
+                    temp.append(config)
                 else:
                     break
+            if len(temp) < 2:
+                pass
+            else:
+                sampling_path[i] = temp
+
         return sampling_path 
 
     def path_cost(self, path, loc=None):
@@ -247,17 +252,15 @@ class Reachable_Frontier_Generator():
     def get_path_set(self, cp):
         return self.take_step(cp)
 
-
 class Reachable_Step_Generator(Reachable_Frontier_Generator):
     '''
-    Generates a list of reachable goals within a world, and develops Dubins curve style trajectories which take a step toward the goal
+    Generates a list of reachable goals within a world, and develops Dubins curve style trajectories which take a step toward the goal. Inherits from the Reachable_Frontier_Generator class.
     '''
     def take_step(self, loc):
         ''' Given a current location and a goal, determine the dubins curve sampling path'''
         sampling_path = {}
 
         for i,goal in enumerate(self.goals):
-            sampling_path[i] = []
             dist = np.sqrt((loc[0]-goal[0])**2 + (loc[1]-goal[1])**2)
             angle_to_goal = np.arctan2([goal[1]-loc[1]], [goal[0]-loc[0]])[0]
 
@@ -270,11 +273,18 @@ class Reachable_Step_Generator(Reachable_Frontier_Generator):
             configurations, _ = path.sample_many(self.sample_step)
             configurations.append(new_goal)
 
+            temp = []
             for config in configurations:
                 if config[0] > self.ranges[0] and config[0] < self.ranges[1] and config[1] > self.ranges[2] and config[1] < self.ranges[3]:
-                    sampling_path[i].append(config)
+                    temp.append(config)
                 else:
                     break
+
+            if len(temp) < 2:
+                pass
+            else:
+                sampling_path[i] = temp
+
         return sampling_path 
 
     

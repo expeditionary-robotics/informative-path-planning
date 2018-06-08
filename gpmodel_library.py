@@ -97,9 +97,15 @@ class GPModel:
 
         # If the model hasn't been created yet (can't be created until we have data), create GPy model
         if self.model == None:
+            # x1vals = np.linspace(self.ranges[0], self.ranges[1], 10)
+            # x2vals = np.linspace(self.ranges[2], self.ranges[3], 10)
+            # x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy')
+            # Z = np.vstack([x1.ravel(), x2.ravel()]).T
+            # # self.model = GPy.models.SparseGPRegression(X=np.array(self.xvals), Y=np.array(self.zvals),kernel=self.kern, Z=Z)
             self.model = GPy.models.GPRegression(np.array(self.xvals), np.array(self.zvals), self.kern)
         # Else add to the exisiting model
         else:
+            # self.model = GPy.models.SparseGPRegression(X=np.array(self.xvals), Y=np.array(self.zvals),kernel=self.kern, Z=Z)
             self.model.set_XY(X = np.array(self.xvals), Y = np.array(self.zvals))
 
     def load_kernel(self, kernel_file = 'kernel_model.npy'):
@@ -137,6 +143,7 @@ class GPModel:
             logger.info("Optimizing kernel parameters given data")
             # Initilaize a GP model (used only for optmizing kernel hyperparamters)
             self.m = GPy.models.GPRegression(np.array(xvals), np.array(zvals), self.kern)
+            # self.m = GPy.models.models.SparseGPRegression(X=np.array(self.xvals), Y=np.array(self.zvals),kernel= self.kern, num_inducing=1000)
             self.m.initialize_parameter()
 
             # Constrain the hyperparameters during optmization

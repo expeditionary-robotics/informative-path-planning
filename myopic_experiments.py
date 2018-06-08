@@ -2,6 +2,8 @@
 
 '''
 Script for running myopic experiments using the run_mysim bash script.
+Keep in mind that some of the parameters may need to be adjusted before running\
+which are not necessarily set by the command line interface!
 
 License: MIT
 Maintainers: Genevieve Flaspohler and Victoria Preston
@@ -20,8 +22,8 @@ import envmodel_library as envlib
 import robot_library as roblib
 
 # Allow selection of seed world to be consistent, and to run through reward functions
-seed =  0#int(sys.argv[1])
-reward_function = 'mean'#sys.argv[2]
+seed =  int(sys.argv[1])
+reward_function = sys.argv[2]
 
 # Parameters for plotting based on the seed world information
 MIN_COLOR = -25.
@@ -59,7 +61,7 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      init_lengthscale = 1.0, 
                      init_variance = 100.0, 
                      noise = 0.0001,
-                     path_generator = 'dubins', #options: default, dubins, equal_dubins, fully_reachable_goal, fully_reachable_step
+                     path_generator = 'fully_reachable_step', #options: default, dubins, equal_dubins, fully_reachable_goal, fully_reachable_step
                      goal_only = False, #select only if using fully reachable step and you want the reward of the step to only be the goal
                      frontier_size = 20,
                      horizon_length = 1.5, 
@@ -71,12 +73,12 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      learn_params=False, #if kernel params should be trained online
                      nonmyopic=False, #select if you want to use MCTS
                      discretization=(20,20), #parameterizes the fully reachable sets
-                     use_cost=True, #select if you want to use a cost heuristic
+                     use_cost=False, #select if you want to use a cost heuristic
                      MIN_COLOR=MIN_COLOR,
                      MAX_COLOR=MAX_COLOR) 
 
-robot.planner(T = 20)
+robot.planner(T = 175)
 #robot.visualize_world_model(screen = True)
-robot.visualize_trajectory(screen = False)
-robot.plot_information()
+robot.visualize_trajectory(screen = False) #creates a summary trajectory image
+robot.plot_information() #plots all of the metrics of interest
 

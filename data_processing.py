@@ -99,7 +99,7 @@ def make_plots(mean_data, mes_data, ei_data, param, title, d=20, plot_confidence
     mes_v = []
     ei_v = []
     
-    for i in range(19):
+    for i in range(d-1):
         sm = []
         sme = []
         se = []
@@ -168,7 +168,7 @@ if __name__ == '__main__':
     f_mean = []
     f_mes = []
     f_ei = []
-    path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/myopic/'
+    path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/myopic_cost/'
     for root, dirs, files in os.walk(path):
         for name in files:
             if 'metric' in name and 'mean' in root:
@@ -183,7 +183,7 @@ if __name__ == '__main__':
                         'simple_regret', 'sample_regret_loc', 'sample_regret_val', 'regret', 'info_regret',
                         'current_highest_obs', 'current_highest_obs_loc_x', 'current_highest_obs_loc_y',
                         'robot_loc_x', 'robot_loc_y', 'robot_loc_a', 'star_obs_0', 'star_obs_loc_x_0',
-                        'star_obs_loc_y_0', 'star_obs_1', 'star_obs_loc_x_1', 'star_obs_loc_y_1']
+                        'star_obs_loc_y_0', 'star_obs_1', 'star_obs_loc_x_1', 'star_obs_loc_y_1', 'distance']
 
     mean_data = make_df(f_mean, l)
     ei_data = make_df(f_ei, l)
@@ -196,7 +196,7 @@ if __name__ == '__main__':
     # get the robot log files
     max_val = []
     max_loc = []
-    path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/myopic/'
+    path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/myopic_cost/'
     for root, dirs, files in os.walk(path):
         for name in files:
             if 'log' in name and 'mean' in root:
@@ -211,7 +211,7 @@ if __name__ == '__main__':
     mes_samples = []
     ei_samples = []
 
-    path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/myopic/'
+    path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/myopic_cost/'
     for root, dirs, files in os.walk(path):
         for name in files:
             if 'robot_model' in name and 'mean' in root:
@@ -233,8 +233,8 @@ if __name__ == '__main__':
     make_histograms(mean_sdata, mes_sdata, ei_sdata)
 
     ######### Looking at Mission Progression ######
-    make_plots(mean_data, mes_data, ei_data, 'max_val_error', 'Averaged Maximum Value Error, Conf', 40, True, True, fname='my_avg_valerr_conf')
-    make_plots(mean_data, mes_data, ei_data, 'max_loc_error', 'Averaged Maximum Location Error, Conf', 40, True, True, fname='my_avg_valloc_conf')
-    make_plots(mean_data, mes_data, ei_data, 'info_regret', 'Averaged Information Regret, Conf', 40, True, True, fname='my_avg_reg_conf')
-    make_plots(mean_data, mes_data, ei_data, 'MSE', 'Averaged MSE, Conf', 40, True, True, fname='my_avg_mse_conf')
+    make_plots(mean_data, mes_data, ei_data, 'max_val_error', 'Averaged Maximum Value Error, Conf', 10, True, False, fname='my_avg_valerr_conf')
+    make_plots(mean_data, mes_data, ei_data, 'max_loc_error', 'Averaged Maximum Location Error, Conf', 10, True, False, fname='my_avg_valloc_conf')
+    make_plots(mean_data, mes_data, ei_data, 'info_regret', 'Averaged Information Regret, Conf', 10, True, False, fname='my_avg_reg_conf')
+    make_plots(mean_data, mes_data, ei_data, 'MSE', 'Averaged MSE, Conf', 10, True, False, fname='my_avg_mse_conf')
     plt.show()

@@ -190,17 +190,22 @@ class Robot(object):
             if cost == 0.0:
                 cost = 100.0
 
-            if self.path_option == 'fully_reachable_goal':
-                points = [(points[-1][0], points[-1][1])]
+            if self.path_option == 'fully_reachable_goal' and self.goal_only == True:
+                poi = [(points[-1][0], points[-1][1])]
             elif self.path_option == 'fully_reachable_step' and self.goal_only == True:
-                points = [(self.goals[path][0], self.goals[path][1])]
+                poi = [(self.goals[path][0], self.goals[path][1])]
+            # elif self.path_option == 'fully_reachable_step' and self.goal_only == False:
+            #     poi = points + [(self.goals[path][0], self.goals[path][1], 0.)]
+            # else:
+            #     poi = points
 
             if self.use_cost == False:
-                value[path] = self.aquisition_function(time = t, xvals = points, robot_model = self.GP, param = param) 
+                value[path] = self.aquisition_function(time = t, xvals = poi, robot_model = self.GP, param = param)
             else:
-                reward = self.aquisition_function(time = t, xvals = points, robot_model = self.GP, param = param)
+                reward = self.aquisition_function(time = t, xvals = poi, robot_model = self.GP, param = param)
                 value[path] = reward/cost          
         try:
+            # pdb.set_trace()
             return paths[max(value, key = value.get)], value[max(value, key = value.get)], paths, value, self.max_locs
         except:
             return None
@@ -267,7 +272,6 @@ class Robot(object):
                     best_path, best_val, all_paths, all_values, self.max_locs, self.max_val = mcts.choose_trajectory(t = t, loc = pred_loc)
             # Update eval metrics
             start = self.loc
-            print start
             for m in best_path:
                 self.dist += np.sqrt((start[0]-m[0])**2 + (start[1]-m[1])**2)
                 start = m
@@ -287,8 +291,7 @@ class Robot(object):
             x2 = data[:,1]
             xlocs = np.vstack([x1, x2]).T           
             
-            if len(best_path) != 1:
-                self.collect_observations(xlocs)
+            self.collect_observations(xlocs)
             if t < T/3 and self.learn_params == True:
                 self.GP.train_kernel()
             self.trajectory.append(best_path)
