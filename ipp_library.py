@@ -119,7 +119,7 @@ class GPModel:
         else:
             zvals = np.vstack([self.zvals, zvals])
 
-        # If the model hasn't been created yet (can't be created until we have data), create GPy model
+        # Create a temporary model
         self.temp_model = GPy.models.GPRegression(np.array(xvals), np.array(zvals), self.kern)
 
 
@@ -594,10 +594,10 @@ class MCTS:
         if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
             self.max_val, self.max_locs, self.target  = sample_max_vals(self.GP, t = t)
             
-        time_start = time.clock()            
+        time_start = time.time()            
             
         # while we still have time to compute, generate the tree
-        while time.clock() - time_start < self.comp_budget:
+        while time.time() - time_start < self.comp_budget:
             i += 1
             current_node = self.tree_policy()
             sequence = self.rollout_policy(current_node)
@@ -1562,7 +1562,7 @@ def hotspot_info_UCB(time, xvals, robot_model, param = None):
     return info_gain(time, xvals, robot_model) + LAMBDA * np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
 
 
-def sample_max_vals(robot_model, t, nK = 5, nFeatures = 300, visualize = True):
+def sample_max_vals(robot_model, t, nK = 3, nFeatures = 300, visualize = True):
     ''' The mutual information between a potential set of samples and the local maxima'''
     # If the robot has not samples yet, return a constant value
     if robot_model.xvals is None:
@@ -1675,8 +1675,67 @@ def sample_max_vals(robot_model, t, nK = 5, nFeatures = 300, visualize = True):
    
     return samples, locs, funcs
       
-
 def mves_maximal_set(time, xvals, robot_model, param):
+    ''' Define the Acquisition Function for maximal-set information gain
+   param is tuple (maxima, target) '''
+    max_vals = param[0]
+    max_locs = param[1]
+    target = param[2]
+
+    if max_vals is None:
+        return 1.0
+
+    data = np.array(xvals)
+    x1 = data[:,0]
+    x2 = data[:,1]
+    queries = np.vstack([x1, x2]).T        
+    d = queries.shape[1] # The dimension of the points (should be 2D)     
+
+    # Initialize f, g
+    f = 0
+    for i in xrange(max_vals.shape[0]):
+        # Compute the posterior mean/variance predictions and gradients.
+        #mean, var = robot_model.predict_value(queries)
+     
+        #mean_before, var_before = robot_model.predict_value(np.reshape(max_locs[i], (1,2)))
+
+        mean_before, var_before = robot_model.predict_value(queries)
+        #print "Before mean var:", mean_before, var_before
+     
+        radius = 2.0
+        radius_steps = 10
+        angle_steps = 10
+        ball_data = np.zeros(((radius_steps) * (angle_steps) + 1, queries .shape[1]))
+        for ii, dist in enumerate(np.linspace(0., radius, radius_steps)):
+            for jj, angle in enumerate(np.linspace(0., 2. * np.pi, angle_steps)):
+                ball_data[ii*angle_steps + jj, :] = np.reshape(max_locs[i] + np.array([dist * np.cos(angle), dist * np.sin(angle)]), (1,2))
+                #ball_data[ii*angle_steps + jj, :] = np.reshape(np.array([3., 3.]) + np.array([dist * np.cos(angle), dist * np.sin(angle)]), (1,2))
+        ball_data[-1, :] = np.reshape(max_locs[i], (1,2))
+
+        #observations = target[i](np.reshape(max_locs[i], (1,2)))
+        observations = target[i](ball_data)
+        #print "observations:", observations 
+        temp_model = robot_model.add_data_and_temp_model(ball_data, observations)
+        
+        mean_after, var_after = robot_model.predict_value(queries, TEMP = True)
+        #print "After mean var:", mean_after, var_after
+       
+        #print "before entroyp:", entropy_of_n(var_before)
+        #print "after entroyp:", entropy_of_tn(a = None, b = max_vals[i], mu = mean_after, var = var_after)
+
+        #f += sum(entropy_of_tn(None, np.max(robot_model.zvals), mean, var) - entropy_of_tn(None, np.max([robot_model.xvals, np.max(observations)]), mean_after, var_after))
+
+        #utility = entropy_of_n(var_before) - entropy_of_tn(a = None, b = max_vals[i], mu = mean_after, var = var_after)
+        utility = entropy_of_n(var_before) - entropy_of_n(var = var_after)
+        #print "utility:", utility
+        f += sum(utility)
+
+    # Average f
+    f = f / max_vals.shape[0]
+    # f is an np array; return scalar value
+    return f[0] 
+
+def mves_maximal_set2(time, xvals, robot_model, param):
     ''' Define the Acquisition Function for maximal-set information gain
    param is tuple (maxima, target) '''
 
@@ -1694,7 +1753,6 @@ def mves_maximal_set(time, xvals, robot_model, param):
     x1 = data[:,0]
     x2 = data[:,1]
     queries = np.vstack([x1, x2]).T        
-    
     d = queries.shape[1] # The dimension of the points (should be 2D)     
 
     # Initialize f, g
@@ -1703,7 +1761,8 @@ def mves_maximal_set(time, xvals, robot_model, param):
         # Compute the posterior mean/variance predictions and gradients.
         #mean, var = robot_model.predict_value(queries)
         mean, var = robot_model.predict_value(queries)
-        mean_before, var_before = robot_model.predict_value(np.reshape(max_locs[i], (1,2)))
+     
+        #mean_before, var_before = robot_model.predict_value(np.reshape(max_locs[i], (1,2)))
         #print "Before mean var:", mean, var
 
         observations = target[i](queries)
@@ -1766,7 +1825,7 @@ def mves(time, xvals, robot_model, param):
         print "maxes:", maxes[i]
         '''
         utility = entropy_of_n(var) - entropy_of_tn(a = None, b = maxes[i], mu = mean, var = var)
-        utility /= entropy_of_n(var) 
+        #utility /= entropy_of_n(var) 
         #print "before:",  gamma * pdfgamma / (2.0 * cdfgamma) - np.log(cdfgamma)
         #print "utility:", utility
         f += sum(utility)

@@ -40,6 +40,13 @@ world = Environment(ranges = ranges, # x1min, x1max, x2min, x2max constraints
 
 evaluation = Evaluation(world = world, reward_function = reward_function)
 
+
+x1observe = np.linspace(0., 10., 20)
+x2observe = np.linspace(0., 10., 20)
+x1observe, x2observe = np.meshgrid(x1observe, x2observe, sparse = False, indexing = 'xy')  
+data = np.vstack([x1observe.ravel(), x2observe.ravel()]).T
+observations = world.sample_value(data)
+
 # Create the point robot
 robot = Nonmyopic_Robot(sample_world = world.sample_value, 
               start_loc = (5.0, 5.0, 0.0), 
@@ -52,14 +59,14 @@ robot = Nonmyopic_Robot(sample_world = world.sample_value,
               init_variance = 100.0, 
               noise = 0.0001,
               path_generator = 'dubins',
-              frontier_size = 20, 
-              horizon_length = 1.5, 
+              frontier_size = 15, 
+              horizon_length = 1.0, 
               turning_radius = 0.05,
               sample_step = 0.5,
               evaluation = evaluation, 
               f_rew = reward_function, 
               create_animation = True,
-              computation_budget = 10.0,
+              computation_budget = 6.0,
               rollout_length = 5) 
 
 robot.planner(T = 175)
