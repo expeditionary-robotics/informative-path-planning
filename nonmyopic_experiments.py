@@ -51,6 +51,13 @@ world = envlib.Environment(ranges = ranges,
 # Create the evaluation class used to quantify the simulation metrics
 evaluation = evalib.Evaluation(world = world, reward_function = reward_function)
 
+
+x1observe = np.linspace(0., 10., 20)
+x2observe = np.linspace(0., 10., 20)
+x1observe, x2observe = np.meshgrid(x1observe, x2observe, sparse = False, indexing = 'xy')  
+data = np.vstack([x1observe.ravel(), x2observe.ravel()]).T
+observations = world.sample_value(data)
+
 # Create the point robot
 robot = roblib.Robot(sample_world = world.sample_value, #function handle for collecting observations
                      start_loc = (5.0, 5.0, 0.0), #where robot is instantiated
