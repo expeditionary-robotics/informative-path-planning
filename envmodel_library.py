@@ -105,9 +105,9 @@ class Environment:
 
                 # Intialize a GP model of the environment
                 self.GP = GPModel(ranges = ranges, lengthscale = lengthscale, variance = variance)         
+                data = np.vstack([x1vals.ravel(), x2vals.ravel()]).T 
 
                 # Take an initial sample in the GP prior, conditioned on no other data
-                # This is done to 
                 xsamples = np.reshape(np.array(data[0, :]), (1, dim)) # dimension: 1 x 2        
                 mean, var = self.GP.predict_value(xsamples)   
                 if seed is not None:
@@ -118,7 +118,14 @@ class Environment:
                                     
                 # Add initial sample data point to the GP model
                 self.GP.add_data(xsamples, zsamples)                            
+                np.random.seed(seed)
+                observations = self.GP.model.posterior_samples_f(data[1:, :], full_cov = True, size=1)
+                print observations.shape
+                self.GP.add_data(data[1:, :], observations)                            
+                print self.GP.xvals.shape
+                print self.GP.zvals.shape
                         
+                '''
                 # Iterate through the rest of the grid sequentially and sample a z values, 
                 # conditioned on previous samples
                 for index, point in enumerate(data[1:, :]):
@@ -138,6 +145,7 @@ class Environment:
                     zsamples = np.vstack([zsamples, np.reshape(zs, (1, 1))])
                     xsamples = np.vstack([xsamples, np.reshape(xs, (1, dim))])
                     self.GP.add_data(np.reshape(xs, (1, dim)), np.reshape(zs, (1, 1)))
+                '''
             
                 maxima = self.GP.xvals[np.argmax(self.GP.zvals), :]
 
@@ -147,7 +155,7 @@ class Environment:
                     fig = plt.figure(figsize=(8, 6))
                     ax = fig.add_subplot(111, projection = '3d')
                     ax.set_title('Surface of the Simulated Environment')
-                    surf = ax.plot_surface(x1vals, x2vals, zsamples.reshape(x1vals.shape), cmap = cm.coolwarm, linewidth = 1)
+                    surf = ax.plot_surface(x1vals, x2vals, self.GP.zvals.reshape(x1vals.shape), cmap = cm.coolwarm, linewidth = 1)
                     if not os.path.exists('./figures'):
                         os.makedirs('./figures')
                     fig.savefig('./figures/world_model_surface.png')
@@ -156,10 +164,10 @@ class Environment:
                     fig2 = plt.figure(figsize=(8, 6))
                     ax2 = fig2.add_subplot(111)
                     ax2.set_title('Countour Plot of the Simulated Environment')     
-                    plot = ax2.contourf(x1vals, x2vals, zsamples.reshape(x1vals.shape), cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR, levels=np.linspace(MIN_COLOR, MAX_COLOR, 15))
-                    scatter = ax2.scatter(data[:, 0], data[:, 1], c = zsamples.ravel(), s = 4.0, cmap = 'viridis')
-                    maxind = np.argmax(zsamples)
-                    ax2.scatter(xsamples[maxind, 0], xsamples[maxind,1], color = 'k', marker = '*', s = 500)
+                    plot = ax2.contourf(x1vals, x2vals, self.GP.zvals.reshape(x1vals.shape), cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR, levels=np.linspace(MIN_COLOR, MAX_COLOR, 15))
+                    scatter = ax2.scatter(data[:, 0], data[:, 1], c = self.GP.zvals.ravel(), s = 4.0, cmap = 'viridis')
+                    maxind = np.argmax(self.GP.zvals)
+                    ax2.scatter(self.GP.xvals[maxind, 0], self.GP.xvals[maxind,1], color = 'k', marker = '*', s = 500)
                     fig2.colorbar(plot, ax=ax2)
 
                     fig2.savefig('./figures/world_model_countour.png')

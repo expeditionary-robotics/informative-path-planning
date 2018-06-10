@@ -143,21 +143,23 @@ class MCTS:
             #check that paths were generated; if not, roll back if possible
             try:
             	keys = actions.keys()
-        	except:
-        		print 'No actions were viably generated; rolling back'
-        		sequence.remove(node)
-        		if len(sequence) == 0:
-        			print "Empty sequence ", sequence, node
-        			logger.warning("Bad Sequence")
-        	#select a random action
-        	try: 
-        		a = np.random.randint(0,len(actions)-1)
-        	except:
-        		a = 0
-        	#create the sequence and add to the tree
+            except:
+                print 'No actions were viably generated; rolling back'
+                sequence.remove(node)
+                if len(sequence) == 0:
+                    print "Empty sequence ", sequence, node
+                    logger.warning("Bad Sequence")
+
+            #select a random action
+            try: 
+                a = np.random.randint(0,len(actions)-1)
+            except:
+                a = 0
+            #create the sequence and add to the tree
             self.tree[node + ' child ' + str(keys[a])] = (actions[keys[a]], 0, 0, 0) #add random path to the tree
             node = node + ' child ' + str(keys[a])
             sequence.append(node)
+
         return sequence
 
     def get_reward(self, sequence, loc=None):
