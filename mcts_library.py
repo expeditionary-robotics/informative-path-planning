@@ -64,7 +64,7 @@ class MCTS:
         self.t = T
 
         if self.f_rew == 'mean':
-            self.c = 3000
+            self.c = 1000
         elif self.f_rew == 'exp_improve':
             self.c = 30
         elif self.f_rew == 'mes':
@@ -87,7 +87,7 @@ class MCTS:
             
         time_start = time.time()            
         # while we still have time to compute, generate the tree
-        while time.time() - time_start < self.comp_budget:
+        while i < self.comp_budget:#time.time() - time_start < self.comp_budget:
             i += 1
             current_node = self.tree_policy()
             sequence = self.rollout_policy(current_node)
@@ -136,7 +136,10 @@ class MCTS:
         actions = self.path_generator.get_path_set(self.cp)
         for i, val in actions.items():
             node = 'child '+ str(i)
-            leaf_eval[node] = self.tree[node][2] + self.c*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][3])
+            if self.tree[node][3] == 0:
+                return node
+            else:
+                leaf_eval[node] = self.tree[node][2] + self.c*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][3])
         return max(leaf_eval, key=leaf_eval.get)
 
     def rollout_policy(self, node):
