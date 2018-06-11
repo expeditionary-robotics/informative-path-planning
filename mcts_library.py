@@ -205,6 +205,7 @@ class MCTS:
                 n_points, input_dim = xobs.shape
                 zmean, zvar = np.zeros((n_points, )), np.eye(n_points) * self.GP.variance
                 zobs = np.random.multivariate_normal(mean = zmean, cov = zvar)
+                zobs = np.reshape(zobs, (n_points, 1))
 
                 #zmean, zvar = sim_world.predict_value(xobs)
                 #zobs = []
@@ -212,7 +213,7 @@ class MCTS:
                 #    zobs.append(np.random.normal(m, np.sqrt(v), 1))
             else:
                 zobs = sim_world.model.posterior_samples_f(xobs, full_cov = True, size=1)
-            sim_world.add_data(xobs, np.reshape(zobs, (n_points, 1)))
+            sim_world.add_data(xobs, zobs)
         return reward, cost
 
     
