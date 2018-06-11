@@ -86,12 +86,12 @@ class MCTS:
         # get the best action to take with most promising futures, base best on whether to
         # consider cost
         if loc is None:
-        	best_sequence, best_val, all_vals = self.get_best_child()
-    	else:
-    		best_sequence, best_val, all_vals = self.get_best_child(use_cost=True)
-    	paths = self.path_generator.get_path_set(self.cp)
+            best_sequence, best_val, all_vals = self.get_best_child()
+        else:
+            best_sequence, best_val, all_vals = self.get_best_child(use_cost=True)
+        paths = self.path_generator.get_path_set(self.cp)
 
-    	#Document the information
+        #Document the information
         print "Number of rollouts:", i, "\t Size of tree:", len(self.tree)
         logger.info("Number of rollouts: {} \t Size of tree: {}".format(i, len(self.tree)))
         np.save('./figures/' + self.f_rew + '/tree_' + str(t) + '.npy', self.tree)
@@ -124,11 +124,8 @@ class MCTS:
         leaf_eval = {}
         actions = self.path_generator.get_path_set(self.cp)
         for i, val in actions.items():
-            try:
-                node = 'child '+ str(i)
-                leaf_eval[node] = self.tree[node][2] + 0.1*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][3])
-            except:
-                pass
+            node = 'child '+ str(i)
+            leaf_eval[node] = self.tree[node][2] + 0.1*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][3])
         return max(leaf_eval, key=leaf_eval.get)
 
     def rollout_policy(self, node):
@@ -142,19 +139,19 @@ class MCTS:
             actions = self.path_generator.get_path_set(self.tree[node][0][-1]) #plan from the last point in the sample
             #check that paths were generated; if not, roll back if possible
             try:
-            	keys = actions.keys()
-        	except:
-        		print 'No actions were viably generated; rolling back'
-        		sequence.remove(node)
-        		if len(sequence) == 0:
-        			print "Empty sequence ", sequence, node
-        			logger.warning("Bad Sequence")
-        	#select a random action
-        	try: 
-        		a = np.random.randint(0,len(actions)-1)
-        	except:
-        		a = 0
-        	#create the sequence and add to the tree
+                keys = actions.keys()
+            except:
+                print 'No actions were viably generated; rolling back'
+                sequence.remove(node)
+                if len(sequence) == 0:
+                    print "Empty sequence ", sequence, node
+                    logger.warning("Bad Sequence")
+            #select a random action
+            try: 
+                a = np.random.randint(0,len(actions)-1)
+            except:
+                a = 0
+            #create the sequence and add to the tree
             self.tree[node + ' child ' + str(keys[a])] = (actions[keys[a]], 0, 0, 0) #add random path to the tree
             node = node + ' child ' + str(keys[a])
             sequence.append(node)
@@ -171,30 +168,30 @@ class MCTS:
         obs = []
         cost = 0
         for seq in sequence:
-        	# for i in self.tree[seq][0]:
-        	# 	samples.append(i)
-        	samples.append(self.tree[seq][0])
+            # for i in self.tree[seq][0]:
+            #   samples.append(i)
+            samples.append(self.tree[seq][0])
         obs = list(chain.from_iterable(samples))
         if loc is not None:
-        	cost = self.path_generator.path_cost([self.tree[seq][0][-1]], loc)
+            cost = self.path_generator.path_cost([self.tree[seq][0][-1]], loc)
 
         reward = 0
         for s in samples:
-        	obs = np.array(s)
-        	xobs = np.vstack([obs[:,0], obs[:,1]]).T
-	        if self.f_rew == 'mes':
-	            reward += self.aquisition_function(time = self.t, xvals = xobs, robot_model = sim_world, param = self.max_val)
-	        elif self.f_rew == 'exp_improve':
-	            reward += self.aquisition_function(time=self.t, xvals = xobs, robot_model = sim_world, param = [self.current_max])
-	        else:
-	            reward += self.aquisition_function(time=self.t, xvals = xobs, robot_model = sim_world)
-	        # xobs = np.array(obs)
-	        # zmean, zvar = sim_world.predict_value(xobs)
-	        # zobs = []
-	        # for m,v in zip(zmean, zvar):
-	        # 	zobs.append(np.random.normal(m, np.sqrt(v), 1))
-	        # # zobs = np.random.normal(zmean, np.sqrt(zvar[0][0]), 1)
-	        # sim_world.add_data(xobs, zobs)
+            obs = np.array(s)
+            xobs = np.vstack([obs[:,0], obs[:,1]]).T
+            if self.f_rew == 'mes':
+                reward += self.aquisition_function(time = self.t, xvals = xobs, robot_model = sim_world, param = self.max_val)
+            elif self.f_rew == 'exp_improve':
+                reward += self.aquisition_function(time=self.t, xvals = xobs, robot_model = sim_world, param = [self.current_max])
+            else:
+                reward += self.aquisition_function(time=self.t, xvals = xobs, robot_model = sim_world)
+            # xobs = np.array(obs)
+            # zmean, zvar = sim_world.predict_value(xobs)
+            # zobs = []
+            # for m,v in zip(zmean, zvar):
+            #   zobs.append(np.random.normal(m, np.sqrt(v), 1))
+            # # zobs = np.random.normal(zmean, np.sqrt(zvar[0][0]), 1)
+            # sim_world.add_data(xobs, zobs)
         return reward, cost
 
     
@@ -227,18 +224,18 @@ class MCTS:
         for i in keys:
             try:
                 if use_cost == False:
-                	r = self.tree['child '+ str(i)][2]
-                	value[i] = r
-            	else:
-            		if self.tree['child ' + str(i)][3] == 0.0:
-            			r = self.tree['child '+ str(i)][2]/100.
-            		else:
-            			r = self.tree['child '+ str(i)][2]/self.tree['child ' + str(i)][3]
-            		value[i] = r
+                    r = self.tree['child '+ str(i)][2]
+                    value[i] = r
+                else:
+                    if self.tree['child ' + str(i)][3] == 0.0:
+                        r = self.tree['child '+ str(i)][2]/100.
+                    else:
+                        r = self.tree['child '+ str(i)][2]/self.tree['child ' + str(i)][3]
+                    value[i] = r
                 if r > best: 
                     best = r
                     best_child = 'child '+ str(i)
             except:
-            	print 'here'
+                print 'here'
                 pass
         return best_child, best, value

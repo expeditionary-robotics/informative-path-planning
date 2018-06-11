@@ -22,8 +22,8 @@ import envmodel_library as envlib
 import robot_library as roblib
 
 # Allow selection of seed world to be consistent, and to run through reward functions
-seed =  int(sys.argv[1])
-reward_function = sys.argv[2]
+seed =  0#int(sys.argv[1])
+reward_function = 'mean'#sys.argv[2]
 
 # Parameters for plotting based on the seed world information
 MIN_COLOR = -25.
@@ -76,7 +76,7 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      use_cost=False, #select if you want to use a cost heuristic
                      MIN_COLOR=MIN_COLOR,
                      MAX_COLOR=MAX_COLOR,
-                     computation_budget=3.0) 
+                     computation_budget=1.0) 
 
 robot.planner(T = 175)
 #robot.visualize_world_model(screen = True)
