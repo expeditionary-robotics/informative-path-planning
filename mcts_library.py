@@ -155,6 +155,7 @@ class MCTS:
             self.tree[node + ' child ' + str(keys[a])] = (actions[keys[a]], 0, 0, 0) #add random path to the tree
             node = node + ' child ' + str(keys[a])
             sequence.append(node)
+
         return sequence
 
     def get_reward(self, sequence, loc=None):

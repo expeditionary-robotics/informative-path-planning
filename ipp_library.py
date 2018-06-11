@@ -53,6 +53,7 @@ class GPModel:
         # The Gaussian dataset; start with null set
         self.xvals = None
         self.zvals = None
+
         
         # The dimension of the evironment
         if dimension == 2:
@@ -67,8 +68,9 @@ class GPModel:
             
         # Intitally, before any data is created, 
         self.model = None
+        self.temp_model = None
          
-    def predict_value(self, xvals):
+    def predict_value(self, xvals, TEMP = False):
         ''' Public method returns the mean and variance predictions at a set of input locations.
         Inputs:
             xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2
@@ -82,7 +84,16 @@ class GPModel:
         assert(xvals.shape[1] == self.dim)    
         
         n_points, input_dim = xvals.shape
-        
+       
+        if TEMP: 
+            # With no observations, predict 0 mean everywhere and prior variance
+            if self.temp_model == None:
+                return np.zeros((n_points, 1)), np.ones((n_points, 1)) * self.variance
+            
+            # Else, return the predicted values
+            mean, var = self.temp_model.predict(xvals, full_cov = False, include_likelihood = True)
+            return mean, var        
+
         # With no observations, predict 0 mean everywhere and prior variance
         if self.model == None:
             return np.zeros((n_points, 1)), np.ones((n_points, 1)) * self.variance
@@ -90,7 +101,28 @@ class GPModel:
         # Else, return the predicted values
         mean, var = self.model.predict(xvals, full_cov = False, include_likelihood = True)
         return mean, var        
-    
+
+    def add_data_and_temp_model(self, xvals, zvals):
+        ''' Public method that adds data to a temporay GP model and returns that model
+        Inputs:
+            xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2
+            zvals (float array): an nparray of floats representing sensor observations, with dimension NUM_PTS x 1 
+        ''' 
+        
+        if self.xvals is None:
+            xvals = xvals
+        else:
+            xvals = np.vstack([self.xvals, xvals])
+            
+        if self.zvals is None:
+            zvals = zvals
+        else:
+            zvals = np.vstack([self.zvals, zvals])
+
+        # Create a temporary model
+        self.temp_model = GPy.models.GPRegression(np.array(xvals), np.array(zvals), self.kern)
+
+
     def add_data(self, xvals, zvals):
         ''' Public method that adds data to an the GP model.
         Inputs:
@@ -559,13 +591,13 @@ class MCTS:
         i = 0 #iteration count
 
         # randonly sample the world for entropy search function
-        if self.f_rew == 'mes':
-            self.max_val, self.max_locs = sample_max_vals(self.GP, t = t)
+        if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
+            self.max_val, self.max_locs, self.target  = sample_max_vals(self.GP, t = t)
             
-        time_start = time.clock()            
+        time_start = time.time()            
             
         # while we still have time to compute, generate the tree
-        while time.clock() - time_start < self.comp_budget:
+        while time.time() - time_start < self.comp_budget:
             i += 1
             current_node = self.tree_policy()
             sequence = self.rollout_policy(current_node)
@@ -638,7 +670,8 @@ class MCTS:
                 keys = actions.keys()
                 # print keys
                 if len(keys) <= 1:
-                    print 'few paths available!'
+                    #print 'few paths available!'
+                    pass
                 #TODO add cost metrics
                 self.tree[node + ' child ' + str(keys[a])] = (actions[keys[a]], 0, 0, 0) #add random path to the tree
                 node = node + ' child ' + str(keys[a])
@@ -667,8 +700,8 @@ class MCTS:
             samples.append(self.tree[seq][0])
         obs = list(chain.from_iterable(samples))
 
-        if self.f_rew == 'mes':
-            return self.aquisition_function(time = self.t, xvals = obs, robot_model = sim_world, param = self.max_val)
+        if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
+            return self.aquisition_function(time = self.t, xvals = obs, robot_model = sim_world, param = (self.max_val, self.max_locs, self.target))
         elif self.f_rew == 'exp_improve':
             return self.aquisition_function(time=self.t, xvals = obs, robot_model = sim_world, param = [self.current_max])
         else:
@@ -754,6 +787,7 @@ class Robot(object):
         self.max_locs = None
         self.max_val = None
         self.learn_params = learn_params
+        self.target = None
         
         if f_rew == 'hotspot_info':
             self.aquisition_function = hotspot_info_UCB
@@ -763,6 +797,8 @@ class Robot(object):
             self.aquisition_function = info_gain
         elif f_rew == 'mes':
             self.aquisition_function = mves
+        elif f_rew == 'maxs-mes':
+            self.aquisition_function = mves_maximal_set
         elif f_rew == 'exp_improve':
             self.aquisition_function = exp_improvement
         else:
@@ -807,14 +843,14 @@ class Robot(object):
         param = None    
         
         max_locs = max_vals = None      
-        if self.f_rew == 'mes':
-            self.max_val, self.max_locs = sample_max_vals(self.GP, t = t)
+        if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
+            self.max_val, self.max_locs, self.target = sample_max_vals(self.GP, t = t)
             
         paths = self.path_generator.get_path_set(self.loc)
 
         for path, points in paths.items():
-            if self.f_rew == 'mes':
-                param = self.max_val
+            if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
+                param = (self.max_val, self.max_locs, self.target)
             elif self.f_rew == 'exp_improve':
                 if len(self.maxes) == 0:
                     param = [self.current_max]
@@ -1152,11 +1188,14 @@ class Evaluation:
         elif reward_function == 'mes':
             self.f_aqu = mves
             self.f_rew = self.mean_reward 
+        elif reward_function == 'maxs-mes':
+            self.f_aqu = mves_maximal_set
+            self.f_rew = self.mean_reward 
         elif reward_function == 'exp_improve':
             self.f_aqu = exp_improvement
             self.f_rew = self.mean_reward
         else:
-            raise ValueError('Only \'mean\' and \'hotspot_info\' and \'info_gain\' and \' mew\' and \'exp_improve\' reward functions currently supported.')    
+            raise ValueError('Only \'mean\' and \'hotspot_info\' and \'info_gain\' and \' mes\' and \'exp_improve\' reward functions currently supported.')    
     
     '''Reward Functions - should have the form (def reward(time, xvals, robot_model)), where:
         time (int): the current timestep of planning
@@ -1443,7 +1482,7 @@ class Evaluation:
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'''
 
-def info_gain(time, xvals, robot_model, param=None):
+def info_gain(time, xvals, robot_model, param = None):
     ''' Compute the information gain of a set of potential sample locations with respect to the underlying function conditioned or previous samples xobs'''        
     data = np.array(xvals)
     x1 = data[:,0]
@@ -1487,7 +1526,7 @@ def info_gain(time, xvals, robot_model, param=None):
     return entropy_total - entropy_const
 
     
-def mean_UCB(time, xvals, robot_model, param=None):
+def mean_UCB(time, xvals, robot_model, param = None):
     ''' Computes the UCB for a set of points along a trajectory '''
     data = np.array(xvals)
     x1 = data[:,0]
@@ -1505,7 +1544,7 @@ def mean_UCB(time, xvals, robot_model, param=None):
     return np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
 
 
-def hotspot_info_UCB(time, xvals, robot_model, param=None):
+def hotspot_info_UCB(time, xvals, robot_model, param = None):
     ''' The reward information gathered plus the estimated exploitation value gathered'''
     data = np.array(xvals)
     x1 = data[:,0]
@@ -1523,11 +1562,11 @@ def hotspot_info_UCB(time, xvals, robot_model, param=None):
     return info_gain(time, xvals, robot_model) + LAMBDA * np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
 
 
-def sample_max_vals(robot_model, t, nK = 2, nFeatures = 300, visualize = True):
+def sample_max_vals(robot_model, t, nK = 3, nFeatures = 300, visualize = True):
     ''' The mutual information between a potential set of samples and the local maxima'''
     # If the robot has not samples yet, return a constant value
     if robot_model.xvals is None:
-        return None, None
+        return None, None, None
 
     d = robot_model.xvals.shape[1] # The dimension of the points (should be 2D)     
 
@@ -1535,6 +1574,7 @@ def sample_max_vals(robot_model, t, nK = 2, nFeatures = 300, visualize = True):
     current observations. Construct random freatures and optimize functions drawn from posterior GP.'''
     samples = np.zeros((nK, 1))
     locs = np.zeros((nK, 2))
+    funcs = []
     delete_locs = []
 
     for i in xrange(nK):
@@ -1611,6 +1651,7 @@ def sample_max_vals(robot_model, t, nK = 2, nFeatures = 300, visualize = True):
             continue
         
         samples[i] = max_val
+        funcs.append(target)
         print "Max Value in Optimization \t \t", samples[i]
         logger.info("Max Value in Optimization \t {}".format(samples[i]))
         locs[i, :] = maxima
@@ -1632,14 +1673,121 @@ def sample_max_vals(robot_model, t, nK = 2, nFeatures = 300, visualize = True):
         samples[0] = np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise)
         locs[0, :] = robot_model.xvals[np.argmax(robot_model.zvals)]
    
-    return samples, locs
+    return samples, locs, funcs
       
+def mves_maximal_set(time, xvals, robot_model, param):
+    ''' Define the Acquisition Function for maximal-set information gain
+   param is tuple (maxima, target) '''
+    max_vals = param[0]
+    max_locs = param[1]
+    target = param[2]
+
+    if max_vals is None:
+        return 1.0
+
+    data = np.array(xvals)
+    x1 = data[:,0]
+    x2 = data[:,1]
+    queries = np.vstack([x1, x2]).T        
+    d = queries.shape[1] # The dimension of the points (should be 2D)     
+
+    # Initialize f, g
+    f = 0
+    for i in xrange(max_vals.shape[0]):
+        # Compute the posterior mean/variance predictions and gradients.
+        #mean, var = robot_model.predict_value(queries)
+     
+        #mean_before, var_before = robot_model.predict_value(np.reshape(max_locs[i], (1,2)))
+
+        mean_before, var_before = robot_model.predict_value(queries)
+        #print "Before mean var:", mean_before, var_before
+     
+        radius = 2.0
+        radius_steps = 10
+        angle_steps = 10
+        ball_data = np.zeros(((radius_steps) * (angle_steps) + 1, queries .shape[1]))
+        for ii, dist in enumerate(np.linspace(0., radius, radius_steps)):
+            for jj, angle in enumerate(np.linspace(0., 2. * np.pi, angle_steps)):
+                ball_data[ii*angle_steps + jj, :] = np.reshape(max_locs[i] + np.array([dist * np.cos(angle), dist * np.sin(angle)]), (1,2))
+                #ball_data[ii*angle_steps + jj, :] = np.reshape(np.array([3., 3.]) + np.array([dist * np.cos(angle), dist * np.sin(angle)]), (1,2))
+        ball_data[-1, :] = np.reshape(max_locs[i], (1,2))
+
+        #observations = target[i](np.reshape(max_locs[i], (1,2)))
+        observations = target[i](ball_data)
+        #print "observations:", observations 
+        temp_model = robot_model.add_data_and_temp_model(ball_data, observations)
+        
+        mean_after, var_after = robot_model.predict_value(queries, TEMP = True)
+        #print "After mean var:", mean_after, var_after
+       
+        #print "before entroyp:", entropy_of_n(var_before)
+        #print "after entroyp:", entropy_of_tn(a = None, b = max_vals[i], mu = mean_after, var = var_after)
+
+        #f += sum(entropy_of_tn(None, np.max(robot_model.zvals), mean, var) - entropy_of_tn(None, np.max([robot_model.xvals, np.max(observations)]), mean_after, var_after))
+
+        #utility = entropy_of_n(var_before) - entropy_of_tn(a = None, b = max_vals[i], mu = mean_after, var = var_after)
+        utility = entropy_of_n(var_before) - entropy_of_n(var = var_after)
+        #print "utility:", utility
+        f += sum(utility)
+
+    # Average f
+    f = f / max_vals.shape[0]
+    # f is an np array; return scalar value
+    return f[0] 
+
+def mves_maximal_set2(time, xvals, robot_model, param):
+    ''' Define the Acquisition Function for maximal-set information gain
+   param is tuple (maxima, target) '''
+
+    max_vals = param[0]
+    max_locs = param[1]
+    target = param[2]
+
+    #print "Max vals:", max_vals
+    #print "Max locs:", max_locs
+        
+    if max_vals is None:
+        return 1.0
+
+    data = np.array(xvals)
+    x1 = data[:,0]
+    x2 = data[:,1]
+    queries = np.vstack([x1, x2]).T        
+    d = queries.shape[1] # The dimension of the points (should be 2D)     
+
+    # Initialize f, g
+    f = 0
+    for i in xrange(max_vals.shape[0]):
+        # Compute the posterior mean/variance predictions and gradients.
+        #mean, var = robot_model.predict_value(queries)
+        mean, var = robot_model.predict_value(queries)
+     
+        #mean_before, var_before = robot_model.predict_value(np.reshape(max_locs[i], (1,2)))
+        #print "Before mean var:", mean, var
+
+        observations = target[i](queries)
+        temp_model = robot_model.add_data_and_temp_model(queries, observations)
+        #print "observations:", observations 
+        mean_after, var_after = robot_model.predict_value(np.reshape(max_locs[i], (1,2)), TEMP = True)
+        #print "After mean var:", mean_after, var_after
+       
+        max_before = np.max(robot_model.zvals)
+        #print "before entroyp:", entropy_of_tn(a = max_before, b = None, mu = mean, var = var)
+        max_after = np.amax(np.vstack([observations, robot_model.zvals]), axis = None)
+        #print "after entroyp:", entropy_of_tn(a = max_after, b = None, mu = mean_after, var = var_after)
+        #f += sum(entropy_of_tn(None, np.max(robot_model.zvals), mean, var) - entropy_of_tn(None, np.max([robot_model.xvals, np.max(observations)]), mean_after, var_after))
+        f += entropy_of_tn(a = max_before, b = None, mu = mean_before, var = var_before) - entropy_of_tn(a = max_after, b = None, mu = mean_after, var = var_after) + entropy_of_n(var)
+        #print "f:", f
+    # Average f
+    f = f / max_vals.shape[0]
+    # f is an np array; return scalar value
+    return f[0][0]
 
 def mves(time, xvals, robot_model, param):
     ''' Define the Acquisition Function and the Gradient of MES'''
     # Compute the aquisition function value f and garident g at the queried point x using MES, given samples
     # function maxes and a previous set of functino maxes
-    maxes = param
+    maxes = param[0]
     # If no max values are provided, return default value
     if maxes is None:
         return 1.0
@@ -1664,18 +1812,35 @@ def mves(time, xvals, robot_model, param):
         gamma = (maxes[i] - mean) / var
         pdfgamma = sp.stats.norm.pdf(gamma)
         cdfgamma = sp.stats.norm.cdf(gamma)
-        f += sum(gamma * pdfgamma / (2.0 * cdfgamma) - np.log(cdfgamma))        
+        #f += sum(gamma * pdfgamma / (2.0 * cdfgamma) - np.log(cdfgamma))        
+        #utility = gamma * pdfgamma / (2.0 * cdfgamma) - np.log(cdfgamma)
+        '''
+        print "---------------------"
+        print "locs:", queries
+        print "entropy of z:", entropy_of_n(var)
+        print "entropy of tn:"
+        print entropy_of_tn(a = maxes[i], b = None, mu = mean, var = var)
+        print "means:", mean
+        print "vars:", var
+        print "maxes:", maxes[i]
+        '''
+        utility = entropy_of_n(var) - entropy_of_tn(a = None, b = maxes[i], mu = mean, var = var)
+        #utility /= entropy_of_n(var) 
+        #print "before:",  gamma * pdfgamma / (2.0 * cdfgamma) - np.log(cdfgamma)
+        #print "utility:", utility
+        f += sum(utility)
+
     # Average f
     f = f / maxes.shape[0]
     # f is an np array; return scalar value
-    return f[0]
+    return f[0] 
     
 def entropy_of_n(var):    
     return np.log(np.sqrt(2.0 * np.pi * var))
 
 def entropy_of_tn(a, b, mu, var):
-    ''' a (float) is the upper bound
-        b (float) is the lower bound '''
+    ''' a (float) is the lower bound
+        b (float) is the upper bound '''
     if a is None:
         Phi_alpha = 0
         phi_alpha = 0
@@ -1693,7 +1858,13 @@ def entropy_of_tn(a, b, mu, var):
         Phi_beta = sp.stats.norm.cdf(beta)
         phi_beta = sp.stats.norm.pdf(beta)
 
+    #print "phi_alpha", phi_alpha
+    #print "Phi_alpha", Phi_alpha
+    #print "phi_beta", phi_beta
+    #print "Phi_beta", Phi_beta
+
     Z = Phi_beta - Phi_alpha
+    #print (alpha * phi_alpha - beta * phi_beta) 
     
     return np.log(Z * np.sqrt(2.0 * np.pi * var)) + (alpha * phi_alpha - beta * phi_beta) / (2.0 * Z)
 
