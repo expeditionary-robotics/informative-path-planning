@@ -11,7 +11,7 @@ def import_tree(filename):
 
 
 if __name__ == '__main__':
-	tree = import_tree('figures/mean/tree_1.npy')
+	tree = import_tree('figures/mean/tree_29.npy')
 	tree = tree.item()
 
 	leaves = []

@@ -12,6 +12,7 @@ import os
 import time
 import sys
 import logging
+import numpy as np
 
 import aq_library as aqlib
 import mcts_library as mctslib
@@ -85,7 +86,7 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      MAX_COLOR=MAX_COLOR,
                      computation_budget=1.0) 
 
-robot.planner(T = 175)
+robot.planner(T = 30)
 #robot.visualize_world_model(screen = True)
 robot.visualize_trajectory(screen = False) #creates a summary trajectory image
 robot.plot_information() #plots all of the metrics of interest

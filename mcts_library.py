@@ -61,6 +61,15 @@ class MCTS:
         self.f_rew = f_rew
         self.t = T
 
+        if self.f_rew == 'mean':
+            self.c = 3000
+        elif self.f_rew == 'exp_improve':
+            self.c = 30
+        elif self.f_rew == 'mes':
+            self.c = 3
+        else:
+            self.c = 0.1
+
     def choose_trajectory(self, t, loc=None):
         ''' 
         Main function loop which makes the tree and selects the best child
@@ -125,7 +134,7 @@ class MCTS:
         actions = self.path_generator.get_path_set(self.cp)
         for i, val in actions.items():
             node = 'child '+ str(i)
-            leaf_eval[node] = self.tree[node][2] + 0.1*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][3])
+            leaf_eval[node] = self.tree[node][2] + self.c*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][3])
         return max(leaf_eval, key=leaf_eval.get)
 
     def rollout_policy(self, node):
