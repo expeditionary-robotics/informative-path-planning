@@ -76,6 +76,7 @@ class Robot(object):
         self.current_max_loc = [0,0]
         self.max_locs = None
         self.max_val = None
+        self.target = None
 
         self.learn_params = learn_params
         self.use_cost = use_cost
@@ -88,6 +89,8 @@ class Robot(object):
             self.aquisition_function = aqlib.info_gain
         elif f_rew == 'mes':
             self.aquisition_function = aqlib.mves
+        elif f_rew == 'maxs-mes':
+            self.aquisition_function = aqlib.mves_maximal_set
         elif f_rew == 'exp_improve':
             self.aquisition_function = aqlib.exp_improvement
         else:
@@ -152,17 +155,16 @@ class Robot(object):
         param = None    
         
         max_locs = max_vals = None      
-        if self.f_rew == 'mes':
-            print "MES is the reward function"
-            self.max_val, self.max_locs = aqlib.sample_max_vals(self.GP, t = t)
+        if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
+            self.max_val, self.max_locs, self.target = aqlib.sample_max_vals(self.GP, t = t)
 
         pred_loc, pred_val = self.predict_max()
             
         paths = self.path_generator.get_path_set(self.loc)
 
         for path, points in paths.items():
-            if self.f_rew == 'mes':
-                param = self.max_val
+            if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
+                param = (self.max_val, self.max_locs, self.target)
             elif self.f_rew == 'exp_improve':
                 if len(self.maxes) == 0:
                     param = [self.current_max]
@@ -173,7 +175,7 @@ class Robot(object):
             if self.path_option == 'fully_reachable_goal':
                 cost = float(self.path_generator.path_cost(points))
             else:
-                if self.f_rew == 'mes':
+                if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
                     avg_loc_x = 0
                     avg_loc_y = 0
                     try:

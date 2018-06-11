@@ -108,11 +108,11 @@ def hotspot_info_UCB(time, xvals, robot_model, param=None):
     return info_gain(time, xvals, robot_model) + LAMBDA * np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
 
 
-def sample_max_vals(robot_model, t, nK = 2, nFeatures = 300, visualize = True):
+def sample_max_vals(robot_model, t, nK = 10, nFeatures = 200, visualize = True):
     ''' The mutual information between a potential set of samples and the local maxima'''
     # If the robot has not samples yet, return a constant value
     if robot_model.xvals is None:
-        return None, None
+        return None, None, None
 
     d = robot_model.xvals.shape[1] # The dimension of the points (should be 2D)     
 
@@ -120,6 +120,7 @@ def sample_max_vals(robot_model, t, nK = 2, nFeatures = 300, visualize = True):
     current observations. Construct random freatures and optimize functions drawn from posterior GP.'''
     samples = np.zeros((nK, 1))
     locs = np.zeros((nK, 2))
+    funcs = []
     delete_locs = []
 
     for i in xrange(nK):
@@ -196,6 +197,7 @@ def sample_max_vals(robot_model, t, nK = 2, nFeatures = 300, visualize = True):
             continue
         
         samples[i] = max_val
+        funcs.append(target)
         print "Max Value in Optimization \t \t", samples[i]
         logger.info("Max Value in Optimization \t {}".format(samples[i]))
         locs[i, :] = maxima
@@ -217,14 +219,14 @@ def sample_max_vals(robot_model, t, nK = 2, nFeatures = 300, visualize = True):
         samples[0] = np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise)
         locs[0, :] = robot_model.xvals[np.argmax(robot_model.zvals)]
    
-    return samples, locs
+    return samples, locs, funcs
       
 
 def mves(time, xvals, robot_model, param):
     ''' Define the Acquisition Function and the Gradient of MES'''
     # Compute the aquisition function value f and garident g at the queried point x using MES, given samples
     # function maxes and a previous set of functino maxes
-    maxes = param
+    maxes = param[0]
     # If no max values are provided, return default value
     if maxes is None:
         return 1.0
@@ -243,24 +245,72 @@ def mves(time, xvals, robot_model, param):
         #[meanVector, varVector, meangrad, vargrad] = mean_var(x, xx, ...
         #    yy, KernelMatrixInv{i}, l(i,:), sigma(i), sigma0(i));
         mean, var = robot_model.predict_value(queries)
-        std_dev = np.sqrt(var)
         
         # Compute the acquisition function of MES.        
+        '''
         gamma = (maxes[i] - mean) / var
         pdfgamma = sp.stats.norm.pdf(gamma)
         cdfgamma = sp.stats.norm.cdf(gamma)
         f += sum(gamma * pdfgamma / (2.0 * cdfgamma) - np.log(cdfgamma))        
+        '''
+        utility = entropy_of_n(var) - entropy_of_tn(a = None, b = maxes[i], mu = mean, var = var)
+        #utility /= entropy_of_n(var) 
+        f += sum(utility)
     # Average f
     f = f / maxes.shape[0]
     # f is an np array; return scalar value
     return f[0]
+
+def mves_maximal_set(time, xvals, robot_model, param):
+    ''' Define the Acquisition Function for maximal-set information gain
+   param is tuple (maxima, target) '''
+    max_vals = param[0]
+    max_locs = param[1]
+    target = param[2]
+
+    if max_vals is None:
+        return 1.0
+
+    data = np.array(xvals)
+    x1 = data[:,0]
+    x2 = data[:,1]
+    queries = np.vstack([x1, x2]).T        
+    d = queries.shape[1] # The dimension of the points (should be 2D)     
+
+    # Initialize f, g
+    f = 0
+    for i in xrange(max_vals.shape[0]):
+        # Compute the posterior mean/variance predictions and gradients.
+        mean_before, var_before = robot_model.predict_value(queries)
+     
+        radius = 2.0
+        radius_steps = 0
+        angle_steps = 0
+        ball_data = np.zeros(((radius_steps) * (angle_steps) + 1, queries .shape[1]))
+        for ii, dist in enumerate(np.linspace(0., radius, radius_steps)):
+            for jj, angle in enumerate(np.linspace(0., 2. * np.pi, angle_steps)):
+                ball_data[ii*angle_steps + jj, :] = np.reshape(max_locs[i] + np.array([dist * np.cos(angle), dist * np.sin(angle)]), (1,2))
+                #ball_data[ii*angle_steps + jj, :] = np.reshape(np.array([3., 3.]) + np.array([dist * np.cos(angle), dist * np.sin(angle)]), (1,2))
+        ball_data[-1, :] = np.reshape(max_locs[i], (1,2))
+
+        observations = target[i](ball_data)
+        temp_model = robot_model.add_data_to_temp_model(ball_data, observations)
+        
+        mean_after, var_after = robot_model.predict_value(queries, TEMP = True)
+        utility = entropy_of_n(var_before) - entropy_of_tn(a = None, b = max_vals[i], mu = mean_after, var = var_after)
+        f += sum(utility)
+
+    # Average f
+    f = f / max_vals.shape[0]
+    # f is an np array; return scalar value
+    return f[0] 
     
 def entropy_of_n(var):    
     return np.log(np.sqrt(2.0 * np.pi * var))
 
 def entropy_of_tn(a, b, mu, var):
-    ''' a (float) is the upper bound
-        b (float) is the lower bound '''
+    ''' a (float) is the lower bound
+        b (float) is the uppper bound '''
     if a is None:
         Phi_alpha = 0
         phi_alpha = 0
@@ -283,8 +333,8 @@ def entropy_of_tn(a, b, mu, var):
     return np.log(Z * np.sqrt(2.0 * np.pi * var)) + (alpha * phi_alpha - beta * phi_beta) / (2.0 * Z)
 
 def global_maximization(target, target_vector_n, target_grad, target_vector_gradient_n, ranges, guesses, visualize, filename):
-    MIN_COLOR=-25.
-    MAX_COLOR=25.
+    MIN_COLOR = -25.
+    MAX_COLOR = 25.
 
     ''' Perform efficient global maximization'''
     gridSize = 300

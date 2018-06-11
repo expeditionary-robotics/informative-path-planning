@@ -57,6 +57,8 @@ class MCTS:
         self.params = None
         self.max_val = None
         self.max_locs = None
+        self.target = None
+
         self.current_max = aq_param
         self.f_rew = f_rew
         self.t = T
@@ -71,8 +73,8 @@ class MCTS:
         i = 0 #iteration count
 
         # randomly sample the world for entropy search function
-        if self.f_rew == 'mes':
-            self.max_val, self.max_locs = sample_max_vals(self.GP, t = t)
+        if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
+            self.max_val, self.max_locs, self.target  = sample_max_vals(self.GP, t = t)
             
         time_start = time.time()            
         # while we still have time to compute, generate the tree
@@ -162,7 +164,7 @@ class MCTS:
 
         return sequence
 
-    def get_reward(self, sequence, loc=None):
+    def get_reward(self, sequence, loc = None):
         '''
         Evaluate the sequence to get the reward, defined by the percentage of entropy reduction.
         Input: sequence (list of strings) names of the nodes in the tree
@@ -173,30 +175,40 @@ class MCTS:
         obs = []
         cost = 0
         for seq in sequence:
-        	# for i in self.tree[seq][0]:
-        	# 	samples.append(i)
-        	samples.append(self.tree[seq][0])
+            # for i in self.tree[seq][0]:
+            # 	samples.append(i)
+            samples.append(self.tree[seq][0])
+
         obs = list(chain.from_iterable(samples))
         if loc is not None:
-        	cost = self.path_generator.path_cost([self.tree[seq][0][-1]], loc)
+            cost = self.path_generator.path_cost([self.tree[seq][0][-1]], loc)
+
+        if self.f_rew == 'maxs-mes':
+            reward = self.aquisition_function(time = self.t, xvals = obs, robot_model = self.GP, param = (self.max_val, self.max_locs, self.target))
+            return reward, cost
 
         reward = 0
         for s in samples:
-        	obs = np.array(s)
-        	xobs = np.vstack([obs[:,0], obs[:,1]]).T
-	        if self.f_rew == 'mes':
-	            reward += self.aquisition_function(time = self.t, xvals = xobs, robot_model = sim_world, param = self.max_val)
-	        elif self.f_rew == 'exp_improve':
-	            reward += self.aquisition_function(time=self.t, xvals = xobs, robot_model = sim_world, param = [self.current_max])
-	        else:
-	            reward += self.aquisition_function(time=self.t, xvals = xobs, robot_model = sim_world)
-	        # xobs = np.array(obs)
-	        # zmean, zvar = sim_world.predict_value(xobs)
-	        # zobs = []
-	        # for m,v in zip(zmean, zvar):
-	        # 	zobs.append(np.random.normal(m, np.sqrt(v), 1))
-	        # # zobs = np.random.normal(zmean, np.sqrt(zvar[0][0]), 1)
-	        # sim_world.add_data(xobs, zobs)
+            obs = np.array(s)
+            xobs = np.vstack([obs[:,0], obs[:,1]]).T
+            if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
+                reward += self.aquisition_function(time = self.t, xvals = xobs, robot_model = sim_world, param = (self.max_val, self.max_locs, self.target))
+            elif self.f_rew == 'exp_improve':
+                reward += self.aquisition_function(time=self.t, xvals = xobs, robot_model = sim_world, param = [self.current_max])
+            else:
+                reward += self.aquisition_function(time=self.t, xvals = xobs, robot_model = sim_world)
+           
+            if sim_world.model is None:
+                zmean, zvar = sim_world.predict_value(xobs)
+                zobs = np.random.multivariate_normal(mean = zmean, cov = zvar)
+                #zobs = []
+                
+                #for m,v in zip(zmean, zvar):
+                #    zobs.append(np.random.normal(m, np.sqrt(v), 1))
+            else:
+                zobs = sim_world.model.posterior_samples_f(xobs, full_cov = True, size=1)
+            sim_world.add_data(xobs, zobs)
+
         return reward, cost
 
     
