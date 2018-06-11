@@ -54,8 +54,9 @@ class GPModel:
             
         # Intitally, before any data is created, 
         self.model = None
+        self.temp_model = None
          
-    def predict_value(self, xvals):
+    def predict_value(self, xvals, TEMP = False):
         ''' Public method returns the mean and variance predictions at a set of input locations.
         Inputs:
             xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2
@@ -69,7 +70,16 @@ class GPModel:
         assert(xvals.shape[1] == self.dim)    
         
         n_points, input_dim = xvals.shape
-        
+
+        if TEMP:
+            # With no observations, predict 0 mean everywhere and prior variance
+            if self.temp_model == None:
+                return np.zeros((n_points, 1)), np.ones((n_points, 1)) * self.variance
+
+            # Else, return the predicted values
+            mean, var = self.temp_model.predict(xvals, full_cov = False, include_likelihood = True)
+            return mean, var        
+                
         # With no observations, predict 0 mean everywhere and prior variance
         if self.model == None:
             return np.zeros((n_points, 1)), np.ones((n_points, 1)) * self.variance
@@ -77,6 +87,26 @@ class GPModel:
         # Else, return the predicted values
         mean, var = self.model.predict(xvals, full_cov = False, include_likelihood = True)
         return mean, var        
+
+    def add_data_to_temp_model(self, xvals, zvals):
+        ''' Public method that adds data to a temporay GP model and returns that model
+        Inputs:
+            xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2
+            zvals (float array): an nparray of floats representing sensor observations, with dimension NUM_PTS x 1 
+        ''' 
+        
+        if self.xvals is None:
+            xvals = xvals
+        else:
+            xvals = np.vstack([self.xvals, xvals])
+            
+        if self.zvals is None:
+            zvals = zvals
+        else:
+            zvals = np.vstack([self.zvals, zvals])
+
+        # Create a temporary model
+        self.temp_model = GPy.models.GPRegression(np.array(xvals), np.array(zvals), self.kern)
     
     def add_data(self, xvals, zvals):
         ''' Public method that adds data to an the GP model.

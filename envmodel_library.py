@@ -120,10 +120,7 @@ class Environment:
                 self.GP.add_data(xsamples, zsamples)                            
                 np.random.seed(seed)
                 observations = self.GP.model.posterior_samples_f(data[1:, :], full_cov = True, size=1)
-                print observations.shape
                 self.GP.add_data(data[1:, :], observations)                            
-                print self.GP.xvals.shape
-                print self.GP.zvals.shape
                         
                 '''
                 # Iterate through the rest of the grid sequentially and sample a z values, 

@@ -82,11 +82,14 @@ class Evaluation:
         elif reward_function == 'mes':
             self.f_aqu = aqlib.mves
             self.f_rew = self.mean_reward 
+        elif reward_function == 'maxs-mes':
+            self.f_aqu = aqlib.mves_maximal_set
+            self.f_rew = self.mean_reward 
         elif reward_function == 'exp_improve':
             self.f_aqu = aqlib.exp_improvement
             self.f_rew = self.mean_reward
         else:
-            raise ValueError('Only \'mean\' and \'hotspot_info\' and \'info_gain\' and \' mew\' and \'exp_improve\' reward functions currently supported.')    
+            raise ValueError('Only \'mean\' and \'hotspot_info\' and \'info_gain\' and \' mes\' and \'maxs-mes\' and \'exp_improve\' reward functions currently supported.')    
     
     '''Reward Functions - should have the form (def reward(time, xvals, robot_model)), where:
         time (int): the current timestep of planning
