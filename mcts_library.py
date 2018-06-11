@@ -22,6 +22,7 @@ import logging
 logger = logging.getLogger('robot')
 from aq_library import *
 import copy
+import random
 
 class MCTS:
     '''Class that establishes a MCTS for nonmyopic planning'''
@@ -63,10 +64,12 @@ class MCTS:
         self.f_rew = f_rew
         self.t = T
 
+        # constants for the UCT selection in the MCTS
+        # determined through empirical observation
         if self.f_rew == 'mean':
-            self.c = 1000
+            self.c = 300
         elif self.f_rew == 'exp_improve':
-            self.c = 30
+            self.c = 200
         elif self.f_rew == 'mes':
             self.c = 3
         else:
@@ -140,7 +143,7 @@ class MCTS:
                 return node
             else:
                 leaf_eval[node] = self.tree[node][2] + self.c*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][3])
-        return max(leaf_eval, key=leaf_eval.get)
+        return random.choice([key for key in leaf_eval.keys() if leaf_eval[key] == max(leaf_eval.values())])
 
     def rollout_policy(self, node):
         '''
@@ -203,7 +206,7 @@ class MCTS:
                 reward += self.aquisition_function(time=self.t, xvals = xobs, robot_model = sim_world, param = [self.current_max])
             else:
                 reward += self.aquisition_function(time=self.t, xvals = xobs, robot_model = sim_world)
-           
+
             if sim_world.model is None:
                 n_points, input_dim = xobs.shape
                 zmean, zvar = np.zeros((n_points, )), np.eye(n_points) * self.GP.variance
@@ -217,6 +220,7 @@ class MCTS:
             else:
                 zobs = sim_world.model.posterior_samples_f(xobs, full_cov = True, size=1)
             sim_world.add_data(xobs, zobs)
+        # reward = reward / len(samples)
         return reward, cost
 
     
@@ -261,6 +265,5 @@ class MCTS:
                     best = r
                     best_child = 'child '+ str(i)
             except:
-                print 'here'
                 pass
         return best_child, best, value

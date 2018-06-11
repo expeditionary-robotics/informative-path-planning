@@ -24,7 +24,7 @@ import robot_library as roblib
 
 # Allow selection of seed world to be consistent, and to run through reward functions
 seed =  0#int(sys.argv[1])
-reward_function = 'mean'#sys.argv[2]
+reward_function = 'mes'#sys.argv[2]
 
 # Parameters for plotting based on the seed world information
 MIN_COLOR = -25.
@@ -71,7 +71,7 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      noise = 0.0001,
                      path_generator = 'dubins', #options: default, dubins, equal_dubins, fully_reachable_goal, fully_reachable_step
                      goal_only = False, #select only if using fully reachable step and you want the reward of the step to only be the goal
-                     frontier_size = 20,
+                     frontier_size = 5,
                      horizon_length = 1.5, 
                      turning_radius = 0.05,
                      sample_step = 0.5,
@@ -86,7 +86,7 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      MAX_COLOR=MAX_COLOR,
                      computation_budget=100.0) 
 
-robot.planner(T = 30)
+robot.planner(T = 175)
 #robot.visualize_world_model(screen = True)
 robot.visualize_trajectory(screen = False) #creates a summary trajectory image
 robot.plot_information() #plots all of the metrics of interest

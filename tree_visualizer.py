@@ -1,16 +1,24 @@
 # !/usr/bin/python
 
+'''
+A script for generating MCTS visualizations from a file with saved nonmyopic dataframes.
+
+License: MIT
+Maintainers: Genevieve Flaspohler and Victoria Preston
+'''
+
 import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
 import graphviz
 import os
 
-
 def import_tree(filename):
+    ''' Return the numpy array of the dictionary object saved to file'''
     return np.load(filename)
 
 def get_trees(filepath):
+    ''' Read the directory to get all of the relevant files to transform'''
     trees = {}
     for root, dirs, files in os.walk(filepath):
         for name in files:
@@ -19,6 +27,7 @@ def get_trees(filepath):
     return trees
 
 def extract_paths(tree):
+    ''' Get the last element in a sequence to re-assemble the path'''
     leaves = []
     for key, value in tree.items():
         temp = key.count('child')
@@ -27,6 +36,7 @@ def extract_paths(tree):
     return leaves
 
 def make_tree_graph(leaves):
+    ''' Make a networkx representation of the paths '''
     G = nx.DiGraph()
     last_child = 'root'
     G.add_node(last_child)
@@ -69,6 +79,7 @@ def make_tree_graph(leaves):
 
 
 def plot_trees(trees, path):
+    ''' Plot the networkx representation '''
     for key, tree in trees.items():
         paths = extract_paths(tree)
         graph, pos = make_tree_graph(paths)
@@ -76,12 +87,12 @@ def plot_trees(trees, path):
         plt.subplot(111)
         nx.draw(graph, pos, with_labels=True)
         plt.savefig(path+'mct_'+str(key))
+        plt.close()
         # plt.show()
 
 
-
 if __name__ == '__main__':
-    path = 'figures/mean/'
+    path = 'figures/mes/'
     trees = get_trees(path)
     plot_trees(trees, path)
     

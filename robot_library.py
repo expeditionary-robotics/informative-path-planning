@@ -198,8 +198,8 @@ class Robot(object):
                 poi = [(self.goals[path][0], self.goals[path][1])]
             # elif self.path_option == 'fully_reachable_step' and self.goal_only == False:
             #     poi = points + [(self.goals[path][0], self.goals[path][1], 0.)]
-            # else:
-            #     poi = points
+            else:
+                poi = points
 
             if self.use_cost == False:
                 value[path] = self.aquisition_function(time = t, xvals = poi, robot_model = self.GP, param = param)

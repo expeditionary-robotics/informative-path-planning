@@ -108,7 +108,7 @@ def hotspot_info_UCB(time, xvals, robot_model, param=None):
     return info_gain(time, xvals, robot_model) + LAMBDA * np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
 
 
-def sample_max_vals(robot_model, t, nK = 10, nFeatures = 200, visualize = True):
+def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = True):
     ''' The mutual information between a potential set of samples and the local maxima'''
     # If the robot has not samples yet, return a constant value
     if robot_model.xvals is None:
