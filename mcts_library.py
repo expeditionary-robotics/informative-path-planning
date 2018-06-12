@@ -78,7 +78,8 @@ class MCTS:
             
         time_start = time.time()            
         # while we still have time to compute, generate the tree
-        while time.time() - time_start < self.comp_budget:
+        #while time.time() - time_start < self.comp_budget:
+        while i < self.comp_budget:
             i += 1
             current_node = self.tree_policy()
             sequence = self.rollout_policy(current_node)
@@ -191,7 +192,8 @@ class MCTS:
                 reward += self.aquisition_function(time=self.t, xvals = xobs, robot_model = sim_world, param = [self.current_max])
             else:
                 reward += self.aquisition_function(time=self.t, xvals = xobs, robot_model = sim_world)
-           
+          
+            '''
             if sim_world.model is None:
                 n_points, input_dim = xobs.shape
                 zmean, zvar = np.zeros((n_points, )), np.eye(n_points) * self.GP.variance
@@ -205,6 +207,7 @@ class MCTS:
             else:
                 zobs = sim_world.model.posterior_samples_f(xobs, full_cov = True, size=1)
             sim_world.add_data(xobs, zobs)
+            '''
         return reward, cost
 
     
