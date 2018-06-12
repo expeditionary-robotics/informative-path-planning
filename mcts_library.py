@@ -206,12 +206,7 @@ class MCTS:
                 reward += self.aquisition_function(time=self.t, xvals = xobs, robot_model = sim_world, param = [self.current_max])
             else:
                 reward += self.aquisition_function(time=self.t, xvals = xobs, robot_model = sim_world)
-<<<<<<< HEAD
-          
-            '''
-=======
 
->>>>>>> fe6d24e5ee3e69cf69f2e89c3adf697878674b1b
             if sim_world.model is None:
                 n_points, input_dim = xobs.shape
                 zmean, zvar = np.zeros((n_points, )), np.eye(n_points) * self.GP.variance
@@ -225,11 +220,7 @@ class MCTS:
             else:
                 zobs = sim_world.model.posterior_samples_f(xobs, full_cov = True, size=1)
             sim_world.add_data(xobs, zobs)
-<<<<<<< HEAD
-            '''
-=======
         # reward = reward / len(samples)
->>>>>>> fe6d24e5ee3e69cf69f2e89c3adf697878674b1b
         return reward, cost
 
     
