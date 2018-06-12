@@ -22,8 +22,8 @@ import envmodel_library as envlib
 import robot_library as roblib
 
 # Allow selection of seed world to be consistent, and to run through reward functions
-seed =  int(sys.argv[1])
-reward_function = sys.argv[2]
+seed =  0#int(sys.argv[1])
+reward_function = 'mes'#sys.argv[2]
 
 # Parameters for plotting based on the seed world information
 MIN_COLOR = -25.
@@ -61,8 +61,8 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      init_lengthscale = 1.0, 
                      init_variance = 100.0, 
                      noise = 0.0001,
-                     path_generator = 'fully_reachable_step', #options: default, dubins, equal_dubins, fully_reachable_goal, fully_reachable_step
-                     goal_only = False, #select only if using fully reachable step and you want the reward of the step to only be the goal
+                     path_generator = 'fully_reachable_goal', #options: default, dubins, equal_dubins, fully_reachable_goal, fully_reachable_step
+                     goal_only = True, #select only if using fully reachable step and you want the reward of the step to only be the goal
                      frontier_size = 20,
                      horizon_length = 1.5, 
                      turning_radius = 0.05,

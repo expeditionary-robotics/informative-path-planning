@@ -22,6 +22,7 @@ import logging
 logger = logging.getLogger('robot')
 from aq_library import *
 import copy
+import random
 
 class MCTS:
     '''Class that establishes a MCTS for nonmyopic planning'''
@@ -63,6 +64,17 @@ class MCTS:
         self.f_rew = f_rew
         self.t = T
 
+        # constants for the UCT selection in the MCTS
+        # determined through empirical observation
+        if self.f_rew == 'mean':
+            self.c = 300
+        elif self.f_rew == 'exp_improve':
+            self.c = 200
+        elif self.f_rew == 'mes':
+            self.c = 3
+        else:
+            self.c = 0.1
+
     def choose_trajectory(self, t, loc=None):
         ''' 
         Main function loop which makes the tree and selects the best child
@@ -78,8 +90,7 @@ class MCTS:
             
         time_start = time.time()            
         # while we still have time to compute, generate the tree
-        #while time.time() - time_start < self.comp_budget:
-        while i < self.comp_budget:
+        while i < self.comp_budget:#time.time() - time_start < self.comp_budget:
             i += 1
             current_node = self.tree_policy()
             sequence = self.rollout_policy(current_node)
@@ -128,8 +139,11 @@ class MCTS:
         actions = self.path_generator.get_path_set(self.cp)
         for i, val in actions.items():
             node = 'child '+ str(i)
-            leaf_eval[node] = self.tree[node][2] + 0.1*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][3])
-        return max(leaf_eval, key=leaf_eval.get)
+            if self.tree[node][3] == 0:
+                return node
+            else:
+                leaf_eval[node] = self.tree[node][2] + self.c*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][3])
+        return random.choice([key for key in leaf_eval.keys() if leaf_eval[key] == max(leaf_eval.values())])
 
     def rollout_policy(self, node):
         '''
@@ -192,8 +206,12 @@ class MCTS:
                 reward += self.aquisition_function(time=self.t, xvals = xobs, robot_model = sim_world, param = [self.current_max])
             else:
                 reward += self.aquisition_function(time=self.t, xvals = xobs, robot_model = sim_world)
+<<<<<<< HEAD
           
             '''
+=======
+
+>>>>>>> fe6d24e5ee3e69cf69f2e89c3adf697878674b1b
             if sim_world.model is None:
                 n_points, input_dim = xobs.shape
                 zmean, zvar = np.zeros((n_points, )), np.eye(n_points) * self.GP.variance
@@ -207,7 +225,11 @@ class MCTS:
             else:
                 zobs = sim_world.model.posterior_samples_f(xobs, full_cov = True, size=1)
             sim_world.add_data(xobs, zobs)
+<<<<<<< HEAD
             '''
+=======
+        # reward = reward / len(samples)
+>>>>>>> fe6d24e5ee3e69cf69f2e89c3adf697878674b1b
         return reward, cost
 
     
@@ -252,6 +274,5 @@ class MCTS:
                     best = r
                     best_child = 'child '+ str(i)
             except:
-                print 'here'
                 pass
         return best_child, best, value
