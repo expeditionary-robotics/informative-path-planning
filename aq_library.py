@@ -128,7 +128,7 @@ def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = True):
         logger.info("Starting global optimization {} of {}".format(i, nK))
         # Draw the weights for the random features
         # TODO: make sure this formula is correct
-        W = np.random.normal(loc = 0.0, scale = np.sqrt(1./(robot_model.lengthscale ** 2.)), size = (nFeatures, d))
+        W = np.random.normal(loc = 0.0, scale = np.sqrt(1./(robot_model.lengthscale)), size = (nFeatures, d))
         b = 2 * np.pi * np.random.uniform(low = 0.0, high = 1.0, size = (nFeatures, 1))
         
         # Compute the features for xx
@@ -254,6 +254,7 @@ def mves(time, xvals, robot_model, param):
         f += sum(gamma * pdfgamma / (2.0 * cdfgamma) - np.log(cdfgamma))        
         '''
         utility = entropy_of_n(var) - entropy_of_tn(a = None, b = maxes[i], mu = mean, var = var)
+
         #utility /= entropy_of_n(var) 
         f += sum(utility)
     # Average f
