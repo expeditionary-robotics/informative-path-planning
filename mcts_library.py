@@ -218,11 +218,11 @@ class MCTS:
                 #for m,v in zip(zmean, zvar):
                 #    zobs.append(np.random.normal(m, np.sqrt(v), 1))
             else:
-                zobs = sim_world.model.posterior_samples_f(xobs, full_cov = True, size=1)
+                zobs = sim_world.posterior_samples(xobs, full_cov = False, size=1)
+                #print zobs
             sim_world.add_data(xobs, zobs)
         # reward = reward / len(samples)
         return reward, cost
-
     
     def update_tree(self, reward, cost, sequence):
         '''Propogate the reward for the sequence

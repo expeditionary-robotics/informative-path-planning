@@ -53,8 +53,8 @@ world = envlib.Environment(ranges = ranges,
 evaluation = evalib.Evaluation(world = world, reward_function = reward_function)
 
 
-x1observe = np.linspace(0., 10., 20)
-x2observe = np.linspace(0., 10., 20)
+x1observe = np.linspace(0., 10., 5)
+x2observe = np.linspace(0., 10., 5)
 x1observe, x2observe = np.meshgrid(x1observe, x2observe, sparse = False, indexing = 'xy')  
 data = np.vstack([x1observe.ravel(), x2observe.ravel()]).T
 observations = world.sample_value(data)
@@ -65,12 +65,14 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      extent = ranges, #extent of the explorable environment
                      kernel_file = None,
                      kernel_dataset = None,
-                     prior_dataset =  None, #(data, observations), 
+                     #prior_dataset =  (data, observations), 
+                     prior_dataset = None,
                      init_lengthscale = 1.0, 
                      init_variance = 100.0, 
-                     noise = 0.0000,
-                     #path_generator = 'dubins', #options: default, dubins, equal_dubins, fully_reachable_goal, fully_reachable_step
-                     path_generator = 'fully_reachable_goal', #options: default, dubins, equal_dubins, fully_reachable_goal, fully_reachable_step
+                     #noise = 0.0005,
+                     noise = 1.000,
+                     path_generator = 'dubins', #options: default, dubins, equal_dubins, fully_reachable_goal, fully_reachable_step
+                     #path_generator = 'fully_reachable_goal', #options: default, dubins, equal_dubins, fully_reachable_goal, fully_reachable_step
                      goal_only = False, #select only if using fully reachable step and you want the reward of the step to only be the goal
                      frontier_size = 15,
                      horizon_length = 1.5, 
@@ -82,10 +84,10 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      learn_params=False, #if kernel params should be trained online
                      nonmyopic= False, #select if you want to use MCTS
                      discretization=(20,20), #parameterizes the fully reachable sets
-                     use_cost=True, #select if you want to use a cost heuristic
+                     use_cost=False, #select if you want to use a cost heuristic
                      MIN_COLOR=MIN_COLOR,
                      MAX_COLOR=MAX_COLOR,
-                     computation_budget=150.0) 
+                     computation_budget= 150.0) 
 
 robot.planner(T = 175)
 #robot.visualize_world_model(screen = True)

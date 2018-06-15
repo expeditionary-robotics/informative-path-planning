@@ -81,7 +81,13 @@ def mean_UCB(time, xvals, robot_model, param=None):
                               
     # The GPy interface can predict mean and variance at an array of points; this will be an overestimate
     mu, var = robot_model.predict_value(queries)
-    
+    #mu_test, var_test = robot_model.predict_value_legacy(queries)
+
+    #print "------Diff-----------:"
+    #print mu - mu_test
+    #print var - var_test
+
+
     delta = 0.9
     d = 20
     pit = np.pi**2 * (time + 1)**2 / 6.
@@ -262,9 +268,9 @@ def mves(time, xvals, robot_model, param):
     # f is an np array; return scalar value
     return f[0]
 
+'''
 def mves_maximal_set(time, xvals, robot_model, param):
-    ''' Define the Acquisition Function for maximal-set information gain
-   param is tuple (maxima, target) '''
+    #Define the Acquisition Function for maximal-set information gain param is tuple (maxima, target)
     max_vals = param[0]
     max_locs = param[1]
     target = param[2]
@@ -305,6 +311,7 @@ def mves_maximal_set(time, xvals, robot_model, param):
     f = f / max_vals.shape[0]
     # f is an np array; return scalar value
     return f[0] 
+'''
     
 def entropy_of_n(var):    
     return np.log(np.sqrt(2.0 * np.pi * var))

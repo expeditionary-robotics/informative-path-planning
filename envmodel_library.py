@@ -119,7 +119,7 @@ class Environment:
                 # Add initial sample data point to the GP model
                 self.GP.add_data(xsamples, zsamples)                            
                 np.random.seed(seed)
-                observations = self.GP.model.posterior_samples_f(data[1:, :], full_cov = True, size=1)
+                observations = self.GP.posterior_samples(data[1:, :], full_cov = True, size=1)
                 self.GP.add_data(data[1:, :], observations)                            
                         
                 '''

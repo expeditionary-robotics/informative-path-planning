@@ -77,6 +77,7 @@ class Robot(object):
         self.max_locs = None
         self.max_val = None
         self.target = None
+        self.noise = noise
 
         self.learn_params = learn_params
         self.use_cost = use_cost
@@ -97,7 +98,7 @@ class Robot(object):
             raise ValueError('Only \'hotspot_info\' and \'mean\' and \'info_gain\' and \'mes\' and \'exp_improve\' reward fucntions supported.')
 
         # Initialize the robot's GP model with the initial kernel parameters
-        self.GP = gplib.GPModel(ranges = extent, lengthscale = init_lengthscale, variance = init_variance)
+        self.GP = gplib.OnlineGPModel(ranges = extent, lengthscale = init_lengthscale, variance = init_variance, noise = self.noise)
                 
         # If both a kernel training dataset and a prior dataset are provided, train the kernel using both
         if  kernel_dataset is not None and prior_dataset is not None:
