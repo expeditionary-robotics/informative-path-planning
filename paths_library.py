@@ -139,46 +139,49 @@ class Dubins_Path_Generator(Path_Generator):
     '''
     
     def buffered_paths(self):
-        coords = {}
-        true_coords = {}
+        sampling_path = {}
+        true_path = {}
         for i,goal in enumerate(self.goals):            
             path = dubins.shortest_path(self.cp, goal, self.tr)
-            configurations, _ = path.sample_many(self.ss)
-            configurations.append(goal)
             fconfig, _ = path.sample_many(self.ss/10)
-            fconfig.append(goal)
-
-            temp = []
-            for config in configurations:
-                if config[0] > self.extent[0] and config[0] < self.extent[1] and config[1] > self.extent[2] and config[1] < self.extent[3] and self.obstacle_world.in_obstacle((config[0],config[1]), buff=self.tr) == False:
-                    temp.append(config)
-                else:
-                    # temp = []
-                    break
-
-            if len(temp) < 2:
-                pass
-            else:
-                coords[i] = temp
 
             ftemp = []
             for c in fconfig:
-                if len(temp) >= 2:
-                    if c[0] == temp[-1][0] and c[1] == temp[-1][1]:
-                        ftemp.append(c)
-                        break
-                    else:
-                        ftemp.append(c)
+                if c[0] > self.extent[0] and c[0] < self.extent[1] and c[1] > self.extent[2] and c[1] < self.extent[3] and not self.obstacle_world.in_obstacle((c[0], c[1]), buff = self.tr):
+                    ftemp.append(c)
                 else:
-                    pass
-            if len(ftemp) == 0:
-                pass
-            else:
-                true_coords[i] = ftemp
+                    break
+            try:
+                true_goal = ftemp[-1]
+                s_path = dubins.shortest_path(self.cp, true_goal, self.tr)
+                configurations, _ = s_path.sample_many(self.ss)
 
-        if len(coords) == 0:
-            pdb.set_trace()
-        return coords, true_coords    
+                temp = []
+                for c in configurations:
+                    if c[0] > self.extent[0]+3*self.tr and c[0] < self.extent[1]-3*self.tr and c[1] > self.extent[2]+3*self.tr and c[1] < self.extent[3]-3*self.tr and not self.obstacle_world.in_obstacle((c[0], c[1]), buff = 3*self.tr):
+                        temp.append(c)
+                    else:
+                        break
+
+                adjusted_truth = []
+                if len(temp) >= 2:
+                    for c in ftemp:
+                        if np.isclose(c[0], temp[-1][0], rtol=0.1) and np.isclose(c[1],temp[-1][1]):
+                            adjusted_truth.append(c)
+                            break
+                        else:
+                            adjusted_truth.append(c)
+
+
+                if len(temp) < 2:
+                    pass
+                else:
+                    sampling_path[i] = temp
+                    true_path[i] = adjusted_truth
+            except:
+                pass
+        return sampling_path, true_path
+
         
     def make_sample_paths(self):
         '''Connect the current_pose to the goal places'''
