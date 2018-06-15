@@ -27,7 +27,7 @@ import random
 class MCTS:
     '''Class that establishes a MCTS for nonmyopic planning'''
 
-    def __init__(self, computation_budget, belief, initial_pose, rollout_length, path_generator, aquisition_function, f_rew, T, aq_param = None):
+    def __init__(self, computation_budget, belief, initial_pose, rollout_length, path_generator, aquisition_function, f_rew, T, aq_param = None, use_cost = False):
         '''
         Initialize with constraints for the planning, including whether there is a budget or planning horizon
         Inputs:
@@ -63,6 +63,7 @@ class MCTS:
         self.current_max = aq_param
         self.f_rew = f_rew
         self.t = T
+        self.use_cost = use_cost
 
         # constants for the UCT selection in the MCTS
         # determined through empirical observation
@@ -75,7 +76,7 @@ class MCTS:
         else:
             self.c = 0.1
 
-    def choose_trajectory(self, t, loc=None):
+    def choose_trajectory(self, t):
         ''' 
         Main function loop which makes the tree and selects the best child
         Output: path to take, cost of that path
@@ -94,23 +95,20 @@ class MCTS:
             i += 1
             current_node = self.tree_policy()
             sequence = self.rollout_policy(current_node)
-            reward, cost = self.get_reward(sequence, loc)
+            reward, cost = self.get_reward(sequence)
             self.update_tree(reward, cost, sequence)
 
         # get the best action to take with most promising futures, base best on whether to
         # consider cost
-        if loc is None:
-            best_sequence, best_val, all_vals = self.get_best_child()
-        else:
-            best_sequence, best_val, all_vals = self.get_best_child(use_cost=True)
-        paths = self.path_generator.get_path_set(self.cp)
+        best_sequence, best_val, all_vals = self.get_best_child()
+        paths, dense_paths = self.path_generator.get_path_set(self.cp)
 
         #Document the information
         print "Number of rollouts:", i, "\t Size of tree:", len(self.tree)
         logger.info("Number of rollouts: {} \t Size of tree: {}".format(i, len(self.tree)))
         np.save('./figures/' + self.f_rew + '/tree_' + str(t) + '.npy', self.tree)
 
-        return self.tree[best_sequence][0], best_val, paths, all_vals, self.max_locs, self.max_val
+        return self.tree[best_sequence][0], self.tree[best_sequence][1], best_val, paths, all_vals, self.max_locs, self.max_val
 
     def initialize_tree(self):
         '''
@@ -120,9 +118,10 @@ class MCTS:
         tree = {}
         # root of the tree is current location of the vehicle
         tree['root'] = (self.cp, 0) #(pose, number of queries)
-        actions = self.path_generator.get_path_set(self.cp)
-        for action, samples in actions.items():
-            tree['child '+ str(action)] = (samples, 0, 0, 0) #(samples, cost, reward, number of times queried)
+        actions, dense_paths = self.path_generator.get_path_set(self.cp)
+        for action in actions.keys():
+             #(samples robot observes, path, cost, reward, number of times queried)
+            tree['child '+str(action)] = (actions[action], dense_paths[action], 0, 0, 0)
         return tree
 
     def tree_policy(self):
@@ -134,15 +133,14 @@ class MCTS:
             n - number of times that node has been evaluated
             the formula: avg_r + c_p * np.sqrt(2*np.log(N)/n)
         '''
-        # TODO Figure out how this even works
         leaf_eval = {}
-        actions = self.path_generator.get_path_set(self.cp)
+        actions, dense_paths = self.path_generator.get_path_set(self.cp)
         for i, val in actions.items():
             node = 'child '+ str(i)
-            if self.tree[node][3] == 0:
+            if self.tree[node][4] == 0:
                 return node
             else:
-                leaf_eval[node] = self.tree[node][2] + self.c*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][3])
+                leaf_eval[node] = self.tree[node][3] + self.c*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][4])
         return random.choice([key for key in leaf_eval.keys() if leaf_eval[key] == max(leaf_eval.values())])
 
     def rollout_policy(self, node):
@@ -153,7 +151,7 @@ class MCTS:
         '''
         sequence = [node] #include the child node
         for i in xrange(self.rl):
-            actions = self.path_generator.get_path_set(self.tree[node][0][-1]) #plan from the last point in the sample
+            actions, dense_paths = self.path_generator.get_path_set(self.tree[node][0][-1]) #plan from the last point in the sample
             #check that paths were generated; if not, roll back if possible
             try:
                 keys = actions.keys()
@@ -169,13 +167,13 @@ class MCTS:
             except:
                 a = 0
             #create the sequence and add to the tree
-            self.tree[node + ' child ' + str(keys[a])] = (actions[keys[a]], 0, 0, 0) #add random path to the tree
+            self.tree[node + ' child ' + str(keys[a])] = (actions[keys[a]], dense_paths[keys[a]], 0, 0, 0) #add random path to the tree
             node = node + ' child ' + str(keys[a])
             sequence.append(node)
 
         return sequence
 
-    def get_reward(self, sequence, loc = None):
+    def get_reward(self, sequence):
         '''
         Evaluate the sequence to get the reward, defined by the percentage of entropy reduction.
         Input: sequence (list of strings) names of the nodes in the tree
@@ -185,18 +183,19 @@ class MCTS:
         samples = []
         obs = []
         cost = 0
+        reward = 0
+
         for seq in sequence:
             samples.append(self.tree[seq][0])
-
+            if self.use_cost == True:
+                cost += self.path_generator.path_cost(self.tree[seq][1])
+        
         obs = list(chain.from_iterable(samples))
-        if loc is not None:
-            cost = self.path_generator.path_cost([self.tree[seq][0][-1]], loc)
 
         if self.f_rew == 'maxs-mes':
             reward = self.aquisition_function(time = self.t, xvals = obs, robot_model = self.GP, param = (self.max_val, self.max_locs, self.target))
             return reward, cost
 
-        reward = 0
         for s in samples:
             obs = np.array(s)
             xobs = np.vstack([obs[:,0], obs[:,1]]).T
@@ -212,15 +211,9 @@ class MCTS:
                 zmean, zvar = np.zeros((n_points, )), np.eye(n_points) * self.GP.variance
                 zobs = np.random.multivariate_normal(mean = zmean, cov = zvar)
                 zobs = np.reshape(zobs, (n_points, 1))
-
-                #zmean, zvar = sim_world.predict_value(xobs)
-                #zobs = []
-                #for m,v in zip(zmean, zvar):
-                #    zobs.append(np.random.normal(m, np.sqrt(v), 1))
             else:
                 zobs = sim_world.model.posterior_samples_f(xobs, full_cov = True, size=1)
             sim_world.add_data(xobs, zobs)
-        # reward = reward / len(samples)
         return reward, cost
 
     
@@ -231,16 +224,15 @@ class MCTS:
             sequence (list of strings) the names of nodes that form the sequence
         '''
         self.tree['root'] = (self.tree['root'][0], self.tree['root'][1]+1)
-        path_cost = 0
         for seq in sequence:
-            samples, cos, rew, queries = self.tree[seq]
+            samples, path, cos, rew, queries = self.tree[seq]
             queries += 1
             n = queries
             rew = ((n-1)*rew+reward)/n
             cos = ((n-1)*cos+cost)/n
-            self.tree[seq] = (samples, cos, rew, queries)
+            self.tree[seq] = (samples, path, cos, rew, queries)
 
-    def get_best_child(self, use_cost=False):
+    def get_best_child(self):
         '''Query the tree for the best child in the actions
         Output:
             (string, float) node name of the best child, the cost of that child
@@ -248,18 +240,18 @@ class MCTS:
         best = -float('inf')
         best_child = None
         value = {}
-        actions = self.path_generator.get_path_set(self.cp)
+        actions, dense_paths = self.path_generator.get_path_set(self.cp)
         keys = actions.keys()
         for i in keys:
             try:
-                if use_cost == False:
-                    r = self.tree['child '+ str(i)][2]
+                if self.use_cost == False:
+                    r = self.tree['child '+ str(i)][3]
                     value[i] = r
                 else:
-                    if self.tree['child ' + str(i)][3] == 0.0:
-                        r = self.tree['child '+ str(i)][2]/100.
+                    if self.tree['child ' + str(i)][2] == 0.0:
+                        r = self.tree['child '+ str(i)][3]/100.
                     else:
-                        r = self.tree['child '+ str(i)][2]/self.tree['child ' + str(i)][3]
+                        r = self.tree['child '+ str(i)][3]/self.tree['child ' + str(i)][2]
                     value[i] = r
                 if r > best: 
                     best = r

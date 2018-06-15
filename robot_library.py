@@ -28,6 +28,7 @@ import gpmodel_library as gplib
 import evaluation_library as evalib 
 import paths_library as pathlib 
 import envmodel_library as envlib 
+import obstacles as obslib
 
 
 class Robot(object):
@@ -39,7 +40,7 @@ class Robot(object):
             horizon_length = 5, turning_radius = 1, sample_step = 0.5, evaluation = None, 
             f_rew = 'mean', create_animation = False, learn_params = False, nonmyopic=False, 
             computation_budget = 10, rollout_length = 5, discretization=(10,10), use_cost=False,
-            MIN_COLOR=-25., MAX_COLOR=25., goal_only = False):
+            MIN_COLOR=-25., MAX_COLOR=25., goal_only = False, obstacle_world = obslib.FreeWorld()):
         ''' Initialize the robot class with a GP model, initial location, path sets, and prior dataset
         Inputs:
             sample_world (method) a function handle that takes a set of locations as input and returns a set of observations
@@ -119,11 +120,11 @@ class Robot(object):
             self.GP.add_data(prior_dataset[0], prior_dataset[1]) 
         
         # The path generation class for the robot
-        path_options = {'default':pathlib.Path_Generator(frontier_size, horizon_length, turning_radius, sample_step, self.ranges),
-                        'dubins': pathlib.Dubins_Path_Generator(frontier_size, horizon_length, turning_radius, sample_step, self.ranges),
-                        'equal_dubins': pathlib.Dubins_EqualPath_Generator(frontier_size, horizon_length, turning_radius, sample_step, self.ranges),
-                        'fully_reachable_goal': pathlib.Reachable_Frontier_Generator(extent, discretization, sample_step, turning_radius, horizon_length),
-                        'fully_reachable_step': pathlib.Reachable_Step_Generator(extent ,discretization, sample_step, turning_radius, horizon_length)}
+        path_options = {'default':pathlib.Path_Generator(frontier_size, horizon_length, turning_radius, sample_step, self.ranges, obstacle_world),
+                        'dubins': pathlib.Dubins_Path_Generator(frontier_size, horizon_length, turning_radius, sample_step, self.ranges, obstacle_world),
+                        'equal_dubins': pathlib.Dubins_EqualPath_Generator(frontier_size, horizon_length, turning_radius, sample_step, self.ranges, obstacle_world),
+                        'fully_reachable_goal': pathlib.Reachable_Frontier_Generator(extent, discretization, sample_step, turning_radius, horizon_length, obstacle_world),
+                        'fully_reachable_step': pathlib.Reachable_Step_Generator(extent ,discretization, sample_step, turning_radius, horizon_length, obstacle_world)}
         self.path_generator = path_options[path_generator]
         self.path_option = path_generator
 
@@ -144,6 +145,8 @@ class Robot(object):
         self.goals = np.vstack([x1.ravel(), x2.ravel()]).T
         self.goal_only = goal_only
 
+        self.obstacle_world = obstacle_world
+
     def choose_trajectory(self, t):
         ''' Select the best trajectory avaliable to the robot at the current pose, according to the aquisition function.
         Input: 
@@ -156,13 +159,13 @@ class Robot(object):
         
         max_locs = max_vals = None      
         if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
-            self.max_val, self.max_locs, self.target = aqlib.sample_max_vals(self.GP, t = t)
-
+            self.max_val, self.max_locs, self.target = aqlib.sample_max_vals(self.GP, t = t, obstacles = self.obstacle_world)
         pred_loc, pred_val = self.predict_max()
             
-        paths = self.path_generator.get_path_set(self.loc)
+        paths, true_paths = self.path_generator.get_path_set(self.loc)
 
         for path, points in paths.items():
+            # set params
             if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
                 param = (self.max_val, self.max_locs, self.target)
             elif self.f_rew == 'exp_improve':
@@ -170,34 +173,18 @@ class Robot(object):
                     param = [self.current_max]
                 else:
                     param = self.maxes
+            #  get costs
+            cost = 100.0
+            if self.use_cost == True:
+                cost = float(self.path_generator.path_cost(true_paths[path]))
+                if cost == 0.0:
+                    cost = 100.0
 
-            cost = 0.0
-            if self.path_option == 'fully_reachable_goal':
-                cost = float(self.path_generator.path_cost(points))
-            else:
-                if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
-                    avg_loc_x = 0
-                    avg_loc_y = 0
-                    try:
-                        for l in self.max_locs:
-                            avg_loc_x += l[0]
-                            avg_loc_y += l[1]
-                        avg_loc = [avg_loc_x/len(self.max_locs), avg_loc_y/len(self.max_locs)]
-                    except:
-                        avg_loc = [-1,-1]
-                    cost = float(self.path_generator.path_cost([points[-1]], avg_loc))
-                else:
-                    cost = float(self.path_generator.path_cost([points[-1]], pred_loc))
-            
-            if cost == 0.0:
-                cost = 100.0
-
+            # set the points over which to determine reward
             if self.path_option == 'fully_reachable_goal' and self.goal_only == True:
                 poi = [(points[-1][0], points[-1][1])]
             elif self.path_option == 'fully_reachable_step' and self.goal_only == True:
                 poi = [(self.goals[path][0], self.goals[path][1])]
-            # elif self.path_option == 'fully_reachable_step' and self.goal_only == False:
-            #     poi = points + [(self.goals[path][0], self.goals[path][1], 0.)]
             else:
                 poi = points
 
@@ -207,8 +194,7 @@ class Robot(object):
                 reward = self.aquisition_function(time = t, xvals = poi, robot_model = self.GP, param = param)
                 value[path] = reward/cost          
         try:
-            # pdb.set_trace()
-            return paths[max(value, key = value.get)], value[max(value, key = value.get)], paths, value, self.max_locs
+            return paths[max(value, key = value.get)], true_paths[max(value, key = value.get)], value[max(value, key = value.get)], paths, value, self.max_locs
         except:
             return None
     
@@ -261,34 +247,34 @@ class Robot(object):
 
 
             if self.nonmyopic == False:
-                best_path, best_val, all_paths, all_values, max_locs = self.choose_trajectory(t = t)
+                sampling_path, best_path, best_val, all_paths, all_values, max_locs = self.choose_trajectory(t = t)
             else:
+                # set params
                 if self.f_rew == "exp_improve":
                     param = self.current_max
                 else:
                     param = None
-                mcts = mctslib.MCTS(self.comp_budget, self.GP, self.loc, self.roll_length, self.path_generator, self.aquisition_function, self.f_rew, t, aq_param = param)
-                if self.use_cost == False:
-                    best_path, best_val, all_paths, all_values, self.max_locs, self.max_val = mcts.choose_trajectory(t = t)
-                else:
-                    best_path, best_val, all_paths, all_values, self.max_locs, self.max_val = mcts.choose_trajectory(t = t, loc = pred_loc)
+                # create the tree search
+                mcts = mctslib.MCTS(self.comp_budget, self.GP, self.loc, self.roll_length, self.path_generator, self.aquisition_function, self.f_rew, t, aq_param = param, use_cost = self.use_cost)
+                sampling_path, best_path, best_val, all_paths, all_values, self.max_locs, self.max_val = mcts.choose_trajectory(t = t)
+            
             # Update eval metrics
             start = self.loc
             for m in best_path:
                 self.dist += np.sqrt((start[0]-m[0])**2 + (start[1]-m[1])**2)
                 start = m
             try:
-                self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, best_path, \
+                self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, sampling_path, \
                 value = best_val, max_loc = pred_loc, max_val = pred_val, params = [self.current_max, self.current_max_loc, self.max_val, self.max_locs], dist = self.dist) 
             except:
                 max_locs = [[-1, -1], [-1, -1]]
                 max_val = [-1,-1]
-                self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, best_path, \
+                self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, sampling_path, \
                         value = best_val, max_loc = pred_loc, max_val = pred_val, params = [self.current_max, self.current_max_loc, max_val, max_locs], dist = self.dist) 
             
             if best_path == None:
                 break
-            data = np.array(best_path)
+            data = np.array(sampling_path)
             x1 = data[:,0]
             x2 = data[:,1]
             xlocs = np.vstack([x1, x2]).T           
@@ -299,10 +285,10 @@ class Robot(object):
             self.trajectory.append(best_path)
             
             if self.create_animation:
-                self.visualize_trajectory(screen = False, filename = t, best_path = best_path, 
+                self.visualize_trajectory(screen = False, filename = t, best_path = sampling_path, 
                         maxes = self.max_locs, all_paths = all_paths, all_vals = all_values)            
 
-            self.loc = best_path[-1]
+            self.loc = sampling_path[-1]
         np.savetxt('./figures/' + self.f_rew+ '/robot_model.csv', (self.GP.xvals[:, 0], self.GP.xvals[:, 1], self.GP.zvals[:, 0]))
 
     
@@ -340,7 +326,7 @@ class Robot(object):
         for i, path in enumerate(self.trajectory):
             c = next(color)
             f = np.array(path)
-            plt.plot(f[:,0], f[:,1], c=c, marker='*')
+            plt.plot(f[:,0], f[:,1], c=c)
 
         # If available, plot the current set of options available to robot, colored
         # by their value (red: low, yellow: high)
@@ -353,18 +339,24 @@ class Robot(object):
                 c = next(path_color)                
                 points = all_paths[all_paths.keys()[index]]
                 f = np.array(points)
-                plt.plot(f[:,0], f[:,1], c = c, marker='.')
+                plt.plot(f[:,0], f[:,1], c = c)
                
         # If available, plot the selected path in green
         if best_path is not None:
             f = np.array(best_path)
-            plt.plot(f[:,0], f[:,1], c = 'g', marker='*')
+            plt.plot(f[:,0], f[:,1], c = 'g')
            
         # If available, plot the current location of the maxes for mes
         if maxes is not None:
             for coord in maxes:
                 plt.scatter(coord[0], coord[1], color = 'r', marker = '*', s = 500.0)
             # plt.scatter(maxes[:, 0], maxes[:, 1], color = 'r', marker = '*', s = 500.0)
+
+        # If available, plot the obstacles in the world
+        if len(self.obstacle_world.get_obstacles()) != 0:
+            for o in self.obstacle_world.get_obstacles():
+                x,y = o.exterior.xy
+                plt.plot(x,y,'r',linewidth=3)
            
         # Either plot to screen or save to file
         if screen:
