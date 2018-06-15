@@ -68,8 +68,9 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      prior_dataset =  None, #(data, observations), 
                      init_lengthscale = 1.0, 
                      init_variance = 100.0, 
-                     noise = 0.0001,
-                     path_generator = 'dubins', #options: default, dubins, equal_dubins, fully_reachable_goal, fully_reachable_step
+                     noise = 0.0000,
+                     #path_generator = 'dubins', #options: default, dubins, equal_dubins, fully_reachable_goal, fully_reachable_step
+                     path_generator = 'fully_reachable_goal', #options: default, dubins, equal_dubins, fully_reachable_goal, fully_reachable_step
                      goal_only = False, #select only if using fully reachable step and you want the reward of the step to only be the goal
                      frontier_size = 15,
                      horizon_length = 1.5, 
@@ -79,9 +80,9 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      f_rew = reward_function, 
                      create_animation = True, #logs images to the file folder
                      learn_params=False, #if kernel params should be trained online
-                     nonmyopic=True, #select if you want to use MCTS
+                     nonmyopic= False, #select if you want to use MCTS
                      discretization=(20,20), #parameterizes the fully reachable sets
-                     use_cost=False, #select if you want to use a cost heuristic
+                     use_cost=True, #select if you want to use a cost heuristic
                      MIN_COLOR=MIN_COLOR,
                      MAX_COLOR=MAX_COLOR,
                      computation_budget=150.0) 

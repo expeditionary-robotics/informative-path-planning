@@ -13,6 +13,7 @@ import math
 import os
 import GPy as GPy
 import logging
+import scipy as sp
 logger = logging.getLogger('robot')
 
 
@@ -55,8 +56,37 @@ class GPModel:
         # Intitally, before any data is created, 
         self.model = None
         self.temp_model = None
-         
+    
+    def _mean(self, test_point):
+        return 0.0
+
     def predict_value(self, xvals, TEMP = False):
+        # Calculate for the test point
+        assert(xvals.shape[0] >= 1)            
+        assert(xvals.shape[1] == self.dim)    
+	n_points, input_dim = xvals.shape
+        
+	# With no observations, predict 0 mean everywhere and prior variance
+        if self.model == None:
+            return np.zeros((n_points, 1)), np.ones((n_points, 1)) * self.variance
+        
+        K_yy = self.kern.K(xvals, xvals)
+        
+	Sigma_AA = self.kern.K(self.xvals, self.xvals)
+	Sigma_yA = self.kern.K(xvals, self.xvals)
+	Sigma_Ay = Sigma_yA.T
+	
+	Chol_LL = sp.linalg.cholesky(Sigma_AA + self.noise * np.eye(Sigma_AA.shape[0]), lower = True, check_finite = False)
+	Chol_LL_inv_dot_Sigma_Ay = sp.linalg.solve_triangular(Chol_LL, Sigma_Ay, lower = True, check_finite = False)
+	sigma_y_given_A = K_yy - Chol_LL_inv_dot_Sigma_Ay.T.dot(Chol_LL_inv_dot_Sigma_Ay)
+
+        ylabels_minus_mean = self.zvals # Mean function is zero 
+        Chol_LL_inv_dot_mean = sp.linalg.solve_triangular(Chol_LL, ylabels_minus_mean, lower = True, check_finite = False)
+        mean = Sigma_yA.dot(Chol_LL_inv_dot_mean)
+
+	return mean, sigma_y_given_A
+         
+    def _predict_value(self, xvals, TEMP = False):
         ''' Public method returns the mean and variance predictions at a set of input locations.
         Inputs:
             xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2
