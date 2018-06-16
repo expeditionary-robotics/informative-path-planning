@@ -30,12 +30,13 @@ class Evaluation:
         world (Environment object): an environment object that represents the ground truth environment
         f_rew (string): the reward function. One of {hotspot_info, mean, info_gain, mes, exp_improve} 
     '''
-    def __init__(self, world, reward_function = 'mean'):
+    def __init__(self, world, reward_function = 'mean', num_stars=3):
         ''' Initialize the evaluation module and select reward function'''
         self.world = world
         self.max_val = np.max(world.GP.zvals)
         self.max_loc = world.GP.xvals[np.argmax(world.GP.zvals), :]
         self.reward_function = reward_function
+        self.num_stars = num_stars
 
         print "World max value", self.max_val, "at location", self.max_loc
         logger.info("World max value {} at location {}".format(self.max_val, self.max_loc))
@@ -57,17 +58,16 @@ class Evaluation:
                         'current_highest_obs': {},
                         'current_highest_obs_loc_x': {},
                         'current_highest_obs_loc_y': {},
-                        'star_obs_0': {},
-                        'star_obs_1': {},
-                        'star_obs_loc_x_0': {},
-                        'star_obs_loc_x_1': {},
-                        'star_obs_loc_y_0': {},
-                        'star_obs_loc_y_1': {},
                         'robot_location_x': {},
                         'robot_location_y': {},
                         'robot_location_a': {},
                         'distance_traveled': {},
                        }
+        for i in range(0,num_stars):
+            self.metrics['star_obs_'+str(i)] = {}
+            self.metrics['star_obs_loc_x_'+str(i)] = {}
+            self.metrics['star_obs_loc_y_'+str(i)] = {}
+
         self.reward_function = reward_function
         
         if reward_function == 'hotspot_info':
@@ -223,12 +223,16 @@ class Evaluation:
         self.metrics['instant_regret'][t] = self.inst_regret(t, all_paths, selected_path, robot_model)
         self.metrics['max_val_regret'][t] = self.inst_regret(t, all_paths, selected_path, robot_model, param = 'info_regret')
 
-        self.metrics['star_obs_0'][t] = params[2][0]
-        self.metrics['star_obs_1'][t] = params[2][1]
-        self.metrics['star_obs_loc_x_0'][t] = params[3][0][0]
-        self.metrics['star_obs_loc_x_1'][t] = params[3][1][0]
-        self.metrics['star_obs_loc_y_0'][t] = params[3][0][1]
-        self.metrics['star_obs_loc_y_1'][t] = params[3][1][1]
+        if params[2] is None:
+            for i in range(0,self.num_stars):
+                self.metrics['star_obs_'+str(i)][t] = -1.
+                self.metrics['star_obs_loc_x_'+str(i)][t] = -1.
+                self.metrics['star_obs_loc_y_'+str(i)][t] = -1.
+        else:
+            for i, s in enumerate(params[2]):
+                self.metrics['star_obs_'+str(i)][t] = s
+                self.metrics['star_obs_loc_x_'+str(i)][t] = params[3][i][0]
+                self.metrics['star_obs_loc_y_'+str(i)][t] = params[3][i][1]
 
         self.metrics['info_gain_reward'][t] = self.info_gain_reward(t, selected_path, robot_model)
         self.metrics['MSE'][t] = self.MSE(robot_model, NTEST = 200)
@@ -270,12 +274,15 @@ class Evaluation:
         robot_location_x = np.array(self.metrics['robot_location_x'].values())
         robot_location_y = np.array(self.metrics['robot_location_y'].values())
         robot_location_a = np.array(self.metrics['robot_location_a'].values())
-        star_obs_0 = np.array(self.metrics['star_obs_0'].values())
-        star_obs_1 = np.array(self.metrics['star_obs_1'].values())
-        star_obs_loc_x_0 = np.array(self.metrics['star_obs_loc_x_0'].values())
-        star_obs_loc_x_1 = np.array(self.metrics['star_obs_loc_x_1'].values())
-        star_obs_loc_y_0 = np.array(self.metrics['star_obs_loc_y_0'].values())
-        star_obs_loc_y_1 = np.array(self.metrics['star_obs_loc_y_1'].values())
+        
+        star_obs = []
+        star_obs_loc_x = []
+        star_obs_loc_y = []
+
+        for i in range(0,self.num_stars):
+            star_obs.append(np.array(self.metrics['star_obs_'+str(i)].values()))
+            star_obs_loc_x.append(np.array(self.metrics['star_obs_loc_x_'+str(i)].values()))
+            star_obs_loc_y.append(np.array(self.metrics['star_obs_loc_y_'+str(i)].values()))
 
         distance = np.array(self.metrics['distance_traveled'].values())
         # star_obs_loc = np.array(self.metrics['star_obs_loc'].values())
@@ -292,8 +299,12 @@ class Evaluation:
             max_val_error.T, simple_regret.T,  sample_regret_loc.T, sample_regret_val.T, \
             regret.T, info_regret.T, current_highest_obs.T, current_highest_obs_loc_x.T,current_highest_obs_loc_y.T, \
             robot_location_x.T, robot_location_y.T, robot_location_a.T, \
-            star_obs_0.T, star_obs_loc_x_0.T, star_obs_loc_y_0.T, \
-            star_obs_1.T, star_obs_loc_x_1.T, star_obs_loc_y_1.T, distance.T))
+            distance.T))
+
+        for i in range(0, self.num_stars):
+            f = open('./figures/'+self.reward_function + '/stars.csv', "a")
+            np.savetxt(f, (star_obs[i].T, star_obs_loc_x[i].T, star_obs_loc_y[i].T))
+            f.close()
         #np.savetxt('./figures/' + self.reward_function + '/aqu_fun.csv', aqu_fun)
         #np.savetxt('./figures/' + self.reward_function + '/MSE.csv', MSE)
         #np.savetxt('./figures/' + self.reward_function + '/hotspot_MSE.csv', hotspot_error)
