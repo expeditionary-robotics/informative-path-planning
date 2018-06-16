@@ -21,6 +21,7 @@ import evaluation_library as evalib
 import paths_library as pathlib 
 import envmodel_library as envlib 
 import robot_library as roblib
+import obstacles as obslib
 
 print "User specified options: SEED, REWARD_FUNCTION, PATHSET, USE_COST, NONMYOPIC, GOAL_ONLY"
 # Allow selection of seed world to be consistent, and to run through reward functions
@@ -56,14 +57,12 @@ world = envlib.Environment(ranges = ranges,
 
 # Create the evaluation class used to quantify the simulation metrics
 evaluation = evalib.Evaluation(world = world, reward_function = REWARD_FUNCTION)
-
-'''
-x1observe = np.linspace(0., 10., 5)
-x2observe = np.linspace(0., 10., 5)
 x1observe, x2observe = np.meshgrid(x1observe, x2observe, sparse = False, indexing = 'xy')  
 data = np.vstack([x1observe.ravel(), x2observe.ravel()]).T
 observations = world.sample_value(data)
-'''
+
+# Create obstacle world
+ow = obslib.FreeWorld()
 
 # Create the point robot
 robot = roblib.Robot(sample_world = world.sample_value, #function handle for collecting observations
@@ -91,9 +90,11 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      use_cost = USE_COST, #select if you want to use a cost heuristic
                      MIN_COLOR = MIN_COLOR,
                      MAX_COLOR = MAX_COLOR,
-                     computation_budget= 150.0) 
+                     computation_budget= 150.0,
+                     obstacle_world = ow) 
 
 robot.planner(T = 150)
+#robot.visualize_world_model(screen = True)
 robot.visualize_trajectory(screen = False) #creates a summary trajectory image
 robot.plot_information() #plots all of the metrics of interest
 

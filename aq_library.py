@@ -26,6 +26,7 @@ import time
 from itertools import chain
 import pdb
 import logging
+import obstacles as obslib
 logger = logging.getLogger('robot')
 
 def info_gain(time, xvals, robot_model, param=None):
@@ -112,7 +113,7 @@ def hotspot_info_UCB(time, xvals, robot_model, param=None):
     return info_gain(time, xvals, robot_model) + LAMBDA * np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
 
 
-def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = True):
+def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = True, obstacles=obslib.FreeWorld()):
     ''' The mutual information between a potential set of samples and the local maxima'''
     # If the robot has not samples yet, return a constant value
     if robot_model.xvals is None:
@@ -194,7 +195,7 @@ def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = True):
         # Retry optimization up to 5 times; if hasn't converged, give up on this simulated world
         while status == False and count < 5:
             maxima, max_val, max_inv_hess, status = global_maximization(target, target_vector_n, target_gradient, 
-                target_vector_gradient_n, robot_model.ranges, robot_model.xvals, visualize, 't' + str(t) + '.nK' + str(i))
+                target_vector_gradient_n, robot_model.ranges, robot_model.xvals, visualize, 't' + str(t) + '.nK' + str(i), obstacles)
             count += 1
         if status == False:
             delete_locs.append(i)
@@ -341,7 +342,7 @@ def entropy_of_tn(a, b, mu, var):
     
     return np.log(Z * np.sqrt(2.0 * np.pi * var)) + (alpha * phi_alpha - beta * phi_beta) / (2.0 * Z)
 
-def global_maximization(target, target_vector_n, target_grad, target_vector_gradient_n, ranges, guesses, visualize, filename):
+def global_maximization(target, target_vector_n, target_grad, target_vector_gradient_n, ranges, guesses, visualize, filename, obstacles):
     MIN_COLOR = -25.
     MAX_COLOR = 25.
 
@@ -355,8 +356,7 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
     # Uniformly sample gridSize number of points in interval xmin to xmax
     x1 = np.random.uniform(ranges[0], ranges[1], size = gridSize)
     x2 = np.random.uniform(ranges[2], ranges[3], size = gridSize)
-    x1, x2 = np.meshgrid(x1, x2, sparse = False, indexing = 'xy')  
-    
+    x1, x2 = np.meshgrid(x1, x2, sparse = False, indexing = 'xy')
     Xgrid_sample = np.vstack([x1.ravel(), x2.ravel()]).T    
     Xgrid = np.vstack([Xgrid_sample, guesses])   
     
@@ -370,6 +370,28 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
         y = target(Xgrid_sample)
         max_index = np.argmax(y)
         start = np.asarray(Xgrid_sample[max_index, :])
+
+    # If highest sample point is inside an obstacle, find one outside of the obstacle
+    # xobs = []
+    # yobs = []
+    # if obstacles.in_obstacle((start[0], start[1])) == True:
+    #     x1 = np.random.uniform(ranges[0], ranges[1], size = gridSize)
+    #     x2 = np.random.uniform(ranges[2], ranges[3], size = gridSize)
+    #     for x in x1:
+    #         for y in x2:
+    #             if obstacles.in_obstacle((x,y)) == True:
+    #                 pass
+    #             else:
+    #                 xobs.append(x)
+    #                 yobs.append(y)
+    #     xobs = np.array(xobs)
+    #     yobs = np.array(yobs)
+    #     Xgrid_exception = np.vstack([xobs.ravel(), yobs.ravel()]).T
+
+    #     y = target(Xgrid_exception)
+    #     max_index = np.argmax(y)
+    #     start = np.asarray(Xgrid_exception[max_index, :])
+
     
     if visualize:
         # Generate a set of observations from robot model with which to make contour plots
