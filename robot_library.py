@@ -193,9 +193,10 @@ class Robot(object):
                 value[path] = self.aquisition_function(time = t, xvals = poi, robot_model = self.GP, param = param)
             else:
                 reward = self.aquisition_function(time = t, xvals = poi, robot_model = self.GP, param = param)
-                value[path] = reward/cost          
+                value[path] = reward/cost   
         try:
-            return paths[max(value, key = value.get)], true_paths[max(value, key = value.get)], value[max(value, key = value.get)], paths, value, self.max_locs
+            best_key = np.random.choice([key for key in value.keys() if value[key] == max(value.values())])
+            return paths[best_key], true_paths[best_key], value[best_key], paths, value, self.max_locs
         except:
             return None
     
