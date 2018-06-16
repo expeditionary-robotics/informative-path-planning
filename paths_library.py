@@ -11,9 +11,12 @@ from IPython.display import display
 import numpy as np
 import math
 import dubins
+import obstacles as obs
+import pdb
+import matplotlib.pyplot as plt
 
 class Path_Generator:    
-    def __init__(self, frontier_size, horizon_length, turning_radius, sample_step, extent):
+    def __init__(self, frontier_size, horizon_length, turning_radius, sample_step, extent, obstacle_world=obs.FreeWorld()):
         ''' Initialize a path generator
         Input:
             frontier_size (int) the number of points on the frontier we should consider for navigation
@@ -34,6 +37,9 @@ class Path_Generator:
         self.goals = [] #The frontier coordinates
         self.samples = {} #The sample points which form the paths
         self.cp = (0,0,0) #The current pose of the vehicle
+
+        # Determining whether to consider obstacles
+        self.obstacle_world = obstacle_world
 
     def generate_frontier_points(self):
         '''From the frontier_size and horizon_length, generate the frontier points to goal'''
@@ -62,6 +68,8 @@ class Path_Generator:
                 pass
             elif y > self.extent[3]-3*self.tr or y < self.extent[2]+3*self.tr:
                 pass
+            # elif self.obstacle_world.in_obstacle((x,y), buff=3*self.tr):
+            #     pass
             else:
                 goals.append((x,y,p))
         goals.append(self.cp)
@@ -88,7 +96,7 @@ class Path_Generator:
                     coords[i] = []
                     coords[i].append((x,y,a))
         self.samples = coords
-        return self.samples
+        return self.samples, self.samples
 
     def get_path_set(self, current_pose):
         '''Primary interface for getting list of path sample points for evaluation
@@ -99,8 +107,8 @@ class Path_Generator:
         '''
         self.cp = current_pose
         self.generate_frontier_points()
-        paths = self.make_sample_paths()
-        return paths
+        paths, true_paths = self.make_sample_paths()
+        return paths, true_paths
 
     def path_cost(self, path, loc=None):
         ''' Calculate the cost of a path sequence either with respect to path length, or distance from some element in the world (loc)'''
@@ -131,38 +139,59 @@ class Dubins_Path_Generator(Path_Generator):
     '''
     
     def buffered_paths(self):
-        coords = {}
+        sampling_path = {}
+        true_path = {}
         for i,goal in enumerate(self.goals):            
             path = dubins.shortest_path(self.cp, goal, self.tr)
-            configurations, _ = path.sample_many(self.ss)
-            configurations.append(goal)
+            fconfig, _ = path.sample_many(self.ss/10)
 
-            temp = []
-            for config in configurations:
-                if config[0] > self.extent[0] and config[0] < self.extent[1] and config[1] > self.extent[2] and config[1] < self.extent[3]:
-                    temp.append(config)
+            ftemp = []
+            for c in fconfig:
+                if c[0] > self.extent[0] and c[0] < self.extent[1] and c[1] > self.extent[2] and c[1] < self.extent[3] and not self.obstacle_world.in_obstacle((c[0], c[1]), buff = self.tr):
+                    ftemp.append(c)
                 else:
-                    temp = []
                     break
+            try:
+                true_goal = ftemp[-1]
+                s_path = dubins.shortest_path(self.cp, true_goal, self.tr)
+                configurations, _ = s_path.sample_many(self.ss)
 
-            if len(temp) < 2:
+                temp = []
+                for c in configurations:
+                    if c[0] > self.extent[0]+3*self.tr and c[0] < self.extent[1]-3*self.tr and c[1] > self.extent[2]+3*self.tr and c[1] < self.extent[3]-3*self.tr and not self.obstacle_world.in_obstacle((c[0], c[1]), buff = 3*self.tr):
+                        temp.append(c)
+                    else:
+                        break
+
+                adjusted_truth = []
+                if len(temp) >= 2:
+                    for c in ftemp:
+                        if np.isclose(c[0], temp[-1][0]) and np.isclose(c[1],temp[-1][1]):
+                            adjusted_truth.append(c)
+                            break
+                        else:
+                            adjusted_truth.append(c)
+
+
+                if len(temp) < 2:
+                    pass
+                else:
+                    sampling_path[i] = temp
+                    true_path[i] = adjusted_truth
+            except:
                 pass
-            else:
-                coords[i] = temp
+        return sampling_path, true_path
 
-        if len(coords) == 0:
-            pdb.set_trace()
-        return coords    
         
     def make_sample_paths(self):
         '''Connect the current_pose to the goal places'''
-        coords = self.buffered_paths()
+        coords, true_coords = self.buffered_paths()
         
         if len(coords) == 0:
             print 'no viable path'
             
         self.samples = coords
-        return coords
+        return coords, true_coords
 
 class Dubins_EqualPath_Generator(Path_Generator):
     '''
@@ -173,11 +202,13 @@ class Dubins_EqualPath_Generator(Path_Generator):
     def make_sample_paths(self):
         '''Connect the current_pose to the goal places'''
         coords = {}
+        true_coords = {}
         for i,goal in enumerate(self.goals):
             g = (goal[0],goal[1],self.cp[2])
             path = dubins.shortest_path(self.cp, goal, self.tr)
             configurations, _ = path.sample_many(self.ss)
-            coords[i] = [config for config in configurations if config[0] > self.extent[0] and config[0] < self.extent[1] and config[1] > self.extent[2] and config[1] < self.extent[3]]
+            true_coords[i], _ = path.sample_many(self.ss/5)
+            coords[i] = [config for config in configurations if config[0] > self.extent[0] and config[0] < self.extent[1] and config[1] > self.extent[2] and config[1] < self.extent[3] and not self.obstacle_world.in_obstacle((config[0], config[1]), buff=self.tr)]
         
         # find the "shortest" path in sample space
         current_min = 1000
@@ -191,12 +222,23 @@ class Dubins_EqualPath_Generator(Path_Generator):
             if len(path) > current_min:
                 path = path[0:current_min]
                 coords[key]=path
+
+        for key,path in true_coords.items():
+            ftemp = []
+            for c in path:
+                if c[0] == coords[key][-1][0] and c[1] == coords[key][-1][1]:
+                    ftemp.append(c)
+                    break
+                else:
+                    ftemp.append(c)
+            true_path[key] = ftemp
+        return coords, true_coords
         
 class Reachable_Frontier_Generator():
     '''
     Generates a list of reachable goals within a world, and develops Dubins curve style trajectories and sample sets to reach these goals
     '''
-    def __init__(self, extent, discretization, sample_step, turning_radius, step_size):
+    def __init__(self, extent, discretization, sample_step, turning_radius, step_size,obstacle_world=obs.FreeWorld()):
         self.ranges = extent
         self.discretization = discretization
         self.sample_step = sample_step
@@ -208,9 +250,12 @@ class Reachable_Frontier_Generator():
         x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy')
         self.goals = np.vstack([x1.ravel(), x2.ravel()]).T
 
+        self.obstacle_world = obstacle_world
+
     def take_step(self, loc):
         ''' Given a current location and a goal, determine the dubins curve sampling path'''
         sampling_path = {}
+        true_path = {}
 
         for i,goal in enumerate(self.goals):
             dist = np.sqrt((loc[0]-goal[0])**2 + (loc[1]-goal[1])**2)
@@ -218,21 +263,42 @@ class Reachable_Frontier_Generator():
             new_goal = (goal[0], goal[1], angle_to_goal)
 
             path = dubins.shortest_path(loc, new_goal, self.turning_radius)
-            configurations, _ = path.sample_many(self.sample_step)
-            configurations.append(new_goal)
+            fconfig, _ = path.sample_many(self.sample_step/10)
 
-            temp = []
-            for config in configurations:
-                if config[0] > self.ranges[0] and config[0] < self.ranges[1] and config[1] > self.ranges[2] and config[1] < self.ranges[3]:
-                    temp.append(config)
+            ftemp = []
+            for c in fconfig:
+                if c[0] > self.ranges[0] and c[0] < self.ranges[1] and c[1] > self.ranges[2] and c[1] < self.ranges[3] and not self.obstacle_world.in_obstacle((c[0], c[1]), buff = self.turning_radius):
+                    ftemp.append(c)
                 else:
                     break
+
+            true_goal = ftemp[-1]
+            s_path = dubins.shortest_path(loc, true_goal, self.turning_radius)
+            configurations, _ = s_path.sample_many(self.sample_step)
+
+            temp = []
+            for c in configurations:
+                if c[0] > self.ranges[0]+3*self.turning_radius and c[0] < self.ranges[1]-3*self.turning_radius and c[1] > self.ranges[2]+3*self.turning_radius and c[1] < self.ranges[3]-3*self.turning_radius and not self.obstacle_world.in_obstacle((c[0], c[1]), buff = 3*self.turning_radius):
+                    temp.append(c)
+                else:
+                    break
+
+            adjusted_truth = []
+            if len(temp) >= 2:
+                for c in ftemp:
+                    if np.isclose(c[0], temp[-1][0], rtol=0.1) and np.isclose(c[1],temp[-1][1]):
+                        adjusted_truth.append(c)
+                        break
+                    else:
+                        adjusted_truth.append(c)
+
+
             if len(temp) < 2:
                 pass
             else:
                 sampling_path[i] = temp
-
-        return sampling_path 
+                true_path[i] = adjusted_truth
+        return sampling_path, true_path
 
     def path_cost(self, path, loc=None):
         ''' Calculate the cost of a path sequence either with respect to path length, or distance from some element in the world (loc)'''
@@ -259,6 +325,7 @@ class Reachable_Step_Generator(Reachable_Frontier_Generator):
     def take_step(self, loc):
         ''' Given a current location and a goal, determine the dubins curve sampling path'''
         sampling_path = {}
+        true_path = {}
 
         for i,goal in enumerate(self.goals):
             dist = np.sqrt((loc[0]-goal[0])**2 + (loc[1]-goal[1])**2)
@@ -272,19 +339,51 @@ class Reachable_Step_Generator(Reachable_Frontier_Generator):
             path = dubins.shortest_path(loc, new_goal, self.turning_radius)
             configurations, _ = path.sample_many(self.sample_step)
             configurations.append(new_goal)
+            full_path = fconfig, _ = path.sample_many(self.sample_step/5)
 
             temp = []
             for config in configurations:
-                if config[0] > self.ranges[0] and config[0] < self.ranges[1] and config[1] > self.ranges[2] and config[1] < self.ranges[3]:
+                if config[0] > self.ranges[0] and config[0] < self.ranges[1] and config[1] > self.ranges[2] and config[1] < self.ranges[3] and not self.obstacle_world.in_obstacle((config[0], config[1]), buff=self.turning_radius):
                     temp.append(config)
                 else:
                     break
-
             if len(temp) < 2:
                 pass
             else:
                 sampling_path[i] = temp
 
-        return sampling_path 
 
-    
+            ftemp = []
+            for c in fconfig:
+                if len(temp) >= 2:
+                    if c[0] == temp[-1][0] and c[1] == temp[-1]:
+                        ftemp.append(c)
+                        break
+                    else:
+                        ftemp.append(c)
+                else:
+                    pass
+            true_path[i] = ftemp
+
+        return sampling_path, true_path
+
+
+if __name__ == '__main__':
+    # bw = obs.BlockWorld( [0., 10., 0., 10.], num_blocks=1, dim_blocks=(2.,2.), centers=[(6.1,5)])
+    # bw = obs.BugTrap([0., 10., 0., 10.], (5,5), 3, channel_size = 0.5, width = 3., orientation='left')
+    bw = obs.ChannelWorld([0., 10., 0., 10.], (6,5), 3, 0.4)
+
+    # extent, discretization, sample_step, turning_radius, step_size,obstacle_world=obs.FreeWorld()
+    gen = Reachable_Frontier_Generator([0., 10., 0., 10.], (20,20), 0.5, 0.1, 1.5, bw)
+    paths, true_paths = gen.get_path_set((5,5,0))
+
+    plt.figure()
+    for i, path in paths.items():
+        f = np.array(path)
+        plt.plot(f[:,0], f[:,1])
+    obstacles = bw.get_obstacles()
+    for o in obstacles:
+        x,y = o.exterior.xy
+        plt.plot(x,y)
+    plt.axis([0., 10., 0., 10.])
+    plt.show()
