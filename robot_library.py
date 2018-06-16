@@ -265,15 +265,9 @@ class Robot(object):
             for m in best_path:
                 self.dist += np.sqrt((start[0]-m[0])**2 + (start[1]-m[1])**2)
                 start = m
-            # try:
             self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, sampling_path, \
             value = best_val, max_loc = pred_loc, max_val = pred_val, params = [self.current_max, self.current_max_loc, self.max_val, self.max_locs], dist = self.dist) 
-            # except:
-            #     max_locs = [[-1, -1], [-1, -1]]
-            #     max_val = [-1,-1]
-            #     self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, sampling_path, \
-            #             value = best_val, max_loc = pred_loc, max_val = pred_val, params = [self.current_max, self.current_max_loc, max_val, max_locs], dist = self.dist) 
-            
+
             if best_path == None:
                 break
             data = np.array(sampling_path)

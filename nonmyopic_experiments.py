@@ -57,9 +57,6 @@ world = envlib.Environment(ranges = ranges,
 
 # Create the evaluation class used to quantify the simulation metrics
 evaluation = evalib.Evaluation(world = world, reward_function = REWARD_FUNCTION)
-x1observe, x2observe = np.meshgrid(x1observe, x2observe, sparse = False, indexing = 'xy')  
-data = np.vstack([x1observe.ravel(), x2observe.ravel()]).T
-observations = world.sample_value(data)
 
 # Create obstacle world
 ow = obslib.FreeWorld()
@@ -74,7 +71,7 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      prior_dataset = None,
                      init_lengthscale = 1.0, 
                      init_variance = 100.0, 
-                     noise = 0.1,
+                     noise = 0.5,
                      path_generator = PATHSET, #options: default, dubins, equal_dubins, fully_reachable_goal, fully_reachable_step
                      goal_only = GOAL_ONLY, #select only if using fully reachable step and you want the reward of the step to only be the goal
                      frontier_size = 15,
@@ -93,7 +90,7 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      computation_budget= 150.0,
                      obstacle_world = ow) 
 
-robot.planner(T = 150)
+robot.planner(T = 10)
 #robot.visualize_world_model(screen = True)
 robot.visualize_trajectory(screen = False) #creates a summary trajectory image
 robot.plot_information() #plots all of the metrics of interest
