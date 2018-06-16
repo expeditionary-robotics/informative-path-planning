@@ -90,7 +90,7 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      computation_budget= 150.0,
                      obstacle_world = ow) 
 
-robot.planner(T = 10)
+robot.planner(T = 150)
 #robot.visualize_world_model(screen = True)
 robot.visualize_trajectory(screen = False) #creates a summary trajectory image
 robot.plot_information() #plots all of the metrics of interest
