@@ -167,7 +167,7 @@ class GPModel(object):
 class OnlineGPModel(GPModel):
     ''' This class inherits from the GP model class '''
     def __init__(self, ranges, lengthscale, variance, noise = 0.0001, dimension = 2, kernel = 'rbf'):
-        super(OnlineGPModel, self).__init__(ranges, lengthscale, variance, noise, dimension, kernel)
+        super(OnlineGPModel, self).__init__(ranges, lengthscale, variance, noise, dimension, kernel, update_legacy = False)
         
         self._K_chol = None
         self._K = None
@@ -180,109 +180,79 @@ class OnlineGPModel(GPModel):
         self._mean =  None
         self._covariance = None
         self._prior_mean = 0.
+        self.update_legacy = update_legacy
     
     def init_model(self, xvals, zvals):
-        self._K = self.kern.K(xvals)
-
-        Ky = self._K.copy()
-        # Adds some additional noise to ensure well-conditioned
-        diag.add(Ky, self.noise + 1e-8)
-        Wi, LW, LWi, W_logdet = pdinv(Ky)
-        alpha, _ = dpotrs(LW, zvals, lower=1)
-
-        #self._woodbury_chol = LW
-        self._woodbury_chol = None 
-        #self._woodbury_vector = alpha
-        
-        self._K_chol = None
-        self._woodbury_inv = Wi 
-        self._mean = np.dot(np.dot(self._K, self.woodbury_inv), zvals)
-        self._covariance = self._K - np.dot(np.dot(self._K, self.woodbury_inv), self._K)
-
-        self._woodbury_vector = None
-        #self._woodbury_vector =  np.dot(self._woodbury_inv, zvals) 
-        #self._woodbury_vector =  alpha
-
-        #option 2:
-        #self._mean =  None
-        #self._covariance = None
-        self._prior_mean = 0.
-
         # Update internal data
         self.xvals = xvals
         self.zvals = zvals
     
-    def update_model(self, xvals, zvals):
-        #self._K = self.kern.K(xvals)
+        self._K = self.kern.K(self.xvals)
+
+        Ky = self._K.copy()
+
+        # Adds some additional noise to ensure well-conditioned
+        diag.add(Ky, self.noise + 1e-8)
+        Wi, LW, LWi, W_logdet = pdinv(Ky)
+
+        self._woodbury_inv = Wi 
+        self._woodbury_vector =  np.dot(self._woodbury_inv, self.zvals) 
+        
+        self._woodbury_chol = None 
+        self._mean =  None
+        self._covariance = None
+        self._prior_mean = 0.
+        self._K_chol = None
+
+    def update_model(self, xvals, zvals, incremental = True):
         assert(self.xvals is not None)
         assert(self.zvals is not None)
         
         Kx = self.kern.K(self.xvals, xvals)
+
+        # Update K matrix
         self._K = np.block([
             [self._K,    Kx],
             [Kx.T,      self.kern.K(xvals, xvals)] 
          ])
 
+        # Update internal data
         self.xvals = np.vstack([self.xvals, xvals])
         self.zvals = np.vstack([self.zvals, zvals])
 
+        # Update woodbury inverse, either incrementally or from scratch
+        if incremental == True:
+            Pinv = self.woodbury_inv
+            Q = Kx
+            R = Kx.T
+            S = self.kern.K(xvals, xvals)
+            M = S - np.dot(np.dot(R, Pinv), Q)
+            diag.add(M, self.noise + 1e-8)
+            M, _, _, _ = pdinv(M)
 
-        sigma = self.kern.K(xvals, xvals) - np.dot(np.dot(Kx.T, self.woodbury_inv), Kx)
-        block1 = self.woodbury_inv + np.dot(np.dot(np.dot(self.woodbury_inv, Kx), Kx.T), self.woodbury_inv) / sigma
-        block2 = -np.dot(self.woodbury_inv, Kx)/ sigma
-        block3 = block2.T
-        block4 = 1./sigma
+            Pnew = Pinv + np.dot(np.dot(np.dot(np.dot(Pinv, Q), M), R), Pinv)
+            Qnew = -np.dot(np.dot(Pinv, Q), M)
+            Rnew = -np.dot(np.dot(M, R), Pinv)
+            Snew = M
 
-        self._woodbury_inv = np.block([
-            [block1, block2],
-            [block3, block4]
-        ])
-
-        self._mean = np.dot(np.dot(self._K, self.woodbury_inv), self.zvals)
-        self._covariance = self._K - np.dot(np.dot(self._K, self.woodbury_inv), self._K)
-
-        #print "New kernel shape:", self._K.shape
-
-            
-        #Ky = self._K.copy()
-        # Adds some additional noise to ensure well-conditioned
-        #diag.add(Ky, self.noise + 1e-8)
-        #diag.add(Ky, self.noise + 1e-8)
-        #Wi, LW, LWi, W_logdet = pdinv(Ky)
-
-        #LWi = dtrtri(LW)                                                               
-        #Wi, _ = dpotri(LW, lower=1)                                                   
-        #symmetrify(Wi)                                                               
-       
-        '''
-        u = np.linalg.solve(self._woodbury_chol, Kxnew)
-        v = np.linalg.cholesky(self.kern.K(xvals, xvals) - np.dot(u.T, u))
-
-        pdb.set_trace()
+            self._woodbury_inv = np.block([
+                [Pnew, Qnew],
+                [Rnew, Snew]
+            ])
+        else:
+            Ky = self.K.copy()
+            # Adds some additional noise to ensure well-conditioned
+            diag.add(Ky, self.noise + 1e-8)
+            Wi, LW, LWi, W_logdet = pdinv(Ky)
+            self._woodbury_inv = Wi 
         
-        alpha, _ = dpotrs(LW, self.zvals, lower=1)
+        self._woodbury_vector = np.dot(self.woodbury_inv, self.zvals) 
 
-        self._woodbury_vector = alpha
-        self._woodbury_chol = LW
-        print "Woodbuy chold after update:", LW.shape
-
-        #Wi_new = self._woodbury_inv + 
-        '''
-
-
-        #self._woodbury_chol = LW
-        
-        self._K_chol = None
-        #self._woodbury_inv = Wi 
-        #self._woodbury_inv = None
         self._woodbury_chol = None 
-        self._woodbury_vector = None
-        #self._woodbury_vector = np.dot(self._woodbury_inv, zvals) 
-
-        #option 2:
-        #self._mean =  None
-        #self._covariance = None
+        self._mean =  None
+        self._covariance = None
         self._prior_mean = 0.
+        self._K_chol = None
 
     def add_data(self, xvals, zvals):
         ''' Public method that adds data to an the GP model.
@@ -292,29 +262,19 @@ class OnlineGPModel(GPModel):
         ''' 
         if self.xvals is None:
             assert(self.zvals is None)
-            #assert(self._woodbury_chol is None)
             self.init_model(xvals, zvals)
         else:
-            #assert(self._woodbury_chol is not None)
             assert(self.zvals is not None)
-            #xvals = np.vstack([self.xvals, xvals])
-            #zvals = np.vstack([self.zvals, zvals])
-            #self.init_model(xvals, zvals)
-            for i in xrange(xvals.shape[0]):
-                self.update_model(np.reshape(xvals[i, :], (1,2)), zvals[i, :])
- 
-        '''
-        # If the model hasn't been created yet (can't be created until we have data), create GPy model
-        if self.model == None:
-            self.xvals = xvals
-            self.zvals = zvals
-            self.model = GPy.models.GPRegression(np.array(self.xvals), np.array(self.zvals), self.kern)
-        # Else add to the exisiting model
-        else:
-            #self.xvals = np.vstack([self.xvals, xvals])
-            #self.zvals = np.vstack([self.zvals, zvals])
-            self.model.set_XY(X = np.array(self.xvals), Y = np.array(self.zvals))
-        '''
+            self.update_model(xvals, zvals)
+
+        if self.update_legacy:
+            # Include this code to update the GP model if you want to compare to lecacy predictor 
+            # If the model hasn't been created yet (can't be created until we have data), create GPy model
+            if self.model == None:
+                self.model = GPy.models.GPRegression(np.array(self.xvals), np.array(self.zvals), self.kern)
+            # Else add to the exisiting model
+            else:
+                self.model.set_XY(X = np.array(self.xvals), Y = np.array(self.zvals))
     
     def predict_value(self, xvals, include_noise = True, full_cov = False):
         # Calculate for the test point
@@ -326,24 +286,20 @@ class OnlineGPModel(GPModel):
         if self.xvals is None:
             return np.zeros((n_points, 1)), np.ones((n_points, 1)) * self.variance
 
-        #assert(self._woodbury_vector is not None)
-
-        woodbury_vector = self.woodbury_vector
-        woodbury_inv = self.woodbury_inv
-
         Kx = self.kern.K(self.xvals, xvals)
-        mu = np.dot(Kx.T, woodbury_vector)
+        mu = np.dot(Kx.T, self.woodbury_vector)
         if len(mu.shape)==1:
             mu = mu.reshape(-1,1)
         if full_cov:
             Kxx = self.kern.K(xvals)
-            if woodbury_inv.ndim == 2:
-                var = Kxx - np.dot(Kx.T, np.dot(woodbury_inv, Kx))
+            if self.woodbury_inv.ndim == 2:
+                var = Kxx - np.dot(Kx.T, np.dot(self.woodbury_inv, Kx))
         else:
             Kxx = self.kern.Kdiag(xvals)
-            var = (Kxx - np.sum(np.dot(woodbury_inv.T, Kx) * Kx, 0))[:,None]
+            var = (Kxx - np.sum(np.dot(self.woodbury_inv.T, Kx) * Kx, 0))[:,None]
 
         '''
+        # Alternative way to compute predictions using the cholesky decompostion of the woodvery matrix
         Kx = self.kern.K(self.xvals, xvals)
         mu = np.dot(Kx.T, self.woodbury_vector)
         if len(mu.shape)==1:
@@ -357,7 +313,8 @@ class OnlineGPModel(GPModel):
             tmp = dtrtrs(self.woodbury_chol, Kx)[0]
             var = (Kxx - np.square(tmp).sum(0))[:,None]
         '''
-  
+ 
+        # If model noise should be inlcuded in the prediction
         if include_noise: 
             var += self.noise
         return mu, var
@@ -374,6 +331,7 @@ class OnlineGPModel(GPModel):
 
         assert(xvals.shape[0] >= 1)            
         assert(xvals.shape[1] == self.dim)    
+        assert(self.update_legacy == True) # Can only call this if the legacy model has been updated
         
         n_points, input_dim = xvals.shape
 
@@ -384,7 +342,8 @@ class OnlineGPModel(GPModel):
         # Else, return the predicted values
         mean, var = self.model.predict(xvals, full_cov = False, include_likelihood = include_noise)
         return mean, var        
-    
+   
+    ''' Sample from the Gaussian Process posterior '''
     def posterior_samples(self, xvals, size=10, full_cov = True):
         """
         Samples the posterior GP at the points X.

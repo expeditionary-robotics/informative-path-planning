@@ -82,11 +82,9 @@ def mean_UCB(time, xvals, robot_model, param=None):
     # The GPy interface can predict mean and variance at an array of points; this will be an overestimate
     mu, var = robot_model.predict_value(queries)
     #mu_test, var_test = robot_model.predict_value_legacy(queries)
-
     #print "------Diff-----------:"
     #print mu - mu_test
     #print var - var_test
-
 
     delta = 0.9
     d = 20
