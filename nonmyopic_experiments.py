@@ -22,6 +22,7 @@ import paths_library as pathlib
 import envmodel_library as envlib 
 import robot_library as roblib
 
+print "User specified options: SEED, REWARD_FUNCTION, PATHSET, USE_COST, NONMYOPIC, GOAL_ONLY"
 # Allow selection of seed world to be consistent, and to run through reward functions
 SEED =  int(sys.argv[1])
 REWARD_FUNCTION = sys.argv[2]
@@ -92,7 +93,7 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      MAX_COLOR = MAX_COLOR,
                      computation_budget= 150.0) 
 
-robot.planner(T = 15)
+robot.planner(T = 150)
 robot.visualize_trajectory(screen = False) #creates a summary trajectory image
 robot.plot_information() #plots all of the metrics of interest
 
