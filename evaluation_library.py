@@ -67,7 +67,10 @@ class Evaluation:
                         'robot_location_y': {},
                         'robot_location_a': {},
                         'distance_traveled': {},
+                        'mes_reward_robot': {},
+                        'mes_reward_omni': {},
                        }
+        
         self.reward_function = reward_function
         
         if reward_function == 'hotspot_info':
@@ -141,7 +144,7 @@ class Evaluation:
             value_selected = self.f_rew(time = t, xvals = selected_path, robot_model = robot_model)
         else:
             value_selected =  aqlib.mves(time = t, xvals = selected_path, robot_model = robot_model, param = (self.max_val).reshape(1,1))  
-        return value_max - value_selected
+        return value_max - value_selected, value_selected, value_max 
     
     def simple_regret(self, xvals):
         ''' The simple regret of a selected trajecotry
@@ -220,8 +223,8 @@ class Evaluation:
         self.metrics['sample_regret_loc'][t], self.metrics['sample_regret_val'][t] = self.sample_regret(robot_model)
         self.metrics['max_loc_error'][t], self.metrics['max_val_error'][t] = self.max_error(max_loc, max_val)
         
-        self.metrics['instant_regret'][t] = self.inst_regret(t, all_paths, selected_path, robot_model)
-        self.metrics['max_val_regret'][t] = self.inst_regret(t, all_paths, selected_path, robot_model, param = 'info_regret')
+        self.metrics['instant_regret'][t], _, _ = self.inst_regret(t, all_paths, selected_path, robot_model)
+        self.metrics['max_val_regret'][t], self.metrics['mes_reward_robot'][t], self.metrics['mes_reward_omni'][t] = self.inst_regret(t, all_paths, selected_path, robot_model, param = 'info_regret')
 
         self.metrics['star_obs_0'][t] = params[2][0]
         self.metrics['star_obs_1'][t] = params[2][1]
@@ -256,6 +259,8 @@ class Evaluation:
         
         regret = np.cumsum(np.array(self.metrics['instant_regret'].values()))
         info_regret = np.cumsum(np.array(self.metrics['max_val_regret'].values()))
+        mes_reward_robot = np.cumsum(np.array(self.metrics['mes_reward_robot'].values()))
+        mes_reward_omni = np.cumsum(np.array(self.metrics['mes_reward_omni'].values()))
 
         max_loc_error = np.array(self.metrics['max_loc_error'].values())
         max_val_error = np.array(self.metrics['max_val_error'].values())
@@ -293,7 +298,8 @@ class Evaluation:
             regret.T, info_regret.T, current_highest_obs.T, current_highest_obs_loc_x.T,current_highest_obs_loc_y.T, \
             robot_location_x.T, robot_location_y.T, robot_location_a.T, \
             star_obs_0.T, star_obs_loc_x_0.T, star_obs_loc_y_0.T, \
-            star_obs_1.T, star_obs_loc_x_1.T, star_obs_loc_y_1.T, distance.T))
+            star_obs_1.T, star_obs_loc_x_1.T, star_obs_loc_y_1.T, distance.T, mes_reward_robot.T, mes_reward_omni.T))
+
         #np.savetxt('./figures/' + self.reward_function + '/aqu_fun.csv', aqu_fun)
         #np.savetxt('./figures/' + self.reward_function + '/MSE.csv', MSE)
         #np.savetxt('./figures/' + self.reward_function + '/hotspot_MSE.csv', hotspot_error)

@@ -209,11 +209,14 @@ def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = True):
         #if max_val < np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise) or \
         #    maxima[0] == robot_model.ranges[0] or maxima[0] == robot_model.ranges[1] or \
         #    maxima[1] == robot_model.ranges[2] or maxima[1] == robot_model.ranges[3]:
+
+        '''
         if max_val < np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise):
             samples[i] = np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise)
             print "Max observed is bigger than max in opt:", samples[i]
             logger.info("Max observed is bigger than max in opt: {}".format(samples[i]))
             locs[i, :] = robot_model.xvals[np.argmax(robot_model.zvals)]
+        '''
 
     samples = np.delete(samples, delete_locs, axis = 0)
     locs = np.delete(locs, delete_locs, axis = 0)

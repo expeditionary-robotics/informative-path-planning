@@ -19,6 +19,7 @@ import GPy as GPy
 import logging
 logger = logging.getLogger('robot')
 from gpmodel_library import GPModel
+from gpmodel_library import OnlineGPModel
 
 
 
@@ -66,7 +67,7 @@ class Environment:
                 x2vals = np.linspace(ranges[2], ranges[3], 40)
                 x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
                 data = np.vstack([x1.ravel(), x2.ravel()]).T
-                observations, var = self.GP.predict_value(data)        
+                observations, var = self.GP.predict_value(data, include_noise = False)        
                 
                 fig2, ax2 = plt.subplots(figsize=(8, 6))
                 ax2.set_xlim(ranges[0:2])
@@ -104,12 +105,12 @@ class Environment:
                 logger.warning("Current environment in violation of boundary constraint. Regenerating!")
 
                 # Intialize a GP model of the environment
-                self.GP = GPModel(ranges = ranges, lengthscale = lengthscale, variance = variance)         
+                self.GP = OnlineGPModel(ranges = ranges, lengthscale = lengthscale, variance = variance)         
                 data = np.vstack([x1vals.ravel(), x2vals.ravel()]).T 
 
                 # Take an initial sample in the GP prior, conditioned on no other data
                 xsamples = np.reshape(np.array(data[0, :]), (1, dim)) # dimension: 1 x 2        
-                mean, var = self.GP.predict_value(xsamples)   
+                mean, var = self.GP.predict_value(xsamples, include_noise = False)   
                 if seed is not None:
                     np.random.seed(seed)
                     seed += 1
@@ -185,5 +186,5 @@ class Environment:
         assert(xvals.shape[0] >= 1)            
         assert(xvals.shape[1] == self.dim)        
 
-        mean, var = self.GP.predict_value(xvals)
+        mean, var = self.GP.predict_value(xvals, include_noise = False)
         return mean + np.random.normal(loc = 0, scale = np.sqrt(self.noise))

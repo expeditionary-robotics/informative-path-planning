@@ -97,6 +97,9 @@ class MCTS:
             reward, cost = self.get_reward(sequence, loc)
             self.update_tree(reward, cost, sequence)
 
+        time_end = time.time()
+        print "Rollouts completed in", str(time_end - time_start) +  "s", 
+
         # get the best action to take with most promising futures, base best on whether to
         # consider cost
         if loc is None:

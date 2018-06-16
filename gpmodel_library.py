@@ -165,9 +165,13 @@ class GPModel(object):
             raise ValueError("Failed to train kernel. No training data provided.")
 
 class OnlineGPModel(GPModel):
-    ''' This class inherits from the GP model class '''
-    def __init__(self, ranges, lengthscale, variance, noise = 0.0001, dimension = 2, kernel = 'rbf'):
-        super(OnlineGPModel, self).__init__(ranges, lengthscale, variance, noise, dimension, kernel, update_legacy = False)
+    ''' This class inherits from the GP model class
+        Implements online, recursive updates for a Gaussian Process using the 
+        Woodbury-Morrison formula by modifying the Posteior class from the GPy Library 
+    '''
+
+    def __init__(self, ranges, lengthscale, variance, noise = 0.0001, dimension = 2, kernel = 'rbf',  update_legacy = False):
+        super(OnlineGPModel, self).__init__(ranges, lengthscale, variance, noise, dimension, kernel)
         
         self._K_chol = None
         self._K = None
@@ -227,6 +231,7 @@ class OnlineGPModel(GPModel):
             R = Kx.T
             S = self.kern.K(xvals, xvals)
             M = S - np.dot(np.dot(R, Pinv), Q)
+            # Adds some additional noise to ensure well-conditioned
             diag.add(M, self.noise + 1e-8)
             M, _, _, _ = pdinv(M)
 
