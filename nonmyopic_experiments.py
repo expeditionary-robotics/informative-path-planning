@@ -23,17 +23,21 @@ import envmodel_library as envlib
 import robot_library as roblib
 
 # Allow selection of seed world to be consistent, and to run through reward functions
-seed =  int(sys.argv[1])
-reward_function = sys.argv[2]
+SEED =  int(sys.argv[1])
+REWARD_FUNCTION = sys.argv[2]
+PATHSET = sys.argv[3]
+USE_COST = (sys.argv[4] == "True")
+NONMYOPIC = (sys.argv[5] == "True")
+GOAL_ONLY = (sys.argv[6] == "True")
 
 # Parameters for plotting based on the seed world information
 MIN_COLOR = -25.
 MAX_COLOR = 25.
 
 # Set up paths for logging the data from the simulation run
-if not os.path.exists('./figures/' + str(reward_function)): 
-    os.makedirs('./figures/' + str(reward_function))
-logging.basicConfig(filename = './figures/'+ reward_function + '/robot.log', level = logging.INFO)
+if not os.path.exists('./figures/' + str(REWARD_FUNCTION)): 
+    os.makedirs('./figures/' + str(REWARD_FUNCTION))
+logging.basicConfig(filename = './figures/'+ REWARD_FUNCTION + '/robot.log', level = logging.INFO)
 logger = logging.getLogger('robot')
 
 # Create a random enviroment sampled from a GP with an RBF kernel and specified hyperparameters, mean function 0 
@@ -45,19 +49,20 @@ world = envlib.Environment(ranges = ranges,
                            variance = 100.0, 
                            lengthscale = 1.0, 
                            visualize = True,
-                           seed = seed,
+                           seed = SEED,
                            MIN_COLOR=MIN_COLOR, 
                            MAX_COLOR=MAX_COLOR)
 
 # Create the evaluation class used to quantify the simulation metrics
-evaluation = evalib.Evaluation(world = world, reward_function = reward_function)
+evaluation = evalib.Evaluation(world = world, reward_function = REWARD_FUNCTION)
 
-
-x1observe = np.linspace(0., 10., 20)
-x2observe = np.linspace(0., 10., 20)
+'''
+x1observe = np.linspace(0., 10., 5)
+x2observe = np.linspace(0., 10., 5)
 x1observe, x2observe = np.meshgrid(x1observe, x2observe, sparse = False, indexing = 'xy')  
 data = np.vstack([x1observe.ravel(), x2observe.ravel()]).T
 observations = world.sample_value(data)
+'''
 
 # Create the point robot
 robot = roblib.Robot(sample_world = world.sample_value, #function handle for collecting observations
@@ -65,29 +70,29 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      extent = ranges, #extent of the explorable environment
                      kernel_file = None,
                      kernel_dataset = None,
-                     prior_dataset =  None, #(data, observations), 
+                     #prior_dataset =  (data, observations), 
+                     prior_dataset = None,
                      init_lengthscale = 1.0, 
                      init_variance = 100.0, 
-                     noise = 0.0001,
-                     path_generator = 'dubins', #options: default, dubins, equal_dubins, fully_reachable_goal, fully_reachable_step
-                     goal_only = False, #select only if using fully reachable step and you want the reward of the step to only be the goal
+                     noise = 0.005,
+                     path_generator = PATHSET, #options: default, dubins, equal_dubins, fully_reachable_goal, fully_reachable_step
+                     goal_only = GOAL_ONLY, #select only if using fully reachable step and you want the reward of the step to only be the goal
                      frontier_size = 15,
                      horizon_length = 1.5, 
                      turning_radius = 0.05,
                      sample_step = 0.5,
                      evaluation = evaluation, 
-                     f_rew = reward_function, 
+                     f_rew = REWARD_FUNCTION, 
                      create_animation = True, #logs images to the file folder
-                     learn_params=False, #if kernel params should be trained online
-                     nonmyopic=True, #select if you want to use MCTS
-                     discretization=(20,20), #parameterizes the fully reachable sets
-                     use_cost=False, #select if you want to use a cost heuristic
-                     MIN_COLOR=MIN_COLOR,
-                     MAX_COLOR=MAX_COLOR,
-                     computation_budget=150.0) 
+                     learn_params = False, #if kernel params should be trained online
+                     nonmyopic = NONMYOPIC,
+                     discretization = (20, 20), #parameterizes the fully reachable sets
+                     use_cost = USE_COST, #select if you want to use a cost heuristic
+                     MIN_COLOR = MIN_COLOR,
+                     MAX_COLOR = MAX_COLOR,
+                     computation_budget= 150.0) 
 
-robot.planner(T = 175)
-#robot.visualize_world_model(screen = True)
+robot.planner(T = 15)
 robot.visualize_trajectory(screen = False) #creates a summary trajectory image
 robot.plot_information() #plots all of the metrics of interest
 

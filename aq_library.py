@@ -81,7 +81,11 @@ def mean_UCB(time, xvals, robot_model, param=None):
                               
     # The GPy interface can predict mean and variance at an array of points; this will be an overestimate
     mu, var = robot_model.predict_value(queries)
-    
+    #mu_test, var_test = robot_model.predict_value_legacy(queries)
+    #print "------Diff-----------:"
+    #print mu - mu_test
+    #print var - var_test
+
     delta = 0.9
     d = 20
     pit = np.pi**2 * (time + 1)**2 / 6.
@@ -128,7 +132,7 @@ def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = True):
         logger.info("Starting global optimization {} of {}".format(i, nK))
         # Draw the weights for the random features
         # TODO: make sure this formula is correct
-        W = np.random.normal(loc = 0.0, scale = np.sqrt(1./(robot_model.lengthscale ** 2.)), size = (nFeatures, d))
+        W = np.random.normal(loc = 0.0, scale = np.sqrt(1./(robot_model.lengthscale)), size = (nFeatures, d))
         b = 2 * np.pi * np.random.uniform(low = 0.0, high = 1.0, size = (nFeatures, 1))
         
         # Compute the features for xx
@@ -205,11 +209,14 @@ def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = True):
         #if max_val < np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise) or \
         #    maxima[0] == robot_model.ranges[0] or maxima[0] == robot_model.ranges[1] or \
         #    maxima[1] == robot_model.ranges[2] or maxima[1] == robot_model.ranges[3]:
+
+        '''
         if max_val < np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise):
             samples[i] = np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise)
             print "Max observed is bigger than max in opt:", samples[i]
             logger.info("Max observed is bigger than max in opt: {}".format(samples[i]))
             locs[i, :] = robot_model.xvals[np.argmax(robot_model.zvals)]
+        '''
 
     samples = np.delete(samples, delete_locs, axis = 0)
     locs = np.delete(locs, delete_locs, axis = 0)
@@ -254,6 +261,7 @@ def mves(time, xvals, robot_model, param):
         f += sum(gamma * pdfgamma / (2.0 * cdfgamma) - np.log(cdfgamma))        
         '''
         utility = entropy_of_n(var) - entropy_of_tn(a = None, b = maxes[i], mu = mean, var = var)
+
         #utility /= entropy_of_n(var) 
         f += sum(utility)
     # Average f
@@ -261,9 +269,9 @@ def mves(time, xvals, robot_model, param):
     # f is an np array; return scalar value
     return f[0]
 
+'''
 def mves_maximal_set(time, xvals, robot_model, param):
-    ''' Define the Acquisition Function for maximal-set information gain
-   param is tuple (maxima, target) '''
+    #Define the Acquisition Function for maximal-set information gain param is tuple (maxima, target)
     max_vals = param[0]
     max_locs = param[1]
     target = param[2]
@@ -304,6 +312,7 @@ def mves_maximal_set(time, xvals, robot_model, param):
     f = f / max_vals.shape[0]
     # f is an np array; return scalar value
     return f[0] 
+'''
     
 def entropy_of_n(var):    
     return np.log(np.sqrt(2.0 * np.pi * var))

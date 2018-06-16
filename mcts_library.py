@@ -97,6 +97,9 @@ class MCTS:
             reward, cost = self.get_reward(sequence, loc)
             self.update_tree(reward, cost, sequence)
 
+        time_end = time.time()
+        print "Rollouts completed in", str(time_end - time_start) +  "s", 
+
         # get the best action to take with most promising futures, base best on whether to
         # consider cost
         if loc is None:
@@ -218,11 +221,11 @@ class MCTS:
                 #for m,v in zip(zmean, zvar):
                 #    zobs.append(np.random.normal(m, np.sqrt(v), 1))
             else:
-                zobs = sim_world.model.posterior_samples_f(xobs, full_cov = True, size=1)
+                zobs = sim_world.posterior_samples(xobs, full_cov = False, size=1)
+                #print zobs
             sim_world.add_data(xobs, zobs)
         # reward = reward / len(samples)
         return reward, cost
-
     
     def update_tree(self, reward, cost, sequence):
         '''Propogate the reward for the sequence
