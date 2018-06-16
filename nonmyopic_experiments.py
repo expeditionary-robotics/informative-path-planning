@@ -57,9 +57,11 @@ world = envlib.Environment(ranges = ranges,
 
 # Create the evaluation class used to quantify the simulation metrics
 evaluation = evalib.Evaluation(world = world, reward_function = REWARD_FUNCTION)
+'''
 x1observe, x2observe = np.meshgrid(x1observe, x2observe, sparse = False, indexing = 'xy')  
 data = np.vstack([x1observe.ravel(), x2observe.ravel()]).T
 observations = world.sample_value(data)
+'''
 
 # Create obstacle world
 ow = obslib.FreeWorld()
