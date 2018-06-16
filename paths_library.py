@@ -166,7 +166,7 @@ class Dubins_Path_Generator(Path_Generator):
                 adjusted_truth = []
                 if len(temp) >= 2:
                     for c in ftemp:
-                        if np.isclose(c[0], temp[-1][0], rtol=0.1) and np.isclose(c[1],temp[-1][1]):
+                        if np.isclose(c[0], temp[-1][0]) and np.isclose(c[1],temp[-1][1]):
                             adjusted_truth.append(c)
                             break
                         else:

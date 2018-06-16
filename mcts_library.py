@@ -107,7 +107,6 @@ class MCTS:
         print "Number of rollouts:", i, "\t Size of tree:", len(self.tree)
         logger.info("Number of rollouts: {} \t Size of tree: {}".format(i, len(self.tree)))
         np.save('./figures/' + self.f_rew + '/tree_' + str(t) + '.npy', self.tree)
-
         return self.tree[best_sequence][0], self.tree[best_sequence][1], best_val, paths, all_vals, self.max_locs, self.max_val
 
     def initialize_tree(self):
