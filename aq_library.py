@@ -255,15 +255,18 @@ def mves(time, xvals, robot_model, param):
         mean, var = robot_model.predict_value(queries)
         
         # Compute the acquisition function of MES.        
-        '''
         gamma = (maxes[i] - mean) / var
         pdfgamma = sp.stats.norm.pdf(gamma)
         cdfgamma = sp.stats.norm.cdf(gamma)
-        f += sum(gamma * pdfgamma / (2.0 * cdfgamma) - np.log(cdfgamma))        
-        '''
-        utility = entropy_of_n(var) - entropy_of_tn(a = None, b = maxes[i], mu = mean, var = var)
+        utility = gamma * pdfgamma / (2.0 * cdfgamma) - np.log(cdfgamma)
 
+        # Alternative formulation, less stable
+        #utility = entropy_of_n(var) - entropy_of_tn(a = None, b = maxes[i], mu = mean, var = var)
         #utility /= entropy_of_n(var) 
+
+        #if np.sum(utility) == 0.000:
+        #    pdb.set_trace()
+
         f += sum(utility)
     # Average f
     f = f / maxes.shape[0]

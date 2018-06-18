@@ -168,12 +168,15 @@ class MCTS:
                 a = np.random.randint(0,len(actions)-1)
             except:
                 a = 0
+
             #create the sequence and add to the tree
             try:
                 self.tree[node + ' child ' + str(keys[a])] = (actions[keys[a]], dense_paths[keys[a]], 0, 0, 0) #add random path to the tree
                 node = node + ' child ' + str(keys[a])
                 sequence.append(node)
             except:
+                # This seems like this should never happen?!
+                #pdb.set_trace()
                 pass
 
         return sequence

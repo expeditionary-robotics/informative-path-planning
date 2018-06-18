@@ -176,9 +176,12 @@ class Dubins_Path_Generator(Path_Generator):
     def make_sample_paths(self):
         '''Connect the current_pose to the goal places'''
         coords, true_coords = self.buffered_paths()
+
         
         if len(coords) == 0:
             print 'no viable path'
+            #pdb.set_trace()
+            #coords, true_coords = self.buffered_paths()
             
         self.samples = coords
         return coords, true_coords
