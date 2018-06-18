@@ -169,9 +169,12 @@ class MCTS:
             except:
                 a = 0
             #create the sequence and add to the tree
-            self.tree[node + ' child ' + str(keys[a])] = (actions[keys[a]], dense_paths[keys[a]], 0, 0, 0) #add random path to the tree
-            node = node + ' child ' + str(keys[a])
-            sequence.append(node)
+            try:
+                self.tree[node + ' child ' + str(keys[a])] = (actions[keys[a]], dense_paths[keys[a]], 0, 0, 0) #add random path to the tree
+                node = node + ' child ' + str(keys[a])
+                sequence.append(node)
+            except:
+                pass
 
         return sequence
 

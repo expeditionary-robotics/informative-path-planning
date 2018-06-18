@@ -59,7 +59,8 @@ world = envlib.Environment(ranges = ranges,
 evaluation = evalib.Evaluation(world = world, reward_function = REWARD_FUNCTION)
 
 # Create obstacle world
-ow = obslib.FreeWorld()
+# ow = obslib.FreeWorld()
+ow = obslib.ChannelWorld(ranges, (3.5, 7.), 3., 0.3)
 
 # Create the point robot
 robot = roblib.Robot(sample_world = world.sample_value, #function handle for collecting observations
@@ -71,7 +72,7 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      prior_dataset = None,
                      init_lengthscale = 1.0, 
                      init_variance = 100.0, 
-                     noise = 0.5,
+                     noise = 1.001,
                      path_generator = PATHSET, #options: default, dubins, equal_dubins, fully_reachable_goal, fully_reachable_step
                      goal_only = GOAL_ONLY, #select only if using fully reachable step and you want the reward of the step to only be the goal
                      frontier_size = 15,

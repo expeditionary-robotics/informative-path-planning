@@ -47,20 +47,24 @@ class Path_Generator:
         goals = []
         for a in angle:
             x = self.hl*np.cos(self.cp[2]+a)+self.cp[0]
-            if x >= self.extent[1]-3*self.tr:
-                x = self.extent[1]-3*self.tr
-                y = (x-self.cp[0])*np.sin(self.cp[2]+a)+self.cp[1]
-            elif x <= self.extent[0]+3*self.tr:
-                x = self.extent[0]+3*self.tr
-                y = (x-self.cp[0])*np.sin(self.cp[2]+a)+self.cp[1]
-            else:
-                y = self.hl*np.sin(self.cp[2]+a)+self.cp[1]
-                if y >= self.extent[3]-3*self.tr:
-                    y = self.extent[3]-3*self.tr
-                    x = (y-self.cp[1])*-np.cos(self.cp[2]+a)+self.cp[0]
-                elif y <= self.extent[2]+3*self.tr:
-                    y = self.extent[2]+3*self.tr
-                    x = (y-self.cp[1])*-np.cos(self.cp[2]+a)+self.cp[0]
+            # if x >= self.extent[1]-3*self.tr:
+            #     pass
+                # x = self.extent[1]-3*self.tr
+                # y = (x-self.cp[0])*np.sin(self.cp[2]+a)+self.cp[1]
+            # elif x <= self.extent[0]+3*self.tr:
+            #     pass
+                # x = self.extent[0]+3*self.tr
+                # y = (x-self.cp[0])*np.sin(self.cp[2]+a)+self.cp[1]
+            # else:
+            y = self.hl*np.sin(self.cp[2]+a)+self.cp[1]
+                # if y >= self.extent[3]-3*self.tr:
+                #     pass
+                #     # y = self.extent[3]-3*self.tr
+                #     # x = (y-self.cp[1])*-np.cos(self.cp[2]+a)+self.cp[0]
+                # elif y <= self.extent[2]+3*self.tr:
+                #     pass
+                    # y = self.extent[2]+3*self.tr
+                    # x = (y-self.cp[1])*-np.cos(self.cp[2]+a)+self.cp[0]
             p = self.cp[2]+a
             if np.linalg.norm([self.cp[0]-x, self.cp[1]-y]) <= self.tr:
                 pass
@@ -151,35 +155,21 @@ class Dubins_Path_Generator(Path_Generator):
                     ftemp.append(c)
                 else:
                     break
+
             try:
-                true_goal = ftemp[-1]
-                s_path = dubins.shortest_path(self.cp, true_goal, self.tr)
-                configurations, _ = s_path.sample_many(self.ss)
+                ttemp = ftemp[0::10]
+                for m,c in enumerate(ttemp):
+                    if c[0] < self.extent[0]+3*self.tr or c[0] > self.extent[1]-3*self.tr or c[1] < self.extent[2]+3*self.tr or c[1] > self.extent[3]-3*self.tr or self.obstacle_world.in_obstacle((c[0], c[1]), buff = 3*self.tr):
+                        ttemp = ttemp[0:m-1]
 
-                temp = []
-                for c in configurations:
-                    if c[0] > self.extent[0]+3*self.tr and c[0] < self.extent[1]-3*self.tr and c[1] > self.extent[2]+3*self.tr and c[1] < self.extent[3]-3*self.tr and not self.obstacle_world.in_obstacle((c[0], c[1]), buff = 3*self.tr):
-                        temp.append(c)
-                    else:
-                        break
-
-                adjusted_truth = []
-                if len(temp) >= 2:
-                    for c in ftemp:
-                        if np.isclose(c[0], temp[-1][0]) and np.isclose(c[1],temp[-1][1]):
-                            adjusted_truth.append(c)
-                            break
-                        else:
-                            adjusted_truth.append(c)
-
-
-                if len(temp) < 2:
+                if len(ttemp) < 2:
                     pass
                 else:
-                    sampling_path[i] = temp
-                    true_path[i] = adjusted_truth
+                    sampling_path[i] = ttemp
+                    true_path[i] = ftemp[0:ftemp.index(ttemp[-1])+1]
             except:
                 pass
+
         return sampling_path, true_path
 
         
@@ -272,32 +262,20 @@ class Reachable_Frontier_Generator():
                 else:
                     break
 
-            true_goal = ftemp[-1]
-            s_path = dubins.shortest_path(loc, true_goal, self.turning_radius)
-            configurations, _ = s_path.sample_many(self.sample_step)
+            try:
+                ttemp = ftemp[0::10]
+                for m,c in enumerate(ttemp):
+                    if c[0] < self.ranges[0]+3*self.turning_radius or c[0] > self.ranges[1]-3*self.turning_radius or c[1] < self.ranges[2]+3*self.turning_radius or c[1] > self.ranges[3]-3*self.turning_radius or self.obstacle_world.in_obstacle((c[0], c[1]), buff = 3*self.turning_radius):
+                        ttemp = ttemp[0:m-1]
 
-            temp = []
-            for c in configurations:
-                if c[0] > self.ranges[0]+3*self.turning_radius and c[0] < self.ranges[1]-3*self.turning_radius and c[1] > self.ranges[2]+3*self.turning_radius and c[1] < self.ranges[3]-3*self.turning_radius and not self.obstacle_world.in_obstacle((c[0], c[1]), buff = 3*self.turning_radius):
-                    temp.append(c)
+                if len(ttemp) < 2:
+                    pass
                 else:
-                    break
-
-            adjusted_truth = []
-            if len(temp) >= 2:
-                for c in ftemp:
-                    if np.isclose(c[0], temp[-1][0], rtol=0.1) and np.isclose(c[1],temp[-1][1]):
-                        adjusted_truth.append(c)
-                        break
-                    else:
-                        adjusted_truth.append(c)
-
-
-            if len(temp) < 2:
+                    sampling_path[i] = ttemp
+                    true_path[i] = ftemp[0:ftemp.index(ttemp[-1])+1]
+            except:
                 pass
-            else:
-                sampling_path[i] = temp
-                true_path[i] = adjusted_truth
+
         return sampling_path, true_path
 
     def path_cost(self, path, loc=None):
@@ -375,12 +353,33 @@ if __name__ == '__main__':
 
     # extent, discretization, sample_step, turning_radius, step_size,obstacle_world=obs.FreeWorld()
     gen = Reachable_Frontier_Generator([0., 10., 0., 10.], (20,20), 0.5, 0.1, 1.5, bw)
-    paths, true_paths = gen.get_path_set((5,5,0))
-
+    # gen = Dubins_Path_Generator(15., 1.5, 0.05, 0.5, [0., 10., 0., 10.], bw)
+    
     plt.figure()
-    for i, path in paths.items():
-        f = np.array(path)
-        plt.plot(f[:,0], f[:,1])
+
+    trajectory = []
+    samples = []
+    coord = (0.2,0.2,3.14)
+    for m in range(500):
+        paths, true_paths = gen.get_path_set(coord)
+        action = np.random.choice(paths.keys())
+        # for i, path in paths.items():
+            # f = np.array(path)
+            # plt.plot(f[:,0], f[:,1], 'k*')
+        # for i, path in true_paths.items():
+            # f = np.array(path)
+            # plt.plot(f[:,0], f[:,1], 'r')
+        samples.append(paths[action])
+        trajectory.append(true_paths[action])
+        coord = paths[action][-1]
+        print m
+
+    for e, k in zip(samples, trajectory):
+        f = np.array(e)
+        l = np.array(k)
+        plt.plot(f[:,0], f[:,1], 'r*')
+        plt.plot(l[:,0], l[:,1])
+    
     obstacles = bw.get_obstacles()
     for o in obstacles:
         x,y = o.exterior.xy

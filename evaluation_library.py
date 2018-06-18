@@ -288,9 +288,6 @@ class Evaluation:
             star_obs_loc_x.append(np.array(self.metrics['star_obs_loc_x_'+str(i)].values()))
             star_obs_loc_y.append(np.array(self.metrics['star_obs_loc_y_'+str(i)].values()))
 
-        print star_obs
-        print star_obs_loc_y
-
         distance = np.array(self.metrics['distance_traveled'].values())
         # star_obs_loc = np.array(self.metrics['star_obs_loc'].values())
 
