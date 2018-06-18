@@ -151,7 +151,7 @@ class Dubins_Path_Generator(Path_Generator):
 
             ftemp = []
             for c in fconfig:
-                if c[0] > self.extent[0] and c[0] < self.extent[1] and c[1] > self.extent[2] and c[1] < self.extent[3] and not self.obstacle_world.in_obstacle((c[0], c[1]), buff = self.tr):
+                if c[0] > self.extent[0] and c[0] < self.extent[1] and c[1] > self.extent[2] and c[1] < self.extent[3] and not self.obstacle_world.in_obstacle((c[0], c[1]), buff = 0.0):
                     ftemp.append(c)
                 else:
                     break
@@ -159,7 +159,7 @@ class Dubins_Path_Generator(Path_Generator):
             try:
                 ttemp = ftemp[0::10]
                 for m,c in enumerate(ttemp):
-                    if c[0] < self.extent[0]+3*self.tr or c[0] > self.extent[1]-3*self.tr or c[1] < self.extent[2]+3*self.tr or c[1] > self.extent[3]-3*self.tr or self.obstacle_world.in_obstacle((c[0], c[1]), buff = 3*self.tr):
+                    if c[0] <= self.extent[0]+3*self.tr or c[0] >= self.extent[1]-3*self.tr or c[1] <= self.extent[2]+3*self.tr or c[1] >= self.extent[3]-3*self.tr or self.obstacle_world.in_obstacle((c[0], c[1]), buff = 3*self.tr):
                         ttemp = ttemp[0:m-1]
 
                 if len(ttemp) < 2:

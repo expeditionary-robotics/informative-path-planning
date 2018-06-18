@@ -25,12 +25,12 @@ import obstacles as obslib
 
 print "User specified options: SEED, REWARD_FUNCTION, PATHSET, USE_COST, NONMYOPIC, GOAL_ONLY"
 # Allow selection of seed world to be consistent, and to run through reward functions
-SEED =  int(sys.argv[1])
-REWARD_FUNCTION = sys.argv[2]
-PATHSET = sys.argv[3]
-USE_COST = (sys.argv[4] == "True")
-NONMYOPIC = (sys.argv[5] == "True")
-GOAL_ONLY = (sys.argv[6] == "True")
+SEED =  0#int(sys.argv[1])
+REWARD_FUNCTION = 'mes'#sys.argv[2]
+PATHSET = 'dubins'#sys.argv[3]
+USE_COST = False#(sys.argv[4] == "True")
+NONMYOPIC = False#(sys.argv[5] == "True")
+GOAL_ONLY = False#(sys.argv[6] == "True")
 
 # Parameters for plotting based on the seed world information
 MIN_COLOR = -25.
