@@ -45,7 +45,7 @@ pushd experiments
                             pushd $workdir
                             cmd="python ../../nonmyopic_experiments.py ${seed} ${reward_func} ${pathset} ${cost} ${nonmyopic} ${goal_only}"
                             echo $cmd
-                            #$cmd
+                            $cmd
                             popd
                         done
                     done
