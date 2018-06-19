@@ -111,6 +111,10 @@ class BugTrap(BlockWorld):
 			          (opening_location[0]+width, opening_location[1]-opening_size/2),
 			          (opening_location[0]+width, opening_location[1]+opening_size/2),
 			          (opening_location[0], opening_location[1]+opening_size/2)]
+			self.inner_xlim = [opening_location[0], opening_location[0]+width]
+			self.inner_ylim = [opening_location[1]+opening_size/2, opening_location[1]-opening_size/2]
+			self.outer_xlim = [opening_location[0], opening_location[0]+width+channel_size]
+			self.outer_ylim = [opening_location[1]+opening_size/2+channel_size, opening_location[1]-opening_size/2-channel_size]
 		elif orientation == 'right':
 			points = [(opening_location[0], opening_location[1]+opening_size/2),
 			          (opening_location[0], opening_location[1]+opening_size/2+channel_size),
@@ -121,7 +125,46 @@ class BugTrap(BlockWorld):
 			          (opening_location[0]-width, opening_location[1]-opening_size/2),
 			          (opening_location[0]-width, opening_location[1]+opening_size/2),
 			          (opening_location[0], opening_location[1]+opening_size/2)]
+			self.inner_xlim = [opening_location[0]-width, opening_location[0]]
+			self.inner_ylim = [opening_location[1]+opening_size/2, opening_location[1]-opening_size/2]
+			self.outer_xlim = [opening_location[0]-width-channel_size, opening_location[0]]
+			self.outer_ylim = [opening_location[1]+opening_size/2+channel_size, opening_location[1]-opening_size/2-channel_size]
 		self.obstacles = [Polygon(points)]
+
+	def in_obstacle(self, point, buff=0.1):
+
+		if self.orientation == 'left':
+			if point[0] > self.outer_xlim[0]-buff and point[0] < self.outer_xlim[1]+buff:
+				if point[1] < self.outer_ylim[0]+buff and point[1] > self.outer_ylim[1]-buff:
+					if point[0] >= self.inner_xlim[0]-buff and point[0] <= self.inner_xlim[1]-buff:
+						if point[1] <= self.inner_ylim[0]-buff and point[1] >= self.inner_ylim[1]+buff:
+							return False
+					return True
+			return False
+		elif self.orientation == 'right':
+			if point[0] > self.outer_xlim[0]-buff and point[0] < self.outer_xlim[1]+buff:
+				if point[1] < self.outer_ylim[0]+buff and point[1] > self.outer_ylim[1]-buff:
+					if point[0] >= self.inner_xlim[0]+buff and point[0] <= self.inner_xlim[1]+buff:
+						if point[1] <= self.inner_ylim[0]-buff and point[1] >= self.inner_ylim[1]+buff:
+							return False
+					return True
+			return False
+
+
+			# if point[0] >= self.inner_xlim[0]-buff and point[0] <= self.inner_xlim[1]:
+			# 	if point[1] <= self.inner_ylim[0]-buff and point[1] >= self.inner_ylim[1]+buff:
+			# 		return False
+			# elif point[0] > self.outer_xlim[0]-buff and point[0] < self.outer_xlim[1]:
+			# 	if point[1] < self.outer_ylim[0]-buff and point[1] > self.outer_ylim[1]+buff:
+			# 		return True
+			# 	return False
+			# else:
+			# 	return False
+
+		# if point[0] > self.xlim[0]-buff and point[0] < self.xlim[1]+buff:
+		# 	if point[1] < self.ylim[0]+buff or point[1] > self.ylim[1]-buff:
+		# 		return True
+		# return False
 
 class ChannelWorld(BlockWorld):
 	'''
@@ -147,17 +190,25 @@ class ChannelWorld(BlockWorld):
 		points = [top_wall, bottom_wall]
 
 		self.obstacles = [Polygon(ob) for ob in points]
+		self.xlim = [opening_location[0]-wall_thickness/2, opening_location[0]+wall_thickness/2]
+		self.ylim = [opening_location[1]-opening_size/2, opening_location[1]+opening_size/2]
+
+	def in_obstacle(self, point, buff=0.1):
+		if point[0] > self.xlim[0]-buff and point[0] < self.xlim[1]+buff:
+			if point[1] < self.ylim[0]+buff or point[1] > self.ylim[1]-buff:
+				return True
+		return False
 
 
 if __name__ == '__main__':
-	bw = BlockWorld([0.,10.,0.,10.], 1, (8.,3.), [(5,5)])
-	bw.draw_obstacles()
-	print bw.in_obstacle((4,5))
+	# bw = BlockWorld([0.,10.,0.,10.], 1, (8.,3.), [(5,5)])
+	# bw.draw_obstacles()
+	# print bw.in_obstacle((4,5))
 
-	bt = BugTrap([0., 10., 0., 10.], (3,3), 2., 0.5, 2., 'right')
+	bt = BugTrap([0., 10., 0., 10.], (3,3), 2., 0.5, 2., 'left')
 	bt.draw_obstacles()
-	print bt.in_obstacle((1.5,1.8))
+	print bt.in_obstacle((3,2.4))
 
-	cw = ChannelWorld([0., 10., 0., 10.], (3,3), 3, 2)
-	cw.draw_obstacles()
-	print cw.in_obstacle((3,2))
+	# cw = ChannelWorld([0., 10., 0., 10.], (3,3), 3, 2)
+	# cw.draw_obstacles()
+	# print cw.in_obstacle((3,2))
