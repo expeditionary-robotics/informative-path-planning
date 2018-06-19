@@ -60,7 +60,8 @@ evaluation = evalib.Evaluation(world = world, reward_function = REWARD_FUNCTION)
 
 # Create obstacle world
 # ow = obslib.FreeWorld()
-ow = obslib.ChannelWorld(ranges, (3.5, 7.), 3., 0.3)
+# ow = obslib.ChannelWorld(ranges, (3.5, 7.), 3., 0.3)
+ow = obslib.BugTrap(ranges, (2.0, 3.0), 4.6, orientation = 'left')
 
 # Create the point robot
 robot = roblib.Robot(sample_world = world.sample_value, #function handle for collecting observations
