@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-if [ ! -d experiments]; then
+if [ ! -d experiments ]; then
 mkdir experiments
 fi
 
