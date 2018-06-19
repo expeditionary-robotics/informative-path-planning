@@ -41,7 +41,7 @@ pushd experiments
                                 continue
                             fi
 
-                            workdir=sim_seed${seed}-pathset${pathset}-cost${cost}-nonmyopic${nonmyopic}-goal${goal_only}_BUGTRAP
+                            workdir=sim_seed${seed}-pathset${pathset}-cost${cost}-nonmyopic${nonmyopic}-goal${goal_only}
 
                             if [ -d $workdir ] && [ -f ${workdir}/figures/${reward_func}/trajectory-N.SUMMARY.png ] ; then 
                               continue
