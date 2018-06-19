@@ -351,8 +351,8 @@ class Reachable_Step_Generator(Reachable_Frontier_Generator):
 
 if __name__ == '__main__':
     # bw = obs.BlockWorld( [0., 10., 0., 10.], num_blocks=1, dim_blocks=(2.,2.), centers=[(6.1,5)])
-    # bw = obs.BugTrap([0., 10., 0., 10.], (5,5), 3, channel_size = 0.5, width = 3., orientation='left')
-    bw = obs.ChannelWorld([0., 10., 0., 10.], (6,5), 3, 0.4)
+    bw = obs.BugTrap([0., 10., 0., 10.], (5,5), 3, channel_size = 0.5, width = 3., orientation='left')
+    # bw = obs.ChannelWorld([0., 10., 0., 10.], (6,5), 3, 0.4)
 
     # extent, discretization, sample_step, turning_radius, step_size,obstacle_world=obs.FreeWorld()
     gen = Reachable_Frontier_Generator([0., 10., 0., 10.], (20,20), 0.5, 0.1, 1.5, bw)
@@ -363,25 +363,25 @@ if __name__ == '__main__':
     trajectory = []
     samples = []
     coord = (0.2,0.2,3.14)
-    for m in range(500):
+    for m in range(5):
         paths, true_paths = gen.get_path_set(coord)
         action = np.random.choice(paths.keys())
-        # for i, path in paths.items():
-            # f = np.array(path)
-            # plt.plot(f[:,0], f[:,1], 'k*')
-        # for i, path in true_paths.items():
-            # f = np.array(path)
-            # plt.plot(f[:,0], f[:,1], 'r')
-        samples.append(paths[action])
-        trajectory.append(true_paths[action])
+        for i, path in paths.items():
+            f = np.array(path)
+            plt.plot(f[:,0], f[:,1], 'k*')
+        for i, path in true_paths.items():
+            f = np.array(path)
+            plt.plot(f[:,0], f[:,1], 'r')
+        # samples.append(paths[action])
+        # trajectory.append(true_paths[action])
         coord = paths[action][-1]
         print m
 
-    for e, k in zip(samples, trajectory):
-        f = np.array(e)
-        l = np.array(k)
-        plt.plot(f[:,0], f[:,1], 'r*')
-        plt.plot(l[:,0], l[:,1])
+    # for e, k in zip(samples, trajectory):
+    #     f = np.array(e)
+    #     l = np.array(k)
+    #     plt.plot(f[:,0], f[:,1], 'r*')
+    #     plt.plot(l[:,0], l[:,1])
     
     obstacles = bw.get_obstacles()
     for o in obstacles:
