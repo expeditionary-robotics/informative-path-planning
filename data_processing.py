@@ -99,7 +99,7 @@ def make_histograms(mean_sdata, mes_sdata, ei_sdata, figname=''):
         plt.xticks(np.arange(2),['UCB', 'PLUMES'])
         plt.ylabel('Proportion of Samples')
         plt.title('Average Proportion of Samples taken within 1.5m of the True Maxima')
-        plt.savefig(figame+'_prop_samples')
+        plt.savefig(figname+'_prop_samples')
 
 
 def make_plots(mean_data, mes_data, ei_data, param, title, d=20, plot_confidence=False, save_fig=False, lab="Value", fname="fig"):
@@ -189,10 +189,13 @@ def make_plots(mean_data, mes_data, ei_data, param, title, d=20, plot_confidence
 
 ######### MAIN LOOP ###########
 if __name__ == '__main__':
-    seeds = ['seed0-', 'seed100-', 'seed200-', 'seed300-', 'seed400-', 'seed500-', 'seed600-', 'seed700-', 'seed800-', 'seed900-',
-             'seed1000-', 'seed1100-', 'seed1200-', 'seed1300-', 'seed1400-', 'seed1500-']
-    fileparams = 'pathsetdubins-costFalse-nonmyopicTrue-goalFalse'
-    path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/'
+    seed_numbers = range(0, 2000, 100)
+    seeds = ['seed'+ str(x) + '-' for x in seed_numbers]
+    #seeds = ['seed0-', 'seed100-', 'seed200-', 'seed300-', 'seed400-', 'seed500-', 'seed600-', 'seed700-', 'seed800-', 'seed900-',
+    #         'seed1000-', 'seed1100-', 'seed1200-', 'seed1300-', 'seed1400-', 'seed1500-', 'seed1600-']
+    fileparams = 'pathsetdubins-costFalse-nonmyopicFalse-goalFalse'
+    #path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/'
+    path= '/home/genevieve/mit-whoi/informative-path-planning/experiments/'
 
     #get the data files
     f_mean = []
@@ -241,7 +244,9 @@ if __name__ == '__main__':
                             if "max value" in l:
                                 ls.append(l)
                         max_val.append(float(ls[-1].split(" ")[3]))
-                        max_loc.append((float(ls[-1].split(" ")[6].split("[")[1]), float(ls[-1].split(" ")[7].split("]")[0])))
+                        
+                        # For Genevieve
+                        max_loc.append((float(ls[-1].split(" ")[7].split("[")[0]), float(ls[-1].split(" ")[9].split("]")[0])))
 
     # get the robot samples list
     mean_samples = []
@@ -277,8 +282,8 @@ if __name__ == '__main__':
 
 
     # ######### Looking at Mission Progression ######
-    make_plots(mean_data, mes_data, None, 'max_val_error', 'Averaged Maximum Value Error, Conf', len(seeds), True, False, fname='nonmyopic_dubins_avg_valerr_conf')
-    make_plots(mean_data, mes_data, None, 'max_loc_error', 'Averaged Maximum Location Error, Conf', len(seeds), True, False, fname='nonmyopic_dubins_avg_valloc_conf')
-    make_plots(mean_data, mes_data, None, 'info_regret', 'Averaged Information Regret, Conf', len(seeds), True, False, fname='nonmyopic_dubins_avg_reg_conf')
-    make_plots(mean_data, mes_data, None, 'MSE', 'Averaged MSE, Conf', len(seeds), True, False, fname='nonmyopic_dubins_avg_mse_conf')
+    make_plots(mean_data, mes_data, None, 'max_val_error', 'Averaged Maximum Value Error, Conf', len(seeds), True, True, fname='nonmyopic_dubins_avg_valerr_conf')
+    make_plots(mean_data, mes_data, None, 'max_loc_error', 'Averaged Maximum Location Error, Conf', len(seeds), True, True, fname='nonmyopic_dubins_avg_valloc_conf')
+    make_plots(mean_data, mes_data, None, 'info_regret', 'Averaged Information Regret, Conf', len(seeds), True, True, fname='nonmyopic_dubins_avg_reg_conf')
+    make_plots(mean_data, mes_data, None, 'MSE', 'Averaged MSE, Conf', len(seeds), True, True, fname='nonmyopic_dubins_avg_mse_conf')
     plt.show()
