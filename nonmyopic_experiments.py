@@ -46,6 +46,11 @@ logger = logging.getLogger('robot')
 # The enviorment will be constrained by a set of uniformly distributed  sample points of size NUM_PTS x NUM_PTS
 ranges = (0., 10., 0., 10.)
 
+# Create obstacle world
+#ow = obslib.FreeWorld()
+# ow = obslib.ChannelWorld(ranges, (3.5, 7.), 3., 0.3)
+ow = obslib.BugTrap(ranges, (2.2, 3.0), 4.6, orientation = 'left', width = 5.0)
+
 world = envlib.Environment(ranges = ranges,
                            NUM_PTS = 20, 
                            variance = 100.0, 
@@ -53,14 +58,11 @@ world = envlib.Environment(ranges = ranges,
                            visualize = True,
                            seed = SEED,
                            MIN_COLOR=MIN_COLOR, 
-                           MAX_COLOR=MAX_COLOR)
+                           MAX_COLOR=MAX_COLOR, 
+                           obstacle_world = ow)
 
 # Create the evaluation class used to quantify the simulation metrics
 evaluation = evalib.Evaluation(world = world, reward_function = REWARD_FUNCTION)
-
-# Create obstacle world
-# ow = obslib.FreeWorld()
-ow = obslib.ChannelWorld(ranges, (3.5, 7.), 3., 0.3)
 
 # Create the point robot
 robot = roblib.Robot(sample_world = world.sample_value, #function handle for collecting observations

@@ -20,6 +20,7 @@ import logging
 logger = logging.getLogger('robot')
 from gpmodel_library import GPModel
 from gpmodel_library import OnlineGPModel
+import obstacles as obslib
 
 
 
@@ -27,7 +28,8 @@ class Environment:
     '''The Environment class, which represents a retangular Gaussian world.
     ''' 
     def __init__(self, ranges, NUM_PTS, variance, lengthscale, noise = 0.0001, 
-            visualize = True, seed = None, dim = 2, model = None, MIN_COLOR=-25.0, MAX_COLOR=25.0):
+            visualize = True, seed = None, dim = 2, model = None, MIN_COLOR=-25.0, MAX_COLOR=25.0, 
+            obstacle_world = obslib.FreeWorld()):
         ''' Initialize a random Gaussian environment using the input kernel, 
             assuming zero mean function.
         Input:
@@ -50,6 +52,7 @@ class Environment:
         self.lengthscale = lengthscale
         self.dim = dim
         self.noise = noise
+        self.obstacle_world = obstacle_world
         logger.info('Environment seed: {}'.format(seed))
         
         # Expect ranges to be a 4-tuple consisting of x1min, x1max, x2min, and x2max
@@ -100,7 +103,8 @@ class Environment:
             # Continue to generate random environments until the global maximia 
             # lives within the boundary constraints
             while maxima[0] < ranges[0] or maxima[0] > ranges[1] or \
-                  maxima[1] < ranges[2] or maxima[1] > ranges[3]:
+                  maxima[1] < ranges[2] or maxima[1] > ranges[3] or \
+                  self.obstacle_world.in_obstacle(maxima, buff = 0.0):
                 print "Current environment in violation of boundary constraint. Regenerating!"
                 logger.warning("Current environment in violation of boundary constraint. Regenerating!")
 
@@ -167,6 +171,12 @@ class Environment:
                     maxind = np.argmax(self.GP.zvals)
                     ax2.scatter(self.GP.xvals[maxind, 0], self.GP.xvals[maxind,1], color = 'k', marker = '*', s = 500)
                     fig2.colorbar(plot, ax=ax2)
+
+                    # If available, plot the obstacles in the world
+                    if len(self.obstacle_world.get_obstacles()) != 0:
+                        for o in self.obstacle_world.get_obstacles():
+                            x,y = o.exterior.xy
+                            ax2.plot(x,y,'r',linewidth=3)
 
                     fig2.savefig('./figures/world_model_countour.png')
                     #plt.show()           
