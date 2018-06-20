@@ -303,7 +303,7 @@ class Evaluation:
             max_val_error.T, simple_regret.T,  sample_regret_loc.T, sample_regret_val.T, \
             regret.T, info_regret.T, current_highest_obs.T, current_highest_obs_loc_x.T,current_highest_obs_loc_y.T, \
             robot_location_x.T, robot_location_y.T, robot_location_a.T, \
-            distance.T))
+            distance.T, mes_reward_robot.T, mes_reward_omni.T))
 
         for i in range(0, self.num_stars):
             f = open('./figures/'+self.reward_function + '/stars.csv', "a")
