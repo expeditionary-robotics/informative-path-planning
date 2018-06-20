@@ -52,19 +52,27 @@ def make_samples_df(file_names, column_names, max_loc, thresh=1.5):
     return sdata, prop
 
 
-def print_stats(meandf, mesdf, eidf, columns, end_time=174):
+def print_stats(meandf, mesdf, eidf, columns, end_time=174, fname='stats.txt'):
     mean_end = meandf[meandf.time == end_time]
     mes_end = mesdf[mesdf.time == end_time]
     if eidf is not None:
         ei_end = eidf[eidf.time == end_time]
 
+    f = open(fname, 'a')
+
     for e in columns:
+        f.write('-------------\n')
+        f.write(str(e) + '\n')
+        f.write('MEAN:    ' + str(mean_end[e].mean()) + ', ' + str(mean_end[e].std()) + '\n')
+        f.write('MES :    ' + str(mes_end[e].mean()) + ', '  + str(mes_end[e].std()) + '\n')
         print '-------------'
         print str(e)
         print 'MEAN:    ' + str(mean_end[e].mean()) + ', ' + str(mean_end[e].std())
         print 'MES :    ' + str(mes_end[e].mean()) + ', '  + str(mes_end[e].std())
         if eidf is not None:
-            print 'EI  :    ' + str(ei_end[e].mean()) + ', ' + str(ei_end[e].std()) 
+            f.write('EI  :    ' + str(ei_end[e].mean()) + ', ' + str(ei_end[e].std()))
+            print 'EI  :    ' + str(ei_end[e].mean()) + ', ' + str(ei_end[e].std() + '\n') 
+    f.close()
 
 
 def make_histograms(mean_sdata, mes_sdata, ei_sdata, figname=''):
@@ -99,7 +107,7 @@ def make_histograms(mean_sdata, mes_sdata, ei_sdata, figname=''):
         plt.xticks(np.arange(2),['UCB', 'PLUMES'])
         plt.ylabel('Proportion of Samples')
         plt.title('Average Proportion of Samples taken within 1.5m of the True Maxima')
-        plt.savefig(figame+'_prop_samples')
+        plt.savefig(figname+'_prop_samples')
 
 
 def make_plots(mean_data, mes_data, ei_data, param, title, d=20, plot_confidence=False, save_fig=False, lab="Value", fname="fig"):
@@ -191,7 +199,7 @@ def make_plots(mean_data, mes_data, ei_data, param, title, d=20, plot_confidence
 if __name__ == '__main__':
     seeds = ['seed0-', 'seed100-', 'seed200-', 'seed300-', 'seed400-', 'seed500-', 'seed600-', 'seed700-', 'seed800-', 'seed900-',
              'seed1000-', 'seed1100-', 'seed1200-', 'seed1300-', 'seed1400-', 'seed1500-']
-    fileparams = 'pathsetdubins-costFalse-nonmyopicTrue-goalFalse'
+    fileparams = 'pathsetfully_reachable_goal-costTrue-nonmyopicFalse-goalFalse'
     path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/'
 
     #get the data files
@@ -223,7 +231,7 @@ if __name__ == '__main__':
     mes_data = make_df(f_mes, l)
 
     # print_stats(mean_data, mes_data, ei_data, l)
-    print_stats(mean_data, mes_data, None, l, 149)
+    print_stats(mean_data, mes_data, None, l, 149, 'full_pointsonly_corridor_stats.txt')
 
 
     ######## Looking at Samples ######
@@ -273,12 +281,12 @@ if __name__ == '__main__':
     print [np.std(m) for m in (mean_prop, mes_prop)]
 
     # make_histograms(mean_sdata, mes_sdata, ei_sdata)
-    make_histograms(mean_sdata, mes_sdata, None, figname='nonmyopic_dubins')
+    make_histograms(mean_sdata, mes_sdata, None, figname='full_pointsonly_corridor')
 
 
     # ######### Looking at Mission Progression ######
-    make_plots(mean_data, mes_data, None, 'max_val_error', 'Averaged Maximum Value Error, Conf', len(seeds), True, False, fname='nonmyopic_dubins_avg_valerr_conf')
-    make_plots(mean_data, mes_data, None, 'max_loc_error', 'Averaged Maximum Location Error, Conf', len(seeds), True, False, fname='nonmyopic_dubins_avg_valloc_conf')
-    make_plots(mean_data, mes_data, None, 'info_regret', 'Averaged Information Regret, Conf', len(seeds), True, False, fname='nonmyopic_dubins_avg_reg_conf')
-    make_plots(mean_data, mes_data, None, 'MSE', 'Averaged MSE, Conf', len(seeds), True, False, fname='nonmyopic_dubins_avg_mse_conf')
+    make_plots(mean_data, mes_data, None, 'max_val_error', 'Averaged Maximum Value Error, Conf', len(seeds), True, True, fname='full_pointsonly_corridor_avg_valerr_conf')
+    make_plots(mean_data, mes_data, None, 'max_loc_error', 'Averaged Maximum Location Error, Conf', len(seeds), True, True, fname='full_pointsonly_corridor_avg_valloc_conf')
+    make_plots(mean_data, mes_data, None, 'info_regret', 'Averaged Information Regret, Conf', len(seeds), True, True, fname='full_pointsonly_corridor_avg_reg_conf')
+    make_plots(mean_data, mes_data, None, 'MSE', 'Averaged MSE, Conf', len(seeds), True, True, fname='full_pointsonly_corridor_avg_mse_conf')
     plt.show()
