@@ -150,22 +150,6 @@ class BugTrap(BlockWorld):
 					return True
 			return False
 
-
-			# if point[0] >= self.inner_xlim[0]-buff and point[0] <= self.inner_xlim[1]:
-			# 	if point[1] <= self.inner_ylim[0]-buff and point[1] >= self.inner_ylim[1]+buff:
-			# 		return False
-			# elif point[0] > self.outer_xlim[0]-buff and point[0] < self.outer_xlim[1]:
-			# 	if point[1] < self.outer_ylim[0]-buff and point[1] > self.outer_ylim[1]+buff:
-			# 		return True
-			# 	return False
-			# else:
-			# 	return False
-
-		# if point[0] > self.xlim[0]-buff and point[0] < self.xlim[1]+buff:
-		# 	if point[1] < self.ylim[0]+buff or point[1] > self.ylim[1]-buff:
-		# 		return True
-		# return False
-
 class ChannelWorld(BlockWorld):
 	'''
 	Class to generate an environment that is divided with a single hallway for entering

@@ -3,6 +3,7 @@
 *.pyc
 figures/*
 experiments/*
+old_experiments/*
 old_exp/*
 *.png
 *.npy
