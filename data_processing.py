@@ -26,6 +26,12 @@ def make_df(file_names, column_names):
     for m in file_names[1:]:
         temp_data = pd.read_table(m, delimiter = " ", header=None)
         temp_data = temp_data.T
+
+        # Added because some data now has mes reward printing
+        if temp_data.shape[1] > len(column_names):
+            temp_data = pd.read_table(m, delimiter = " ", header=None, skipfooter = 2)
+            temp_data = temp_data.T
+
         temp_data.columns = column_names
         data = data.append(temp_data)
 
@@ -52,19 +58,27 @@ def make_samples_df(file_names, column_names, max_loc, thresh=1.5):
     return sdata, prop
 
 
-def print_stats(meandf, mesdf, eidf, columns, end_time=174):
+def print_stats(meandf, mesdf, eidf, columns, end_time=174, fname='stats.txt'):
     mean_end = meandf[meandf.time == end_time]
     mes_end = mesdf[mesdf.time == end_time]
     if eidf is not None:
         ei_end = eidf[eidf.time == end_time]
 
+    f = open(fname, 'a')
+
     for e in columns:
+        f.write('-------------\n')
+        f.write(str(e) + '\n')
+        f.write('MEAN:    ' + str(mean_end[e].mean()) + ', ' + str(mean_end[e].std()) + '\n')
+        f.write('MES :    ' + str(mes_end[e].mean()) + ', '  + str(mes_end[e].std()) + '\n')
         print '-------------'
         print str(e)
         print 'MEAN:    ' + str(mean_end[e].mean()) + ', ' + str(mean_end[e].std())
         print 'MES :    ' + str(mes_end[e].mean()) + ', '  + str(mes_end[e].std())
         if eidf is not None:
-            print 'EI  :    ' + str(ei_end[e].mean()) + ', ' + str(ei_end[e].std()) 
+            f.write('EI  :    ' + str(ei_end[e].mean()) + ', ' + str(ei_end[e].std()))
+            print 'EI  :    ' + str(ei_end[e].mean()) + ', ' + str(ei_end[e].std() + '\n') 
+    f.close()
 
 
 def make_histograms(mean_sdata, mes_sdata, ei_sdata, figname=''):
@@ -189,11 +203,13 @@ def make_plots(mean_data, mes_data, ei_data, param, title, d=20, plot_confidence
 
 ######### MAIN LOOP ###########
 if __name__ == '__main__':
-    seed_numbers = range(0, 2000, 100)
+    seed_numbers = range(0, 2400, 100)
     seeds = ['seed'+ str(x) + '-' for x in seed_numbers]
+    print seeds
     #seeds = ['seed0-', 'seed100-', 'seed200-', 'seed300-', 'seed400-', 'seed500-', 'seed600-', 'seed700-', 'seed800-', 'seed900-',
     #         'seed1000-', 'seed1100-', 'seed1200-', 'seed1300-', 'seed1400-', 'seed1500-', 'seed1600-']
-    fileparams = 'pathsetdubins-costFalse-nonmyopicFalse-goalFalse'
+    fileparams = 'pathsetdubins-costFalse-nonmyopicTrue-goalFalse'
+    #fileparams = 'pathsetfully_reachable_goal-costTrue-nonmyopicFalse-goalFalse'
     #path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/'
     path= '/home/genevieve/mit-whoi/informative-path-planning/experiments/'
 
@@ -226,7 +242,7 @@ if __name__ == '__main__':
     mes_data = make_df(f_mes, l)
 
     # print_stats(mean_data, mes_data, ei_data, l)
-    print_stats(mean_data, mes_data, None, l, 149)
+    print_stats(mean_data, mes_data, None, l, 149, 'full_pointsonly_corridor_stats.txt')
 
 
     ######## Looking at Samples ######
@@ -278,7 +294,7 @@ if __name__ == '__main__':
     print [np.std(m) for m in (mean_prop, mes_prop)]
 
     # make_histograms(mean_sdata, mes_sdata, ei_sdata)
-    make_histograms(mean_sdata, mes_sdata, None, figname='nonmyopic_dubins')
+    make_histograms(mean_sdata, mes_sdata, None, figname='full_pointsonly_corridor')
 
 
     # ######### Looking at Mission Progression ######
