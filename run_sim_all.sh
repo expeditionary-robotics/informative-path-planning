@@ -34,12 +34,12 @@ pushd experiments
                             if [ ${pathset} = fully_reachable_goal ] && [ ${nonmyopic} = True ]; then
                                 continue
                             fi
-                            if [ ${pathset} = fully_reachable_goal ] && [ ${cost} = False ]; then
-                                continue
-                            fi
-                            if [ ${pathset} = fully_reachable_goal ] && [ ${cost} = False ]; then
-                                continue
-                            fi
+                            # if [ ${pathset} = fully_reachable_goal ] && [ ${cost} = False ]; then
+                            #     continue
+                            # fi
+                            # if [ ${pathset} = fully_reachable_goal ] && [ ${cost} = False ]; then
+                            #     continue
+                            # fi
 
                             workdir=sim_seed${seed}-pathset${pathset}-cost${cost}-nonmyopic${nonmyopic}-goal${goal_only}
 

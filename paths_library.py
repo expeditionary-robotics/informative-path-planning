@@ -252,32 +252,35 @@ class Reachable_Frontier_Generator():
 
         for i,goal in enumerate(self.goals):
             dist = np.sqrt((loc[0]-goal[0])**2 + (loc[1]-goal[1])**2)
-            angle_to_goal = np.arctan2([goal[1]-loc[1]], [goal[0]-loc[0]])[0]
-            new_goal = (goal[0], goal[1], angle_to_goal)
-
-            path = dubins.shortest_path(loc, new_goal, self.turning_radius)
-            fconfig, _ = path.sample_many(self.sample_step/10)
-
-            ftemp = []
-            for c in fconfig:
-                if c[0] > self.ranges[0] and c[0] < self.ranges[1] and c[1] > self.ranges[2] and c[1] < self.ranges[3] and not self.obstacle_world.in_obstacle((c[0], c[1]), buff = self.turning_radius):
-                    ftemp.append(c)
-                else:
-                    break
-
-            try:
-                ttemp = ftemp[0::10]
-                for m,c in enumerate(ttemp):
-                    if c[0] < self.ranges[0]+3*self.turning_radius or c[0] > self.ranges[1]-3*self.turning_radius or c[1] < self.ranges[2]+3*self.turning_radius or c[1] > self.ranges[3]-3*self.turning_radius or self.obstacle_world.in_obstacle((c[0], c[1]), buff = 3*self.turning_radius):
-                        ttemp = ttemp[0:m-1]
-
-                if len(ttemp) < 2:
-                    pass
-                else:
-                    sampling_path[i] = ttemp
-                    true_path[i] = ftemp[0:ftemp.index(ttemp[-1])+1]
-            except:
+            if dist < self.step_size:
                 pass
+            else:
+                angle_to_goal = np.arctan2([goal[1]-loc[1]], [goal[0]-loc[0]])[0]
+                new_goal = (goal[0], goal[1], angle_to_goal)
+
+                path = dubins.shortest_path(loc, new_goal, self.turning_radius)
+                fconfig, _ = path.sample_many(self.sample_step/10)
+
+                ftemp = []
+                for c in fconfig:
+                    if c[0] > self.ranges[0] and c[0] < self.ranges[1] and c[1] > self.ranges[2] and c[1] < self.ranges[3] and not self.obstacle_world.in_obstacle((c[0], c[1]), buff = self.turning_radius):
+                        ftemp.append(c)
+                    else:
+                        break
+
+                try:
+                    ttemp = ftemp[0::10]
+                    for m,c in enumerate(ttemp):
+                        if c[0] < self.ranges[0]+3*self.turning_radius or c[0] > self.ranges[1]-3*self.turning_radius or c[1] < self.ranges[2]+3*self.turning_radius or c[1] > self.ranges[3]-3*self.turning_radius or self.obstacle_world.in_obstacle((c[0], c[1]), buff = 3*self.turning_radius):
+                            ttemp = ttemp[0:m-1]
+
+                    if len(ttemp) < 2:
+                        pass
+                    else:
+                        sampling_path[i] = ttemp
+                        true_path[i] = ftemp[0:ftemp.index(ttemp[-1])+1]
+                except:
+                    pass
 
         return sampling_path, true_path
 
@@ -351,8 +354,9 @@ class Reachable_Step_Generator(Reachable_Frontier_Generator):
 
 if __name__ == '__main__':
     # bw = obs.BlockWorld( [0., 10., 0., 10.], num_blocks=1, dim_blocks=(2.,2.), centers=[(6.1,5)])
-    bw = obs.BugTrap([0., 10., 0., 10.], (5,5), 3, channel_size = 0.5, width = 3., orientation='left')
+    # bw = obs.BugTrap([0., 10., 0., 10.], (5,5), 3, channel_size = 0.5, width = 3., orientation='left')
     # bw = obs.ChannelWorld([0., 10., 0., 10.], (6,5), 3, 0.4)
+    bw = obs.FreeWorld()
 
     # extent, discretization, sample_step, turning_radius, step_size,obstacle_world=obs.FreeWorld()
     gen = Reachable_Frontier_Generator([0., 10., 0., 10.], (20,20), 0.5, 0.1, 1.5, bw)
@@ -362,9 +366,10 @@ if __name__ == '__main__':
 
     trajectory = []
     samples = []
-    coord = (0.2,0.2,3.14)
-    for m in range(5):
+    coord = (5.2,5.2,0)
+    for m in range(1):
         paths, true_paths = gen.get_path_set(coord)
+        print len(paths)
         action = np.random.choice(paths.keys())
         for i, path in paths.items():
             f = np.array(path)
