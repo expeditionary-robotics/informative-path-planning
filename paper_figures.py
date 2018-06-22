@@ -197,21 +197,22 @@ def generate_dist_stats(dfs, labels, params, ids, fname='stats.txt'):
 ######### MAIN LOOP ###########
 if __name__ == '__main__':
     seed_numbers = range(0, 2000, 100)
+    seed_numbers = [0, 100, 200, 300, 500, 600, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800]
     print seed_numbers
     seeds = ['seed'+ str(x) + '-' for x in seed_numbers]
 
     fileparams = [#'pathsetfully_reachable_goal-costTrue-nonmyopicFalse-goalFalse',
                   #'pathsetfully_reachable_goal-costTrue-nonmyopicFalse-goalTrue',
-                  'pathsetfully_reachable_goal-costFalse-nonmyopicFalse-goalTrue',
                   #'pathsetfully_reachable_goal-costFalse-nonmyopicFalse-goalFalse',
-                  'pathsetdubins-costFalse-nonmyopicFalse-goalFalse',
-                  'pathsetdubins-costFalse-nonmyopicTrue-goalFalse']
+                  'pathsetfully_reachable_goal-costFalse-nonmyopicFalse-goalTrue_BUGTRAP',
+                  'pathsetdubins-costFalse-nonmyopicFalse-goalFalse_BUGTRAP',
+                  'pathsetdubins-costFalse-nonmyopicTrue-goalFalse_BUGTRAP']
 
     labels = ['frgo', 'my', 'nonmy']#['frpd', 'frgd', 'frgo', 'frpo', 'my', 'plumes']
     file_start = 'all_mse'
 
-    path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/'
-    # path= '/home/genevieve/mit-whoi/informative-path-planning/experiments/'
+    #path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/'
+    path= '/home/genevieve/mit-whoi/repos/informative-path-planning/experiments/'
 
     # variables for making dataframes
     column_names = ['time', 'info_gain','aqu_fun', 'MSE', 'hotspot_error','max_loc_error', 'max_val_error', 
@@ -267,19 +268,20 @@ if __name__ == '__main__':
                                     ls.append(l)
                             max_val.append(float(ls[0].split(" ")[3]))
                             # For Genevieve
-                            # max_loc.append((float(ls[-1].split(" ")[7].split("[")[0]), float(ls[-1].split(" ")[9].split("]")[0])))
+                            max_loc.append((float(ls[-1].split(" ")[7].split("[")[0]), float(ls[-1].split(" ")[9].split("]")[0])))
                             # For Victoria
-                            max_loc.append((float(ls[0].split(" ")[6].split("[")[1]), float(ls[0].split(" ")[7].split("]")[0])))
+                            #max_loc.append((float(ls[0].split(" ")[6].split("[")[1]), float(ls[0].split(" ")[7].split("]")[0])))
         
 
-        mean_data = make_df(p_mean, column_names)
         mes_data = make_df(p_mes, column_names)
 
         if label != 'frgo':
+            mean_data = make_df(p_mean, column_names)
             all_dfs.append(mean_data)
         all_dfs.append(mes_data)
 
-        mean_sdata, mean_prop = make_samples_df(p_mean_samples, ['x', 'y', 'a'], max_loc, 1.5)
+        if label != 'frgo':
+            mean_sdata, mean_prop = make_samples_df(p_mean_samples, ['x', 'y', 'a'], max_loc, 1.5)
         mes_sdata, mes_prop = make_samples_df(p_mes_samples, ['x', 'y', 'a'], max_loc, 1.5)
 
         if label != 'frgo':

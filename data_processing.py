@@ -307,14 +307,15 @@ def playback(playback_locs, playback_samples, max_val, column_names):
 
 ######### MAIN LOOP ###########
 if __name__ == '__main__':
-    seed_numbers = range(0, 2500, 100)
+    seed_numbers = range(0, 1900, 100)
     seeds = ['seed'+ str(x) + '-' for x in seed_numbers]
     print seeds
 
     #fileparams = 'pathsetfully_reachable_goal-costTrue-nonmyopicFalse-goalFalse'
-    #fileparams = 'pathsetdubins-costFalse-nonmyopicTrue-goalFalse_BUGTRAP'
-    fileparams = 'pathsetdubins-costFalse-nonmyopicTrue-goalFalse'
-    file_start = 'dubins-nonmyopic'
+    #fileparams = 'pathsetdubins-costFalse-nonmyopicTrue-goalFalse'
+
+    fileparams = 'pathsetfully_reachable_goal-costFalse-nonmyopicFalse-goalTrue_BUGTRAP'
+    file_start = 'fully_reachable_goal-myopic'
 
 
     path= '/home/genevieve/mit-whoi/repos/informative-path-planning/experiments/'
@@ -354,7 +355,7 @@ if __name__ == '__main__':
                         mes_samples.append(root+"/"+name)
             ######## Looking at Mean values ######
             # get the robot log files
-            elif 'log' in name and 'mean' in root and fileparams in root:
+            elif 'log' in name and 'mes' in root and fileparams in root:
                 for s in seeds:
                     ls = []
                     if str(s) in root:
@@ -373,12 +374,15 @@ if __name__ == '__main__':
                         'current_highest_obs', 'current_highest_obs_loc_x', 'current_highest_obs_loc_y',
                         'robot_loc_x', 'robot_loc_y', 'robot_loc_a', 'distance', 'max_value_info']
 
-    mean_data = make_df(f_mean, mean_samples, max_val, column_names)
-    mes_data = make_df(f_mes, mes_samples, max_val, column_names)
-    print_stats(mean_data, mes_data, None, column_names, 149, file_start + '_stats.txt')
 
-    mean_sdata, mean_prop = make_samples_df(mean_samples, ['x', 'y', 'a'], max_loc, 1.5)
+    #mean_data = make_df(f_mean, mean_samples, max_val, column_names)
+    mes_data = make_df(f_mes, mes_samples, max_val, column_names)
+    mean_data = mes_data
+    #print_stats(mean_data, mes_data, None, column_names, 149, file_start + '_stats.txt')
+
+    #mean_sdata, mean_prop = make_samples_df(mean_samples, ['x', 'y', 'a'], max_loc, 1.5)
     mes_sdata, mes_prop = make_samples_df(mes_samples, ['x', 'y', 'a'], max_loc, 1.5)
+    mean_sdata, mean_prop = mes_sdata, mes_prop
     # ei_sdata, ei_prop = make_samples_df(ei_samples, ['x', 'y', 'a'], max_loc, 1.5)
 
     print 'Mean value of sample proportions: ' 
