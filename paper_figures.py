@@ -9,6 +9,7 @@ import math
 from matplotlib.colors import LogNorm
 from matplotlib import cm
 import os
+import pdb
 
 plt.rcParams['xtick.labelsize'] = 22
 plt.rcParams['ytick.labelsize'] = 22
@@ -21,9 +22,12 @@ def make_df(file_names, column_names):
     d = file_names[0]
     data = pd.read_table(d, delimiter = " ", header=None)
     data = data.T
-    if data.shape[1] < len(column_names):
-        data.columns = column_names[0:-2]
-        column_names = column_names[0:-2]
+    if data.shape[1] > len(column_names):
+        data = pd.read_table(d, delimiter = " ", header=None, skipfooter = data.shape[1] - len(column_names))
+        data = data.T
+        data.columns = column_names
+        #data.columns = column_names[0:-2]
+        #column_names = column_names[0:-2]
     else:
         data.columns = column_names
 
@@ -33,7 +37,7 @@ def make_df(file_names, column_names):
 
         # Added because some data now has mes reward printing; we want the dataframe to have the same dimensions for now
         if temp_data.shape[1] > len(column_names):
-            temp_data = pd.read_table(m, delimiter = " ", header=None, skipfooter = 2)
+            temp_data = pd.read_table(m, delimiter = " ", header=None, skipfooter = temp_data.shape[1] - len(column_names))
             temp_data = temp_data.T
 
         temp_data.columns = column_names
@@ -147,14 +151,14 @@ def make_dist_dfs(data_dfs, sample_dfs, column_names, max_loc, thresh=1.5, dist_
 
     return all_dist, all_samps, all_props, all_statsids
 
-def truncate_by_distance(df, sample_df, dist_lim=150.0, thresh=1.5):
+def truncate_by_distance(df, sample_df, dist_lim=250.0, thresh=1.5):
     temp_df = df[df['distance'] < dist_lim]
     last_samp_x = temp_df['robot_loc_x'].values[-1]
     last_samp_y = temp_df['robot_loc_y'].values[-1]
 
     stats_id = temp_df.index[-1]
-
-    temp_sidx = sample_df[(sample_df['x']==last_samp_x)&(sample_df['y']==last_samp_y)].index
+    temp_sidx = sample_df[np.isclose(sample_df['x'], last_samp_x)& \
+                          np.isclose(sample_df['y'], last_samp_y)].index
 
     candidates = []
     if len(temp_sidx) == 1:
@@ -166,6 +170,7 @@ def truncate_by_distance(df, sample_df, dist_lim=150.0, thresh=1.5):
             for j in range(1, i):
                 dist += np.sqrt((sample_df['x'].values[last]-sample_df['x'].values[j])**2 + (sample_df['y'].values[last]-sample_df['y'].values[j])**2)
                 last = j
+            #print "Dist:", dist, "Lim:", dist_lim
             if dist < dist_lim:
                 candidates.append(i)
     idx = candidates[-1]
@@ -201,18 +206,18 @@ if __name__ == '__main__':
                   #'pathsetfully_reachable_goal-costFalse-nonmyopicFalse-goalFalse',
                   'pathsetdubins-costFalse-nonmyopicFalse-goalFalse',
                   'pathsetdubins-costFalse-nonmyopicTrue-goalFalse']
-    labels = ['frgo', 'my', 'nonmy']#['frpd', 'frgd', 'frgo', 'frpo', 'my', 'plumes']
 
+    labels = ['frgo', 'my', 'nonmy']#['frpd', 'frgd', 'frgo', 'frpo', 'my', 'plumes']
     file_start = 'all_mse'
 
-    path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/'
-    # path= '/home/genevieve/mit-whoi/informative-path-planning/experiments/'
+    #path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/'
+    path= '/home/genevieve/mit-whoi/informative-path-planning/experiments/'
 
     # variables for making dataframes
     column_names = ['time', 'info_gain','aqu_fun', 'MSE', 'hotspot_error','max_loc_error', 'max_val_error', 
                         'simple_regret', 'sample_regret_loc', 'sample_regret_val', 'regret', 'info_regret',
                         'current_highest_obs', 'current_highest_obs_loc_x', 'current_highest_obs_loc_y',
-                        'robot_loc_x', 'robot_loc_y', 'robot_loc_a', 'distance', 'mes_reward_robot', 'mes_reward_omni']
+                        'robot_loc_x', 'robot_loc_y', 'robot_loc_a', 'distance']
 
     #get the data files
     all_dfs = []
@@ -235,18 +240,18 @@ if __name__ == '__main__':
 
         for root, dirs, files in os.walk(path):
             for name in files:
-                if 'metrics' in name and 'mean' in root and param in root and 'old_fully_reachable' not in root:
-                    for s in seeds:
-                        if s in root:
-                            p_mean.append(root+"/"+name)
-                elif 'metric' in name and 'mes' in root and param in root and 'old_fully_reachable' not in root:
+                #if 'metrics' in name and 'mean' in root and param in root and 'old_fully_reachable' not in root:
+                #    for s in seeds:
+                #        if s in root:
+                #            p_mean.append(root+"/"+name)
+                if 'metric' in name and 'mes' in root and param in root and 'old_fully_reachable' not in root:
                     for s in seeds:
                         if s in root:
                             p_mes.append(root+"/"+name)
-                elif 'robot_model' in name and 'mean' in root and param in root and 'old_fully_reachable' not in root:
-                    for s in seeds:
-                        if s in root:
-                            p_mean_samples.append(root+"/"+name)
+                #elif 'robot_model' in name and 'mean' in root and param in root and 'old_fully_reachable' not in root:
+                #    for s in seeds:
+                #        if s in root:
+                #            p_mean_samples.append(root+"/"+name)
                 elif 'robot_model' in name and 'mes' in root and param in root and 'old_fully_reachable' not in root:
                     for s in seeds:
                         if s in root:
@@ -261,18 +266,20 @@ if __name__ == '__main__':
                                 if "max value" in l:
                                     ls.append(l)
                             max_val.append(float(ls[0].split(" ")[3]))
-                            # max_loc.append((float(ls[-1].split(" ")[7].split("[")[0]), float(ls[-1].split(" ")[9].split("]")[0])))
-                            max_loc.append((float(ls[0].split(" ")[6].split("[")[1]), float(ls[0].split(" ")[7].split("]")[0])))
+                            # For Genevieve
+                            max_loc.append((float(ls[-1].split(" ")[7].split("[")[0]), float(ls[-1].split(" ")[9].split("]")[0])))
+                            # For Victoria
+                            #max_loc.append((float(ls[0].split(" ")[6].split("[")[1]), float(ls[0].split(" ")[7].split("]")[0])))
         
 
-        mean_data = make_df(p_mean, column_names)
+        #mean_data = make_df(p_mean, column_names)
         mes_data = make_df(p_mes, column_names)
 
         if label != 'frgo':
             all_dfs.append(mean_data)
         all_dfs.append(mes_data)
 
-        mean_sdata, mean_prop = make_samples_df(p_mean_samples, ['x', 'y', 'a'], max_loc, 1.5)
+        #mean_sdata, mean_prop = make_samples_df(p_mean_samples, ['x', 'y', 'a'], max_loc, 1.5)
         mes_sdata, mes_prop = make_samples_df(p_mes_samples, ['x', 'y', 'a'], max_loc, 1.5)
 
         if label != 'frgo':
