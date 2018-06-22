@@ -7,3 +7,5 @@ old_experiments/*
 old_exp/*
 *.png
 *.npy
+*.txt
+
