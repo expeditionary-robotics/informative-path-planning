@@ -48,13 +48,13 @@ def make_samples_df(file_names, column_names, max_loc, thresh=1.5):
     sdata = sdata.T
     sdata.columns = column_names
     sdata.loc[:, 'Distance'] = sdata.apply(lambda x: np.sqrt((x['x']-max_loc[0][0])**2+(x['y']-max_loc[0][1])**2),axis=1)
-    prop.append(float(len(sdata[sdata.Distance < thresh]))/len(sdata))
+    prop.append(float(len(sdata[sdata.Distance <= thresh]))/len(sdata))
     for i,m in enumerate(file_names[1:]):
         temp_data = pd.read_table(m, delimiter = " ", header=None)
         temp_data = temp_data.T
         temp_data.columns = column_names
         temp_data.loc[:,'Distance'] = temp_data.apply(lambda x: np.sqrt((x['x']-max_loc[i+1][0])**2+(x['y']-max_loc[i+1][1])**2),axis=1)
-        prop.append(float(len(temp_data[temp_data.Distance < thresh]))/len(temp_data))
+        prop.append(float(len(temp_data[temp_data.Distance <= thresh]))/len(temp_data))
         sdata = sdata.append(temp_data)
 
     return sdata, prop
@@ -74,7 +74,7 @@ def generate_histograms(dfs, props, labels, title, figname='', save_fig=False):
     colors = ['b', 'g', 'r', 'c', 'm', 'y']
 
     for i in range(0, len(dfs)):
-        axes[i].hist(dfs[i]['Distance'].values, bins = np.linspace(min(dfs[i]['Distance'].values), max(dfs[i]['Distance'].values), np.floor(max(dfs[i]['Distance'].values)-min(dfs[i]['Distance'].values))), color = colors[i])
+        axes[i].hist(dfs[i]['Distance'].values, bins = np.linspace(min(dfs[0]['Distance'].values), max(dfs[0]['Distance'].values), np.floor(max(dfs[0]['Distance'].values)-min(dfs[0]['Distance'].values))), color = colors[i])
         axes[i].set_title(labels[i])
 
     axes[0].set_ylabel('Count')
@@ -85,7 +85,7 @@ def generate_histograms(dfs, props, labels, title, figname='', save_fig=False):
         plt.savefig(figname+'_agg_samples.png')
 
     fig = plt.figure()
-    plt.bar(np.arange(len(dfs)), [sum(m)/len(m) for m in props], yerr=[np.std(m) for m in props], color=colors[0:len(props)])
+    plt.bar(np.arange(len(dfs)), [np.mean(m) for m in props], yerr=[np.std(m) for m in props], color=colors[0:len(props)])
     plt.xticks(np.arange(len(dfs)), labels)
     plt.ylabel('Proportion of Samples')
     plt.title(title+': Average Proportion of Samples within $1.5m$ of Global Maximizer')
@@ -189,7 +189,7 @@ def generate_dist_stats(dfs, labels, params, ids, fname='stats.txt'):
 
 ######### MAIN LOOP ###########
 if __name__ == '__main__':
-    seed_numbers = range(0, 600, 100)
+    seed_numbers = range(0, 800, 100)
     print seed_numbers
     seeds = ['seed'+ str(x) + '-' for x in seed_numbers]
 
@@ -212,22 +212,6 @@ if __name__ == '__main__':
                         'current_highest_obs', 'current_highest_obs_loc_x', 'current_highest_obs_loc_y',
                         'robot_loc_x', 'robot_loc_y', 'robot_loc_a', 'distance', 'mes_reward_robot', 'mes_reward_omni']
 
-    max_val = []
-    max_loc = []
-    for root, dirs, files in os.walk(path):
-        for name in files:
-            if 'log' in name and 'mean' in root and fileparams[0] in root and 'old_fully_reachable' not in root:
-                for s in seeds:
-                    ls = []
-                    if str(s) in root:
-                        temp = open(root+'/'+name, "r")
-                        for l in temp.readlines():
-                            if "max value" in l:
-                                ls.append(l)
-                        max_val.append(float(ls[-1].split(" ")[3]))
-                        # max_loc.append((float(ls[-1].split(" ")[7].split("[")[0]), float(ls[-1].split(" ")[9].split("]")[0])))
-                        max_loc.append((float(ls[-1].split(" ")[6].split("[")[1]), float(ls[-1].split(" ")[7].split("]")[0])))
-
     #get the data files
     all_dfs = []
     all_sample_dfs = []
@@ -243,6 +227,9 @@ if __name__ == '__main__':
         p_mes = []
         p_mean_samples = []
         p_mes_samples = []
+
+        max_val = []
+        max_loc = []
 
         for root, dirs, files in os.walk(path):
             for name in files:
@@ -262,6 +249,18 @@ if __name__ == '__main__':
                     for s in seeds:
                         if s in root:
                             p_mes_samples.append(root+"/"+name)
+
+                if 'log' in name and 'mes' in root and param in root and 'old_fully_reachable' not in root:
+                    for s in seeds:
+                        ls = []
+                        if str(s) in root:
+                            temp = open(root+'/'+name, "r")
+                            for l in temp.readlines():
+                                if "max value" in l:
+                                    ls.append(l)
+                            max_val.append(float(ls[0].split(" ")[3]))
+                            # max_loc.append((float(ls[-1].split(" ")[7].split("[")[0]), float(ls[-1].split(" ")[9].split("]")[0])))
+                            max_loc.append((float(ls[0].split(" ")[6].split("[")[1]), float(ls[0].split(" ")[7].split("]")[0])))
         
 
         mean_data = make_df(p_mean, column_names)
