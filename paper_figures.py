@@ -10,10 +10,10 @@ from matplotlib.colors import LogNorm
 from matplotlib import cm
 import os
 
-plt.rcParams['xtick.labelsize'] = 28
-plt.rcParams['ytick.labelsize'] = 28
-plt.rcParams['axes.labelsize'] = 32
-plt.rcParams['axes.titlesize'] = 32
+plt.rcParams['xtick.labelsize'] = 22
+plt.rcParams['ytick.labelsize'] = 22
+plt.rcParams['axes.labelsize'] = 30
+plt.rcParams['axes.titlesize'] = 30
 plt.rcParams['figure.figsize'] = (17,10)
 
 
@@ -71,7 +71,7 @@ def generate_stats(dfs, labels, params, end_time=149, fname='stats.txt'):
 
 def generate_histograms(dfs, props, labels, title, figname='', save_fig=False):
     fig, axes = plt.subplots(1, len(dfs), sharey = True)
-    colors = ['b', 'g', 'r', 'c', 'm', 'y']
+    colors = ['b', 'g', 'r', 'c', 'm', 'y', 'b', 'g', 'r', 'c', 'm', 'y']
 
     for i in range(0, len(dfs)):
         axes[i].hist(dfs[i]['Distance'].values, bins = np.linspace(min(dfs[0]['Distance'].values), max(dfs[0]['Distance'].values), np.floor(max(dfs[0]['Distance'].values)-min(dfs[0]['Distance'].values))), color = colors[i])
@@ -85,17 +85,19 @@ def generate_histograms(dfs, props, labels, title, figname='', save_fig=False):
         plt.savefig(figname+'_agg_samples.png')
 
     fig = plt.figure()
-    plt.bar(np.arange(len(dfs)), [np.mean(m) for m in props], yerr=[np.std(m) for m in props], color=colors[0:len(props)])
-    plt.xticks(np.arange(len(dfs)), labels)
+    plt.boxplot(props, meanline=True, showmeans=True, labels=labels)
+    plt.ylim((0.,1.))
+
+    # plt.bar(np.arange(len(dfs)), [np.mean(m) for m in props], yerr = np.array(yerr).T, color = colors[0:len(props)])#yerr=[np.std(m) for m in props], color=colors[0:len(props)])
     plt.ylabel('Proportion of Samples')
-    plt.title(title+': Average Proportion of Samples within $1.5m$ of Global Maximizer')
+    # plt.title(title+': Proportion of Samples within $1.5m$ of Global Maximizer', fontsize=32)
 
     if save_fig == True:
         plt.savefig(figname+'_prop_samples.png')
 
 def planning_iteration_plots(dfs, labels, param, title, end_time=149, d=20, plot_confidence=False, save_fig=False, fname=''):
     fig = plt.figure()
-    colors = ['b', 'g', 'r', 'c', 'm', 'y']
+    colors = ['b', 'g', 'r', 'c', 'm', 'y', 'b', 'g', 'r', 'c', 'm', 'y']
     for k,df in enumerate(dfs):
         temp = [0 for m in range(end_time)]
         temp_v = []
@@ -189,17 +191,17 @@ def generate_dist_stats(dfs, labels, params, ids, fname='stats.txt'):
 
 ######### MAIN LOOP ###########
 if __name__ == '__main__':
-    seed_numbers = range(0, 800, 100)
+    seed_numbers = range(0, 1900, 100)
     print seed_numbers
     seeds = ['seed'+ str(x) + '-' for x in seed_numbers]
 
-    fileparams = ['pathsetfully_reachable_goal-costTrue-nonmyopicFalse-goalFalse',
-                  'pathsetfully_reachable_goal-costTrue-nonmyopicFalse-goalTrue',
+    fileparams = [#'pathsetfully_reachable_goal-costTrue-nonmyopicFalse-goalFalse',
+                  #'pathsetfully_reachable_goal-costTrue-nonmyopicFalse-goalTrue',
                   'pathsetfully_reachable_goal-costFalse-nonmyopicFalse-goalTrue',
-                  'pathsetfully_reachable_goal-costFalse-nonmyopicFalse-goalFalse',
+                  #'pathsetfully_reachable_goal-costFalse-nonmyopicFalse-goalFalse',
                   'pathsetdubins-costFalse-nonmyopicFalse-goalFalse',
                   'pathsetdubins-costFalse-nonmyopicTrue-goalFalse']
-    labels = ['frpd', 'frgd', 'frgo', 'frpo', 'my', 'plumes']
+    labels = ['frgo', 'my', 'nonmy']#['frpd', 'frgd', 'frgo', 'frpo', 'my', 'plumes']
 
     file_start = 'all_mse'
 
@@ -266,22 +268,33 @@ if __name__ == '__main__':
         mean_data = make_df(p_mean, column_names)
         mes_data = make_df(p_mes, column_names)
 
-        # all_dfs.append(mean_data)
+        if label != 'frgo':
+            all_dfs.append(mean_data)
         all_dfs.append(mes_data)
 
         mean_sdata, mean_prop = make_samples_df(p_mean_samples, ['x', 'y', 'a'], max_loc, 1.5)
         mes_sdata, mes_prop = make_samples_df(p_mes_samples, ['x', 'y', 'a'], max_loc, 1.5)
 
-        # all_sample_dfs.append(mean_sdata)
+        if label != 'frgo':
+            all_sample_dfs.append(mean_sdata)
         all_sample_dfs.append(mes_sdata)
 
-        # all_props.append(mean_prop)
+        if label != 'frgo':
+            all_props.append(mean_prop)
         all_props.append(mes_prop)
 
-        # all_labels.append('mean_'+label)
+        if label != 'frgo':
+            all_labels.append('mean_'+label)
         all_labels.append('mes_'+label)
 
         # def make_dist_dfs(data_dfs, sample_dfs, column_names, max_loc, thresh=1.5, dist_lim=150.0):
+        if label != 'frgo':
+            mean_dist_data, mean_dist_sdata, mean_dist_props, mean_ids = make_dist_dfs(p_mean, p_mean_samples, column_names, max_loc, 1.5, 200.0)
+            dist_dfs.append(mean_dist_data)
+            dist_samples_dfs.append(mean_dist_sdata)
+            dist_props.append(mean_dist_props)
+            dist_ids.append(mean_ids)
+
         mes_dist_data, mes_dist_sdata, mes_dist_props, mes_ids = make_dist_dfs(p_mes, p_mes_samples, column_names, max_loc, 1.5, 200.0)
         dist_dfs.append(mes_dist_data)
         dist_samples_dfs.append(mes_dist_sdata)
@@ -289,13 +302,14 @@ if __name__ == '__main__':
         dist_ids.append(mes_ids)
 
 
+    all_labels = ['Wang et al.', 'Sun et al.', 'Myopic-PLUMES', 'Morere et al.', 'PLUMES']
     # def generate_stats(dfs, labels, params, end_time=149, fname='stats.txt'):
-    generate_stats(all_dfs, all_labels, ['distance'], 149, file_start + '_stats.txt')
-    generate_dist_stats(dist_dfs, all_labels, ['distance', 'MSE'], dist_ids, file_start + '_dist_stats.txt')
+    generate_stats(all_dfs, all_labels, ['distance', 'MSE', 'max_loc_error', 'max_val_error'], 149, file_start + '_stats.txt')
+    generate_dist_stats(dist_dfs, all_labels, ['distance', 'MSE', 'max_loc_error', 'max_val_error'], dist_ids, file_start + '_dist_stats.txt')
 
     # def generate_histograms(dfs, props, labels, figname='', save_fig=False)
     generate_histograms(all_sample_dfs, all_props, all_labels, title='All Iterations', figname=file_start, save_fig=False)
-    generate_histograms(dist_samples_dfs, dist_props, all_labels, title='Dist Budget', figname=file_start, save_fig=False)
+    generate_histograms(dist_samples_dfs, dist_props, all_labels, title='200$m$ Budget', figname=file_start, save_fig=False)
 
     # def planning_iteration_plots(dfs, labels, param, title, end_time=149, d=20, plot_confidence=False, save_fig=False, fname='')
     planning_iteration_plots(all_dfs, all_labels, 'MSE', 'Averaged MSE', 149, len(seeds), True, False, file_start+'_avg_mse.png')
