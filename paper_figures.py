@@ -196,7 +196,7 @@ def generate_dist_stats(dfs, labels, params, ids, fname='stats.txt'):
 
 ######### MAIN LOOP ###########
 if __name__ == '__main__':
-    seed_numbers = range(0, 1900, 100)
+    seed_numbers = range(0, 2000, 100)
     print seed_numbers
     seeds = ['seed'+ str(x) + '-' for x in seed_numbers]
 
@@ -210,14 +210,14 @@ if __name__ == '__main__':
     labels = ['frgo', 'my', 'nonmy']#['frpd', 'frgd', 'frgo', 'frpo', 'my', 'plumes']
     file_start = 'all_mse'
 
-    #path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/'
-    path= '/home/genevieve/mit-whoi/informative-path-planning/experiments/'
+    path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/'
+    # path= '/home/genevieve/mit-whoi/informative-path-planning/experiments/'
 
     # variables for making dataframes
     column_names = ['time', 'info_gain','aqu_fun', 'MSE', 'hotspot_error','max_loc_error', 'max_val_error', 
                         'simple_regret', 'sample_regret_loc', 'sample_regret_val', 'regret', 'info_regret',
                         'current_highest_obs', 'current_highest_obs_loc_x', 'current_highest_obs_loc_y',
-                        'robot_loc_x', 'robot_loc_y', 'robot_loc_a', 'distance']
+                        'robot_loc_x', 'robot_loc_y', 'robot_loc_a', 'distance', 'max_value_info']
 
     #get the data files
     all_dfs = []
@@ -240,18 +240,18 @@ if __name__ == '__main__':
 
         for root, dirs, files in os.walk(path):
             for name in files:
-                #if 'metrics' in name and 'mean' in root and param in root and 'old_fully_reachable' not in root:
-                #    for s in seeds:
-                #        if s in root:
-                #            p_mean.append(root+"/"+name)
+                if 'metrics' in name and 'mean' in root and param in root and 'old_fully_reachable' not in root:
+                   for s in seeds:
+                       if s in root:
+                           p_mean.append(root+"/"+name)
                 if 'metric' in name and 'mes' in root and param in root and 'old_fully_reachable' not in root:
                     for s in seeds:
                         if s in root:
                             p_mes.append(root+"/"+name)
-                #elif 'robot_model' in name and 'mean' in root and param in root and 'old_fully_reachable' not in root:
-                #    for s in seeds:
-                #        if s in root:
-                #            p_mean_samples.append(root+"/"+name)
+                elif 'robot_model' in name and 'mean' in root and param in root and 'old_fully_reachable' not in root:
+                   for s in seeds:
+                       if s in root:
+                           p_mean_samples.append(root+"/"+name)
                 elif 'robot_model' in name and 'mes' in root and param in root and 'old_fully_reachable' not in root:
                     for s in seeds:
                         if s in root:
@@ -267,19 +267,19 @@ if __name__ == '__main__':
                                     ls.append(l)
                             max_val.append(float(ls[0].split(" ")[3]))
                             # For Genevieve
-                            max_loc.append((float(ls[-1].split(" ")[7].split("[")[0]), float(ls[-1].split(" ")[9].split("]")[0])))
+                            # max_loc.append((float(ls[-1].split(" ")[7].split("[")[0]), float(ls[-1].split(" ")[9].split("]")[0])))
                             # For Victoria
-                            #max_loc.append((float(ls[0].split(" ")[6].split("[")[1]), float(ls[0].split(" ")[7].split("]")[0])))
+                            max_loc.append((float(ls[0].split(" ")[6].split("[")[1]), float(ls[0].split(" ")[7].split("]")[0])))
         
 
-        #mean_data = make_df(p_mean, column_names)
+        mean_data = make_df(p_mean, column_names)
         mes_data = make_df(p_mes, column_names)
 
         if label != 'frgo':
             all_dfs.append(mean_data)
         all_dfs.append(mes_data)
 
-        #mean_sdata, mean_prop = make_samples_df(p_mean_samples, ['x', 'y', 'a'], max_loc, 1.5)
+        mean_sdata, mean_prop = make_samples_df(p_mean_samples, ['x', 'y', 'a'], max_loc, 1.5)
         mes_sdata, mes_prop = make_samples_df(p_mes_samples, ['x', 'y', 'a'], max_loc, 1.5)
 
         if label != 'frgo':
@@ -311,8 +311,8 @@ if __name__ == '__main__':
 
     all_labels = ['Wang et al.', 'Sun et al.', 'Myopic-PLUMES', 'Morere et al.', 'PLUMES']
     # def generate_stats(dfs, labels, params, end_time=149, fname='stats.txt'):
-    generate_stats(all_dfs, all_labels, ['distance', 'MSE', 'max_loc_error', 'max_val_error'], 149, file_start + '_stats.txt')
-    generate_dist_stats(dist_dfs, all_labels, ['distance', 'MSE', 'max_loc_error', 'max_val_error'], dist_ids, file_start + '_dist_stats.txt')
+    generate_stats(all_dfs, all_labels, ['distance', 'MSE', 'max_loc_error', 'max_val_error', 'max_value_info', 'info_regret'], 149, file_start + '_stats.txt')
+    generate_dist_stats(dist_dfs, all_labels, ['distance', 'MSE', 'max_loc_error', 'max_val_error', 'max_value_info', 'info_regret'], dist_ids, file_start + '_dist_stats.txt')
 
     # def generate_histograms(dfs, props, labels, figname='', save_fig=False)
     generate_histograms(all_sample_dfs, all_props, all_labels, title='All Iterations', figname=file_start, save_fig=False)
@@ -320,5 +320,7 @@ if __name__ == '__main__':
 
     # def planning_iteration_plots(dfs, labels, param, title, end_time=149, d=20, plot_confidence=False, save_fig=False, fname='')
     planning_iteration_plots(all_dfs, all_labels, 'MSE', 'Averaged MSE', 149, len(seeds), True, False, file_start+'_avg_mse.png')
+    planning_iteration_plots(all_dfs, all_labels, 'max_value_info', 'Reward Accumulation', 149, len(seeds), True, False, file_start+'_avg_rac.png')
+    planning_iteration_plots(all_dfs, all_labels, 'info_regret', 'Info Regret', 149, len(seeds), True, False, file_start+'_avg_ireg.png')
 
     plt.show()
