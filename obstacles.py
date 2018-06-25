@@ -45,26 +45,37 @@ class BlockWorld():
 			self.centers = centers
 
 		self.obstacles = []
+		self.points = []
 		for center in self.centers:
 			points = [(center[0]+dim_blocks[0]/2, center[1]+dim_blocks[1]/2),
 			          (center[0]+dim_blocks[0]/2, center[1]-dim_blocks[1]/2),
 			          (center[0]-dim_blocks[0]/2, center[1]-dim_blocks[1]/2),
 			          (center[0]-dim_blocks[0]/2, center[1]+dim_blocks[1]/2)]
 			self.obstacles.append(Polygon(points))
+			self.points.append(points)
 
 
 	def in_obstacle(self, point, buff=0.1):
 		'''
 		Checks through the obstacles to determine if a point of interest is in a shape, and returns True or False depending on the status
 		'''
-		point = Point(point)
-		for poly in self.obstacles:
-			temp = poly.buffer(buff, cap_style=3)
-			if point.within(temp):
-				return True
-			if temp.contains(point):
-				return True
+		# point = Point(point)
+		# for poly in self.obstacles:
+		# 	temp = poly.buffer(buff, cap_style=3)
+		# 	if point.within(temp):
+		# 		return True
+		# 	elif temp.contains(point):
+		# 		return True
+		# return False
+
+		for obs in self.points:
+			if point[0] > obs[2][0]-buff and point[0] < obs[0][0]+buff:
+				if point[1] > obs[1][1]-buff and point[1] < obs[0][1]+buff:
+					return True
 		return False
+
+
+
 
 	def draw_obstacles(self):
 		'''

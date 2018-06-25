@@ -10,6 +10,7 @@ from matplotlib.colors import LogNorm
 from matplotlib import cm
 import os
 import pdb
+import copy
 
 plt.rcParams['xtick.labelsize'] = 22
 plt.rcParams['ytick.labelsize'] = 22
@@ -171,7 +172,7 @@ def truncate_by_distance(df, sample_df, dist_lim=250.0, thresh=1.5):
                 dist += np.sqrt((sample_df['x'].values[last]-sample_df['x'].values[j])**2 + (sample_df['y'].values[last]-sample_df['y'].values[j])**2)
                 last = j
             #print "Dist:", dist, "Lim:", dist_lim
-            if dist < dist_lim:
+            if dist <= dist_lim:
                 candidates.append(i)
     idx = candidates[-1]
     temp_sdf = sample_df[sample_df.index<idx]
@@ -192,6 +193,80 @@ def generate_dist_stats(dfs, labels, params, ids, fname='stats.txt'):
                 temp_df = temp_df[i+1:]
             f.write(label + ' ' + str(np.mean(df_end)) + ', ' + str(np.std(df_end)) + '\n')
     f.close()
+
+def distance_iteration_plots(dfs, trunids, labels, param, title, dist_lim=150., granularity=300, averager=20, plot_confidence=False, save_fig=False, fname=''):
+    fig = plt.figure()
+    colors = ['b', 'g', 'r', 'c', 'm', 'y', 'b', 'g', 'r', 'c', 'm', 'y']
+    interp_granularity = float(dist_lim/granularity) #uniform distance measures on which to interpolate the data for averaging
+    
+    # set interpolation params
+    dist_markers = {'distance':[], 'misc':[]}
+    for i in range(granularity+1):
+        dist_markers['distance'].append(i*interp_granularity)
+        dist_markers['misc'].append(0)
+    interp = pd.DataFrame.from_dict(dist_markers)
+    interp = interp.set_index('distance')
+
+    info = []
+    info2 = []
+    # iterate through each seed group
+    for df,group_sidx in zip(dfs,trunids):
+        extracted = []
+        averaged = {}
+        average = {}
+        errd = {}
+        df2 = copy.copy(df)
+        # seperate out the individual seed
+        for ids in group_sidx:
+            temp = None
+            extracted_temp = None
+            d = df2[0:ids]
+            # extract stuff we care about
+            temp = pd.concat([d['distance'], d[param]],axis=1,keys=['distance',param])
+            temp = temp.set_index('distance')
+            temp = temp.append(interp)
+            temp = temp.sort_index()
+            # interpolate over standard index so that we can do averaging and standard deviation
+            temp = temp.interpolate('index')
+            extract_temp = temp.loc[dist_markers['distance']]
+            extracted.append(extract_temp)
+            df2 = df2[ids+1:]
+        # walk through the interpolation index and find the average and error for each seed at those points
+        for dist in dist_markers['distance']:
+            average[dist] = []
+            for zz,e in enumerate(extracted):
+                average[dist].append(e.loc[dist][param])
+            avge = np.mean(average[dist])
+            stde = np.std(average[dist])
+            averaged[dist] = avge
+            errd[dist] = stde
+        # log the stats for the seed
+        info.append(averaged)
+        info2.append(errd)
+
+    # plot results
+    k = 0
+    for m,n in zip(info,info2):
+        m_ordered = sorted(m)
+        m_vals = [m[v] for v in m_ordered]
+        m_errs = [n[v] for v in m_ordered]
+        plt.plot(m_ordered, m_vals, color=colors[k], label=labels[k])
+
+        if plot_confidence==True:
+            y1 = [l + f for l,f in zip(m_vals,m_errs)]
+            y2 = [l - f for l,f in zip(m_vals,m_errs)]
+            plt.fill_between(m_ordered, y1, y2, color=colors[k], alpha=0.2)
+        k += 1
+
+
+    plt.legend(fontsize=30)
+    plt.xlabel("Distance($m$) Travelled")
+    plt.ylabel(param)
+
+
+    if save_fig:
+        plt.savefig(fname)
+    plt.title(title)
 
 
 ######### MAIN LOOP ###########
@@ -240,24 +315,24 @@ if __name__ == '__main__':
 
         for root, dirs, files in os.walk(path):
             for name in files:
-                if 'metrics' in name and 'mean' in root and param in root and 'old_fully_reachable' not in root:
+                if 'metrics' in name and 'mean' in root and param in root and 'old_fully_reachable' not in root and 'BLOCKWORLD' not in root:
                    for s in seeds:
                        if s in root:
                            p_mean.append(root+"/"+name)
-                if 'metric' in name and 'mes' in root and param in root and 'old_fully_reachable' not in root:
+                if 'metric' in name and 'mes' in root and param in root and 'old_fully_reachable' not in root and 'BLOCKWORLD' not in root:
                     for s in seeds:
                         if s in root:
                             p_mes.append(root+"/"+name)
-                elif 'robot_model' in name and 'mean' in root and param in root and 'old_fully_reachable' not in root:
+                elif 'robot_model' in name and 'mean' in root and param in root and 'old_fully_reachable' not in root and 'BLOCKWORLD' not in root:
                    for s in seeds:
                        if s in root:
                            p_mean_samples.append(root+"/"+name)
-                elif 'robot_model' in name and 'mes' in root and param in root and 'old_fully_reachable' not in root:
+                elif 'robot_model' in name and 'mes' in root and param in root and 'old_fully_reachable' not in root and 'BLOCKWORLD' not in root:
                     for s in seeds:
                         if s in root:
                             p_mes_samples.append(root+"/"+name)
 
-                if 'log' in name and 'mes' in root and param in root and 'old_fully_reachable' not in root:
+                if 'log' in name and 'mes' in root and param in root and 'old_fully_reachable' not in root and 'BLOCKWORLD' not in root:
                     for s in seeds:
                         ls = []
                         if str(s) in root:
@@ -314,13 +389,18 @@ if __name__ == '__main__':
     generate_stats(all_dfs, all_labels, ['distance', 'MSE', 'max_loc_error', 'max_val_error', 'max_value_info', 'info_regret'], 149, file_start + '_stats.txt')
     generate_dist_stats(dist_dfs, all_labels, ['distance', 'MSE', 'max_loc_error', 'max_val_error', 'max_value_info', 'info_regret'], dist_ids, file_start + '_dist_stats.txt')
 
-    # def generate_histograms(dfs, props, labels, figname='', save_fig=False)
+    # # def generate_histograms(dfs, props, labels, figname='', save_fig=False)
     generate_histograms(all_sample_dfs, all_props, all_labels, title='All Iterations', figname=file_start, save_fig=False)
     generate_histograms(dist_samples_dfs, dist_props, all_labels, title='200$m$ Budget', figname=file_start, save_fig=False)
 
-    # def planning_iteration_plots(dfs, labels, param, title, end_time=149, d=20, plot_confidence=False, save_fig=False, fname='')
+    # # def planning_iteration_plots(dfs, labels, param, title, end_time=149, d=20, plot_confidence=False, save_fig=False, fname='')
     planning_iteration_plots(all_dfs, all_labels, 'MSE', 'Averaged MSE', 149, len(seeds), True, False, file_start+'_avg_mse.png')
     planning_iteration_plots(all_dfs, all_labels, 'max_value_info', 'Reward Accumulation', 149, len(seeds), True, False, file_start+'_avg_rac.png')
     planning_iteration_plots(all_dfs, all_labels, 'info_regret', 'Info Regret', 149, len(seeds), True, False, file_start+'_avg_ireg.png')
+
+    # (dfs, sdfs, labels, param, title, dist_lim=150., granularity=10, d=20, plot_confidence=False, save_fig=False, fname=''):
+    distance_iteration_plots(dist_dfs, dist_ids, all_labels, 'MSE', 'Averaged MSE', 200., 100, len(seeds), True, False, '_avg_mse_dist.png' )
+    distance_iteration_plots(dist_dfs, dist_ids, all_labels, 'max_value_info', 'Reward Accumulation', 200., 100, len(seeds), True, False, '_avg_rac_dist.png' )
+    distance_iteration_plots(dist_dfs, dist_ids, all_labels, 'info_regret', 'Info Regret', 200., 100, len(seeds), True, False, '_avg_ireg_dist.png' )
 
     plt.show()
