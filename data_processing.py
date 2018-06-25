@@ -376,12 +376,15 @@ if __name__ == '__main__':
                         'current_highest_obs', 'current_highest_obs_loc_x', 'current_highest_obs_loc_y',
                         'robot_loc_x', 'robot_loc_y', 'robot_loc_a', 'distance', 'max_value_info']
 
-    mean_data = make_df(f_mean, mean_samples, max_val, column_names)
-    mes_data = make_df(f_mes, mes_samples, max_val, column_names)
-    print_stats(mean_data, mes_data, None, column_names, 149, file_start + '_stats.txt')
 
-    mean_sdata, mean_prop = make_samples_df(mean_samples, ['x', 'y', 'a'], max_loc, 1.5)
+    #mean_data = make_df(f_mean, mean_samples, max_val, column_names)
+    mes_data = make_df(f_mes, mes_samples, max_val, column_names)
+    mean_data = mes_data
+    #print_stats(mean_data, mes_data, None, column_names, 149, file_start + '_stats.txt')
+
+    #mean_sdata, mean_prop = make_samples_df(mean_samples, ['x', 'y', 'a'], max_loc, 1.5)
     mes_sdata, mes_prop = make_samples_df(mes_samples, ['x', 'y', 'a'], max_loc, 1.5)
+    mean_sdata, mean_prop = mes_sdata, mes_prop
     # ei_sdata, ei_prop = make_samples_df(ei_samples, ['x', 'y', 'a'], max_loc, 1.5)
 
     print 'Mean value of sample proportions: ' 
