@@ -307,17 +307,18 @@ def playback(playback_locs, playback_samples, max_val, column_names):
 
 ######### MAIN LOOP ###########
 if __name__ == '__main__':
-    seed_numbers = range(0, 2500, 100)
+    seed_numbers = range(0, 2000, 100)
     seeds = ['seed'+ str(x) + '-' for x in seed_numbers]
     print seeds
 
     #fileparams = 'pathsetfully_reachable_goal-costTrue-nonmyopicFalse-goalFalse'
     #fileparams = 'pathsetdubins-costFalse-nonmyopicTrue-goalFalse_BUGTRAP'
-    fileparams = 'pathsetdubins-costFalse-nonmyopicTrue-goalFalse'
+    fileparams = 'pathsetdubins-costFalse-nonmyopicFalse-goalFalse'
     file_start = 'dubins-nonmyopic'
 
 
-    path= '/home/genevieve/mit-whoi/repos/informative-path-planning/experiments/'
+    # path= '/home/genevieve/mit-whoi/repos/informative-path-planning/experiments/'
+    path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/'
 
     #get the data files
     f_mean = []
@@ -331,30 +332,30 @@ if __name__ == '__main__':
 
     for root, dirs, files in os.walk(path):
         for name in files:
-            if 'metrics.csv' in name and fileparams in root and 'mean' in root:
+            if 'metrics.csv' in name and fileparams in root and 'mean' in root and 'old_fully_reachable' not in root:
                 for s in seeds:
                     if str(s) in root:
                         f_mean.append(root + "/" + name)
             # elif 'metric' in name and 'pathsetdubins-costFalse-nonmyopicFalse' in root and 'exp_improve' in dirs:
             #     f_ei.append(root + "/" + name)
-            elif 'metrics.csv' in name and fileparams in root and 'mes' in root:
+            elif 'metrics.csv' in name and fileparams in root and 'mes' in root and 'old_fully_reachable' not in root:
                 for s in seeds:
                     if str(s) in root:
                         f_mes.append(root + "/" + name)
             ######## Looking at Samples ######
-            elif 'robot_model' in name and 'mean' in root and fileparams in root:
+            elif 'robot_model' in name and 'mean' in root and fileparams in root and 'old_fully_reachable' not in root:
                 for s in seeds:
                     if str(s) in root:
                         mean_samples.append(root+"/"+name)
             # elif 'robot_model' in name and 'exp_improve' in root:
             #     ei_samples.append(root+"/"+name)
-            elif 'robot_model' in name and 'mes' in root and fileparams in root:
+            elif 'robot_model' in name and 'mes' in root and fileparams in root and 'old_fully_reachable' not in root:
                 for s in seeds:
                     if str(s) in root:
                         mes_samples.append(root+"/"+name)
             ######## Looking at Mean values ######
             # get the robot log files
-            elif 'log' in name and 'mean' in root and fileparams in root:
+            elif 'log' in name and 'mean' in root and fileparams in root and 'old_fully_reachable' not in root:
                 for s in seeds:
                     ls = []
                     if str(s) in root:
@@ -364,7 +365,9 @@ if __name__ == '__main__':
                                 ls.append(l)
                         max_val.append(float(ls[-1].split(" ")[3]))
                         # For Genevieve
-                        max_loc.append((float(ls[-1].split(" ")[7].split("[")[0]), float(ls[-1].split(" ")[9].split("]")[0])))
+                        # max_loc.append((float(ls[-1].split(" ")[7].split("[")[0]), float(ls[-1].split(" ")[9].split("]")[0])))
+                        # For Victoria
+                        max_loc.append((float(ls[0].split(" ")[6].split("[")[1]), float(ls[0].split(" ")[7].split("]")[0])))
 
 
     # variables for making dataframes
