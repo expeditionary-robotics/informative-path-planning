@@ -307,18 +307,18 @@ def playback(playback_locs, playback_samples, max_val, column_names):
 
 ######### MAIN LOOP ###########
 if __name__ == '__main__':
-    seed_numbers = range(0, 2000, 100)
+    seed_numbers = range(0, 3000, 100)
     seeds = ['seed'+ str(x) + '-' for x in seed_numbers]
     print seeds
 
     #fileparams = 'pathsetfully_reachable_goal-costTrue-nonmyopicFalse-goalFalse'
     #fileparams = 'pathsetdubins-costFalse-nonmyopicTrue-goalFalse_BUGTRAP'
-    fileparams = 'pathsetdubins-costFalse-nonmyopicFalse-goalFalse'
+    fileparams = 'pathsetdubins-costFalse-nonmyopicTrue-goalFalse'
     file_start = 'dubins-nonmyopic'
 
 
-    # path= '/home/genevieve/mit-whoi/repos/informative-path-planning/experiments/'
-    path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/'
+    path= '/home/genevieve/mit-whoi/informative-path-planning/experiments/'
+    #path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/'
 
     #get the data files
     f_mean = []
@@ -365,9 +365,9 @@ if __name__ == '__main__':
                                 ls.append(l)
                         max_val.append(float(ls[-1].split(" ")[3]))
                         # For Genevieve
-                        # max_loc.append((float(ls[-1].split(" ")[7].split("[")[0]), float(ls[-1].split(" ")[9].split("]")[0])))
+                        max_loc.append((float(ls[-1].split(" ")[7].split("[")[0]), float(ls[-1].split(" ")[9].split("]")[0])))
                         # For Victoria
-                        max_loc.append((float(ls[0].split(" ")[6].split("[")[1]), float(ls[0].split(" ")[7].split("]")[0])))
+                        # max_loc.append((float(ls[0].split(" ")[6].split("[")[1]), float(ls[0].split(" ")[7].split("]")[0])))
 
 
     # variables for making dataframes
@@ -377,14 +377,12 @@ if __name__ == '__main__':
                         'robot_loc_x', 'robot_loc_y', 'robot_loc_a', 'distance', 'max_value_info']
 
 
-    #mean_data = make_df(f_mean, mean_samples, max_val, column_names)
+    mean_data = make_df(f_mean, mean_samples, max_val, column_names)
     mes_data = make_df(f_mes, mes_samples, max_val, column_names)
-    mean_data = mes_data
-    #print_stats(mean_data, mes_data, None, column_names, 149, file_start + '_stats.txt')
+    print_stats(mean_data, mes_data, None, column_names, 149, file_start + '_stats.txt')
 
-    #mean_sdata, mean_prop = make_samples_df(mean_samples, ['x', 'y', 'a'], max_loc, 1.5)
+    mean_sdata, mean_prop = make_samples_df(mean_samples, ['x', 'y', 'a'], max_loc, 1.5)
     mes_sdata, mes_prop = make_samples_df(mes_samples, ['x', 'y', 'a'], max_loc, 1.5)
-    mean_sdata, mean_prop = mes_sdata, mes_prop
     # ei_sdata, ei_prop = make_samples_df(ei_samples, ['x', 'y', 'a'], max_loc, 1.5)
 
     print 'Mean value of sample proportions: ' 

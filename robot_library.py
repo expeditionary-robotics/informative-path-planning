@@ -257,7 +257,7 @@ class Robot(object):
                 else:
                     param = None
                 # create the tree search
-                mcts = mctslib.MCTS(self.comp_budget, self.GP, self.loc, self.roll_length, self.path_generator, self.aquisition_function, self.f_rew, t, aq_param = param, use_cost = self.use_cost)
+                mcts = mctslib.cMCTS(self.comp_budget, self.GP, self.loc, self.roll_length, self.path_generator, self.aquisition_function, self.f_rew, t, aq_param = param, use_cost = self.use_cost)
                 sampling_path, best_path, best_val, all_paths, all_values, self.max_locs, self.max_val = mcts.choose_trajectory(t = t)
             
             # Update eval metrics
@@ -283,6 +283,9 @@ class Robot(object):
             if self.create_animation:
                 self.visualize_trajectory(screen = False, filename = t, best_path = sampling_path, 
                         maxes = self.max_locs, all_paths = all_paths, all_vals = all_values)            
+
+            #if t > 50:
+            #    self.visualize_reward(screen = True, filename = 'REWARD_' + str(t), t = t)
 
             self.loc = sampling_path[-1]
         np.savetxt('./figures/' + self.f_rew+ '/robot_model.csv', (self.GP.xvals[:, 0], self.GP.xvals[:, 1], self.GP.zvals[:, 0]))
@@ -362,6 +365,55 @@ class Robot(object):
                 os.makedirs('./figures/' + str(self.f_rew))
             fig.savefig('./figures/' + str(self.f_rew)+ '/trajectory-N.' + str(filename) + '.png')
             #plt.show()
+            plt.close()
+
+
+    def visualize_reward(self, screen = True, filename = 'REWARD', t = 0):
+        # Generate a set of observations from robot model with which to make contour plots
+        x1vals = np.linspace(self.ranges[0], self.ranges[1], 100)
+        x2vals = np.linspace(self.ranges[2], self.ranges[3], 100)
+        x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
+        data = np.vstack([x1.ravel(), x2.ravel()]).T
+
+        if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
+            param = (self.max_val, self.max_locs, self.target)
+        elif self.f_rew == 'exp_improve':
+            if len(self.maxes) == 0:
+                param = [self.current_max]
+            else:
+                param = self.maxes
+        else:
+            param = None
+
+        '''
+        r = self.aquisition_function(time = t, xvals = data, robot_model = self.GP, param = param)
+        print "rewrd:", r
+        print "Shape reward:", r.shape
+        '''
+        
+        reward = []
+        for x in data:
+            x = x.reshape((1,2))
+            r = self.aquisition_function(time = t, xvals = x, robot_model = self.GP, param = param)
+            reward.append(r)
+        reward = np.array(reward)
+        
+        fig2, ax2 = plt.subplots(figsize=(8, 6))
+        ax2.set_xlim(self.ranges[0:2])
+        ax2.set_ylim(self.ranges[2:])        
+        ax2.set_title('Reward Plot of the Robot\'s World Model')     
+        #plot = ax2.contourf(x1, x2, reward.reshape(x1.shape), cmap = 'viridis', vmin = self.MIN_COLOR, vmax = self.MAX_COLOR, levels=np.linspace(self.MIN_COLOR, self.MAX_COLOR, 15))
+        plot = ax2.contourf(x1, x2, reward.reshape(x1.shape), cmap = 'viridis')
+
+        # Plot the samples taken by the robot
+        if self.GP.xvals is not None:
+            scatter = ax2.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c=self.GP.zvals.ravel(), s = 10.0, cmap = 'viridis')        
+        if screen:
+            plt.show()           
+        else:
+            if not os.path.exists('./figures/' + str(self.f_rew)):
+                os.makedirs('./figures/' + str(self.f_rew))
+            fig.savefig('./figures/' + str(self.f_rew)+ '/world_model.' + str(filename) + '.png')
             plt.close()
             
     def visualize_world_model(self, screen = True, filename = 'SUMMARY'):

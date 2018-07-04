@@ -271,23 +271,23 @@ def distance_iteration_plots(dfs, trunids, labels, param, title, dist_lim=150., 
 
 ######### MAIN LOOP ###########
 if __name__ == '__main__':
-    seed_numbers = range(0, 2000, 100)
-    seed_numbers = [0, 100, 200, 300, 500, 600, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800]
+    seed_numbers = range(0, 2900, 100)
+    #seed_numbers = [0, 100, 200, 300, 500, 600, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800]
     print seed_numbers
     seeds = ['seed'+ str(x) + '-' for x in seed_numbers]
 
     fileparams = [#'pathsetfully_reachable_goal-costTrue-nonmyopicFalse-goalFalse',
                   #'pathsetfully_reachable_goal-costTrue-nonmyopicFalse-goalTrue',
                   #'pathsetfully_reachable_goal-costFalse-nonmyopicFalse-goalFalse',
-                  'pathsetfully_reachable_goal-costFalse-nonmyopicFalse-goalTrue_BUGTRAP',
-                  'pathsetdubins-costFalse-nonmyopicFalse-goalFalse_BUGTRAP',
-                  'pathsetdubins-costFalse-nonmyopicTrue-goalFalse_BUGTRAP']
+                  'pathsetfully_reachable_goal-costFalse-nonmyopicFalse-goalTrue',
+                  'pathsetdubins-costFalse-nonmyopicFalse-goalFalse',
+                  'pathsetdubins-costFalse-nonmyopicTrue-goalFalse']
 
     labels = ['frgo', 'my', 'nonmy']#['frpd', 'frgd', 'frgo', 'frpo', 'my', 'plumes']
     file_start = 'all_mse'
 
     #path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/'
-    path= '/home/genevieve/mit-whoi/repos/informative-path-planning/experiments/'
+    path= '/home/genevieve/mit-whoi/informative-path-planning/experiments/'
 
     # variables for making dataframes
     column_names = ['time', 'info_gain','aqu_fun', 'MSE', 'hotspot_error','max_loc_error', 'max_val_error', 

@@ -47,10 +47,10 @@ logger = logging.getLogger('robot')
 ranges = (0., 10., 0., 10.)
 
 # Create obstacle world
-#ow = obslib.FreeWorld()
+ow = obslib.FreeWorld()
 # ow = obslib.ChannelWorld(ranges, (3.5, 7.), 3., 0.3)
 # ow = obslib.BugTrap(ranges, (2.2, 3.0), 4.6, orientation = 'left', width = 5.0)
-ow = obslib.BlockWorld(ranges,13, dim_blocks=(1., 1.), centers=[(2.5, 2.5), (0.75, 8.5), (7.,4.), (5., 8.), (9., 7.), (3.5,6.), (6.,1.5), (1.75,5.), (6.2,6.), (8.,9.), (4.2, 3.8), (9.,2.5), (2.5,8.)])
+#ow = obslib.BlockWorld(ranges,13, dim_blocks=(1., 1.), centers=[(2.5, 2.5), (0.75, 8.5), (7.,4.), (5., 8.), (9., 7.), (3.5,6.), (6.,1.5), (1.75,5.), (6.2,6.), (8.,9.), (4.2, 3.8), (9.,2.5), (2.5,8.)])
 
 world = envlib.Environment(ranges = ranges,
                            NUM_PTS = 20, 
@@ -92,7 +92,8 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      use_cost = USE_COST, #select if you want to use a cost heuristic
                      MIN_COLOR = MIN_COLOR,
                      MAX_COLOR = MAX_COLOR,
-                     computation_budget= 150.0,
+                     computation_budget= 250.0,
+                     rollout_length = 5,
                      obstacle_world = ow) 
 
 robot.planner(T = 150)
