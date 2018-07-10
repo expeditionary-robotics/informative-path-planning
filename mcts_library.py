@@ -27,7 +27,7 @@ import random
 class MCTS(object):
     '''Class that establishes a MCTS for nonmyopic planning'''
 
-    def __init__(self, computation_budget, belief, initial_pose, rollout_length, path_generator, aquisition_function, f_rew, T, aq_param = None, use_cost = False):
+    def __init__(self, computation_budget, belief, initial_pose, rollout_length, path_generator, aquisition_function, f_rew, T, aq_param = None, use_cost = False, tree_type = None):
         '''
         Initialize with constraints for the planning, including whether there is a budget or planning horizon
         Inputs:
@@ -321,13 +321,6 @@ class Tree(object):
 
     def get_best_child(self):
         return self.root.children[np.argmax([node.nqueries for node in self.root.children])]
-    
-    def get_next_leaf(self, belief):
-        #print "Calling next with root"
-        next_leaf, reward = self.leaf_helper(self.root, reward = 0.0,  belief = belief) 
-        #print "Next leaf:", next_leaf
-        #print "Reward:", reward
-        self.backprop(next_leaf, reward)
 
     def backprop(self, leaf_node, reward):
         if leaf_node.parent is None:
@@ -345,6 +338,13 @@ class Tree(object):
             #print "nqueries:", leaf_node.nqueries, "reward:", leaf_node.reward
             self.backprop(leaf_node.parent, reward)
             return
+    
+    def get_next_leaf(self, belief):
+        #print "Calling next with root"
+        next_leaf, reward = self.leaf_helper(self.root, reward = 0.0,  belief = belief) 
+        #print "Next leaf:", next_leaf
+        #print "Reward:", reward
+        self.backprop(next_leaf, reward)
 
     def leaf_helper(self, current_node, reward, belief):
         if current_node.node_type == 'B':
@@ -366,6 +366,7 @@ class Tree(object):
 
                 # Recursive call
                 return self.leaf_helper(child, reward, belief)
+
         # At random node, after selected action from a specific node
         elif current_node.node_type == 'BA':
             # Copy old belief
@@ -463,11 +464,144 @@ class Tree(object):
                 self.print_helper(child)
             return
 
+''' Inherit class, that implements more standard MCTS, and assumes MLE observation to deal with continuous spaces '''
+class BeliefTree(Tree):
+    def __init__(self, f_rew, f_aqu,  belief, pose, path_generator, t, depth, param, c):
+        super(BeliefTree, self).__init__(f_rew, f_aqu,  belief, pose, path_generator, t, depth, param, c)
+
+    # Max Reward-based node selection
+    def get_best_child(self):
+        return self.root.children[np.argmax([node.reward for node in self.root.children])]
+
+    def random_rollouts(self, current_node, reward, belief):
+        #print "Current depth:", current_node.depth
+        #print "Max depth:", self.max_depth
+        cur_depth = current_node.depth
+        pose = current_node.pose
+        while cur_depth <= self.max_depth:
+            #print "Depth:", cur_depth
+            actions, dense_paths = self.path_generator.get_path_set(pose)
+            keys = actions.keys()
+            # No viable trajectories from current location
+            #print "No. actions:", len(actions)
+            if len(actions) <= 1:
+                return reward
+
+            #select a random action
+            a = np.random.randint(0,len(actions) - 1)
+            obs = np.array(actions[keys[a]])
+            xobs = np.vstack([obs[:,0], obs[:,1]]).T
+
+            if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
+                r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief, param = self.param)
+            elif self.f_rew == 'exp_improve':
+                r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief, param = self.param)
+            else:
+                r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief)
+
+            # ''Simulate'' the maximum likelihood observation
+            if belief.model is None:
+                n_points, input_dim = xobs.shape
+                zobs = np.zeros((n_points, ))
+                zobs = np.reshape(zobs, (n_points, 1))
+            else:
+                zobs, _= belief.predict_value(xobs)
+
+            belief.add_data(xobs, zobs)
+            pose = dense_paths[keys[a]][-1]
+            reward += r
+            cur_depth += 1
+
+        return reward
+
+    def leaf_helper(self, current_node, reward, belief):
+        if current_node.node_type == 'B':
+            # belief node
+            if current_node.depth == self.max_depth:
+                #print "Returning leaf node:", current_node.name, "with reward", reward
+                return current_node, reward
+            # Intermediate belief node
+            else:
+                if current_node.children is None:
+                    self.build_action_children(current_node)
+
+                # If no viable actions are avaliable
+                if current_node.children is None:
+                    return current_node, reward
+
+                child, full_action_set  = self.get_next_child(current_node)
+                #print "Selecting next action child:", child.name
+                #print "Full action set?", full_action_set
+
+                if full_action_set:
+                    # Recursive call
+                    return self.leaf_helper(child, reward, belief)
+                else:
+                    # Do random rollouts
+                    #print "Doing random rollouts!"
+                    rollout_reward = self.random_rollouts(current_node, reward, belief) 
+                    #print "Rollout reward:", rollout_reward
+                    return child, rollout_reward
+
+        # At random node, after selected action from a specific node
+        elif current_node.node_type == 'BA':
+            # Copy old belief
+            #gp_new = copy.copy(current_node.belief) 
+            #gp_new = current_node.belief
+
+            # Sample a new set of observations and form a new belief
+            #xobs = current_node.action
+            obs = np.array(current_node.action)
+            xobs = np.vstack([obs[:,0], obs[:,1]]).T
+
+            if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
+                r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief, param = self.param)
+            elif self.f_rew == 'exp_improve':
+                r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief, param = self.param)
+            else:
+                r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief)
+
+            # ''Simulate'' the maximum likelihood observation
+            if belief.model is None:
+                n_points, input_dim = xobs.shape
+                zobs = np.zeros((n_points, ))
+                zobs = np.reshape(zobs, (n_points, 1))
+            else:
+                zobs, _= belief.predict_value(xobs)
+
+            belief.add_data(xobs, zobs)
+            pose_new = current_node.dense_path[-1]
+            child = Node(pose = pose_new, 
+                         parent = current_node, 
+                         name = current_node.name + '_belief' + str(current_node.depth + 1), 
+                         action = None, 
+                         dense_path = None, 
+                         zvals = zobs)
+            #print "Adding next belief child:", child.name
+            current_node.add_children(child)
+
+            # Recursive call
+            return self.leaf_helper(child, reward + r, belief)
+
+    ''' Returns the next most promising child of a belief node, and a FLAG indicating if belief node is fully explored '''
+    def get_next_child(self, current_node):
+        vals = {}
+        for i, child in enumerate(current_node.children):
+            #print "Considering child:", child.name, "with queries:", child.nqueries
+            if child.nqueries == 0:
+                return child, False
+            vals[child] = child.reward/float(child.nqueries) + self.c * np.sqrt(2.0*np.log(float(current_node.nqueries))/float(child.nqueries)) 
+        # Return the max node, or a random node if the value is equal
+        return random.choice([key for key in vals.keys() if vals[key] == max(vals.values())]), True
+        
+
+
 class cMCTS(MCTS):
     '''Class that establishes a MCTS for nonmyopic planning'''
-    def __init__(self, computation_budget, belief, initial_pose, rollout_length, path_generator, aquisition_function, f_rew, T, aq_param = None, use_cost = False):
+    def __init__(self, computation_budget, belief, initial_pose, rollout_length, path_generator, aquisition_function, f_rew, T, aq_param = None, use_cost = False, tree_type = 'DPW'):
         # Call the constructor of the super class
         super(cMCTS, self).__init__(computation_budget, belief, initial_pose, rollout_length, path_generator, aquisition_function, f_rew, T, aq_param, use_cost)
+        self.tree_type = tree_type
 
     def choose_trajectory(self, t):
         #Main function loop which makes the tree and selects the best child
@@ -483,7 +617,12 @@ class cMCTS(MCTS):
             param = None
 
         # initialize tree
-        self.tree = Tree(self.f_rew, self.aquisition_function, self.GP, self.cp, self.path_generator, t, depth = self.rl, param = param, c = self.c)
+        if self.tree_type == 'dpw':
+            self.tree = Tree(self.f_rew, self.aquisition_function, self.GP, self.cp, self.path_generator, t, depth = self.rl, param = param, c = self.c)
+        elif self.tree_type == 'belief':
+            self.tree = BeliefTree(self.f_rew, self.aquisition_function, self.GP, self.cp, self.path_generator, t, depth = self.rl, param = param, c = self.c)
+        else:
+            raise ValueError('Tree type must be one of either \'dpw\' or \'belief\'')
         #self.tree.get_next_leaf()
         #print self.tree.root.children[0].children
 
@@ -516,8 +655,4 @@ class cMCTS(MCTS):
         logger.info("Number of rollouts: {} \t Size of tree: {}".format(i, len(self.tree)))
         np.save('./figures/' + self.f_rew + '/tree_' + str(t) + '.npy', self.tree)
         return self.tree[best_sequence][0], self.tree[best_sequence][1], best_val, paths, all_vals, self.max_locs, self.max_val
-
-
-
-
 

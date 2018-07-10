@@ -40,7 +40,7 @@ class Robot(object):
             horizon_length = 5, turning_radius = 1, sample_step = 0.5, evaluation = None, 
             f_rew = 'mean', create_animation = False, learn_params = False, nonmyopic=False, 
             computation_budget = 10, rollout_length = 5, discretization=(10,10), use_cost=False,
-            MIN_COLOR=-25., MAX_COLOR=25., goal_only = False, obstacle_world = obslib.FreeWorld()):
+            MIN_COLOR=-25., MAX_COLOR=25., goal_only = False, obstacle_world = obslib.FreeWorld(), tree_type = 'dpw'):
         ''' Initialize the robot class with a GP model, initial location, path sets, and prior dataset
         Inputs:
             sample_world (method) a function handle that takes a set of locations as input and returns a set of observations
@@ -71,6 +71,7 @@ class Robot(object):
         self.f_rew = f_rew
         self.fs = frontier_size
         self.discretization = discretization
+        self.tree_type = tree_type
 
         self.maxes = []
         self.current_max = -1000
@@ -257,7 +258,7 @@ class Robot(object):
                 else:
                     param = None
                 # create the tree search
-                mcts = mctslib.cMCTS(self.comp_budget, self.GP, self.loc, self.roll_length, self.path_generator, self.aquisition_function, self.f_rew, t, aq_param = param, use_cost = self.use_cost)
+                mcts = mctslib.cMCTS(self.comp_budget, self.GP, self.loc, self.roll_length, self.path_generator, self.aquisition_function, self.f_rew, t, aq_param = param, use_cost = self.use_cost, tree_type = self.tree_type)
                 sampling_path, best_path, best_val, all_paths, all_values, self.max_locs, self.max_val = mcts.choose_trajectory(t = t)
             
             # Update eval metrics
