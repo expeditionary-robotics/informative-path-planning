@@ -68,7 +68,7 @@ class MCTS(object):
         # constants for the UCT selection in the MCTS
         # determined through empirical observation
         if self.f_rew == 'mean':
-            self.c = 5000
+            self.c = 300
         elif self.f_rew == 'exp_improve':
             self.c = 200
         elif self.f_rew == 'mes':
@@ -603,6 +603,23 @@ class cMCTS(MCTS):
         # Call the constructor of the super class
         super(cMCTS, self).__init__(computation_budget, belief, initial_pose, rollout_length, path_generator, aquisition_function, f_rew, T, aq_param, use_cost)
         self.tree_type = tree_type
+
+        # The differnt constatns use logarthmic vs polynomical exploriation
+        if self.f_rew == 'mean':
+            if self.tree_type == 'belief':
+                self.c = 1000
+            elif self.tree_type == 'dpw':
+                self.c = 5000
+        elif self.f_rew == 'exp_improve':
+            self.c = 200
+        elif self.f_rew == 'mes':
+            if self.tree_type == 'belief':
+                self.c = 1.0 / np.sqrt(2.0)
+            elif self.tree_type == 'dpw':
+                self.c = 1.0
+        else:
+            self.c = 1.0
+        print "Setting c to :", self.c
 
     def choose_trajectory(self, t):
         #Main function loop which makes the tree and selects the best child
