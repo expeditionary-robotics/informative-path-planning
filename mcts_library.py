@@ -68,13 +68,13 @@ class MCTS(object):
         # constants for the UCT selection in the MCTS
         # determined through empirical observation
         if self.f_rew == 'mean':
-            self.c = 300
+            self.c = 5000
         elif self.f_rew == 'exp_improve':
             self.c = 200
         elif self.f_rew == 'mes':
             self.c = 1.0 / np.sqrt(2.0)
         else:
-            self.c = 0.1
+            self.c = 1.0
 
     def choose_trajectory(self, t):
         ''' 
@@ -426,11 +426,12 @@ class Tree(object):
 
     def get_next_child(self, current_node):
         vals = {}
+        e_d = 0.5 * (1.0 - (3.0/10.0*(self.max_depth - current_node.depth)))
         for i, child in enumerate(current_node.children):
             #print "Considering child:", child.name, "with queries:", child.nqueries
             if child.nqueries == 0:
                 return child
-            vals[child] = child.reward/float(child.nqueries) + self.c * np.sqrt(np.log(float(current_node.nqueries))/float(child.nqueries)) 
+            vals[child] = child.reward/float(child.nqueries) + self.c * np.sqrt((float(current_node.nqueries) ** e_d)/float(child.nqueries)) 
         # Return the max node, or a random node if the value is equal
         return random.choice([key for key in vals.keys() if vals[key] == max(vals.values())])
         
@@ -598,7 +599,7 @@ class BeliefTree(Tree):
 
 class cMCTS(MCTS):
     '''Class that establishes a MCTS for nonmyopic planning'''
-    def __init__(self, computation_budget, belief, initial_pose, rollout_length, path_generator, aquisition_function, f_rew, T, aq_param = None, use_cost = False, tree_type = 'DPW'):
+    def __init__(self, computation_budget, belief, initial_pose, rollout_length, path_generator, aquisition_function, f_rew, T, aq_param = None, use_cost = False, tree_type = 'dpw'):
         # Call the constructor of the super class
         super(cMCTS, self).__init__(computation_budget, belief, initial_pose, rollout_length, path_generator, aquisition_function, f_rew, T, aq_param, use_cost)
         self.tree_type = tree_type
