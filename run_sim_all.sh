@@ -58,6 +58,10 @@ pushd experiments
                                 continue
                               fi
 
+                              if [ -d $workdir ] && [ -f ${workdir}/figures/${reward_func}/trajectory-N.SUMMARY.png ] ; then 
+                                continue
+                              fi
+
                               if [ ! -d $workdir ]; then mkdir $workdir; fi
 
                               pushd $workdir
