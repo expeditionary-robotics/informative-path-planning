@@ -19,6 +19,7 @@ pushd experiments
                         do
                           for tree_type in dpw belief
                           do
+                              echo sim_seed${seed}-pathset${pathset}-nonmyopic${nonmyopic}-tree${tree_type}
                               # Dont want to run either cost or goal only
                               if [ ${pathset} = dubins ] && [ ${goal_only} = True ]; then
                                   continue
@@ -50,6 +51,10 @@ pushd experiments
                                 workdir=sim_seed${seed}-pathset${pathset}-nonmyopic${nonmyopic}
                               else
                                 workdir=sim_seed${seed}-pathset${pathset}-nonmyopic${nonmyopic}-tree${tree_type}
+                              fi
+                              
+                              if [ -d $workdir ] && [ -f ${workdir}/figures/${reward_func}/trajectory-N.SUMMARY.png ] ; then 
+                                continue
                               fi
 
                               if [ -d $workdir ] && [ -f ${workdir}/figures/${reward_func}/trajectory-N.SUMMARY.png ] ; then 
