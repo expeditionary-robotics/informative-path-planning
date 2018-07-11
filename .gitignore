@@ -8,4 +8,9 @@ old_exp/*
 *.png
 *.txt
 *.npy
-
+backup/*
+channel_world_exps/*
+fresh_run_victoria/*
+previous_paper_experiments/*
+all_mse_dist_stats.txt
+all_mse_stats.txt

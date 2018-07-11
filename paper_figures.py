@@ -78,6 +78,10 @@ def generate_histograms(dfs, props, labels, title, figname='', save_fig=False):
     fig, axes = plt.subplots(1, len(dfs), sharey = True)
     colors = ['b', 'g', 'r', 'c', 'm', 'y', 'b', 'g', 'r', 'c', 'm', 'y']
 
+    print '----'
+    l = [(np.mean(m), np.std(m)) for m in props]
+    print l
+
     for i in range(0, len(dfs)):
         axes[i].hist(dfs[i]['Distance'].values, bins = np.linspace(min(dfs[0]['Distance'].values), max(dfs[0]['Distance'].values), np.floor(max(dfs[0]['Distance'].values)-min(dfs[0]['Distance'].values))), color = colors[i])
         axes[i].set_title(labels[i])
@@ -271,23 +275,26 @@ def distance_iteration_plots(dfs, trunids, labels, param, title, dist_lim=150., 
 
 ######### MAIN LOOP ###########
 if __name__ == '__main__':
-    seed_numbers = range(0, 2900, 100)
-    #seed_numbers = [0, 100, 200, 300, 500, 600, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800]
+    # seed_numbers = range(0, 2000, 100)
+    seed_numbers = [0, 100, 200, 400, 500, 700, 800, 900, 1000, 1200, 1300, 1400, 1600, 1700, 1800, 1900]
     print seed_numbers
     seeds = ['seed'+ str(x) + '-' for x in seed_numbers]
 
     fileparams = [#'pathsetfully_reachable_goal-costTrue-nonmyopicFalse-goalFalse',
                   #'pathsetfully_reachable_goal-costTrue-nonmyopicFalse-goalTrue',
                   #'pathsetfully_reachable_goal-costFalse-nonmyopicFalse-goalFalse',
-                  'pathsetfully_reachable_goal-costFalse-nonmyopicFalse-goalTrue',
-                  'pathsetdubins-costFalse-nonmyopicFalse-goalFalse',
-                  'pathsetdubins-costFalse-nonmyopicTrue-goalFalse']
+                  # 'pathsetfully_reachable_goal-costFalse-nonmyopicFalse-goalTrue',
+                  # 'pathsetdubins-costFalse-nonmyopicFalse-goalFalse',
+                  # 'pathsetdubins-costFalse-nonmyopicTrue-goalFalse'
+                  'pathsetdubins-nonmyopicFalse',
+                  'pathsetdubins-nonmyopicTrue-treebelief',
+                  'pathsetdubins-nonmyopicTrue-treedpw']
 
-    labels = ['frgo', 'my', 'nonmy']#['frpd', 'frgd', 'frgo', 'frpo', 'my', 'plumes']
+    labels = ['myopic', 'MCTS', 'COMPOSIT']#['frpd', 'frgd', 'frgo', 'frpo', 'my', 'plumes']
     file_start = 'all_mse'
 
-    #path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/'
-    path= '/home/genevieve/mit-whoi/informative-path-planning/experiments/'
+    path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/'
+    # path= '/home/genevieve/mit-whoi/informative-path-planning/experiments/'
 
     # variables for making dataframes
     column_names = ['time', 'info_gain','aqu_fun', 'MSE', 'hotspot_error','max_loc_error', 'max_val_error', 
@@ -343,36 +350,37 @@ if __name__ == '__main__':
                                     ls.append(l)
                             max_val.append(float(ls[0].split(" ")[3]))
                             # For Genevieve
-                            max_loc.append((float(ls[-1].split(" ")[7].split("[")[0]), float(ls[-1].split(" ")[9].split("]")[0])))
+                            # max_loc.append((float(ls[-1].split(" ")[7].split("[")[0]), float(ls[-1].split(" ")[9].split("]")[0])))
                             # For Victoria
-                            #max_loc.append((float(ls[0].split(" ")[6].split("[")[1]), float(ls[0].split(" ")[7].split("]")[0])))
+                            max_loc.append((float(ls[0].split(" ")[6].split("[")[1]), float(ls[0].split(" ")[7].split("]")[0])))
         
-
+        # print '---------'
+        # print p_mean, p_mes
         mes_data = make_df(p_mes, column_names)
 
-        if label != 'frgo':
+        if label != 'myopic':
             mean_data = make_df(p_mean, column_names)
             all_dfs.append(mean_data)
         all_dfs.append(mes_data)
 
-        if label != 'frgo':
+        if label != 'myopic':
             mean_sdata, mean_prop = make_samples_df(p_mean_samples, ['x', 'y', 'a'], max_loc, 1.5)
         mes_sdata, mes_prop = make_samples_df(p_mes_samples, ['x', 'y', 'a'], max_loc, 1.5)
 
-        if label != 'frgo':
+        if label != 'myopic':
             all_sample_dfs.append(mean_sdata)
         all_sample_dfs.append(mes_sdata)
 
-        if label != 'frgo':
+        if label != 'myopic':
             all_props.append(mean_prop)
         all_props.append(mes_prop)
 
-        if label != 'frgo':
+        if label != 'myopic':
             all_labels.append('mean_'+label)
         all_labels.append('mes_'+label)
 
         # def make_dist_dfs(data_dfs, sample_dfs, column_names, max_loc, thresh=1.5, dist_lim=150.0):
-        if label != 'frgo':
+        if label != 'myopic':
             mean_dist_data, mean_dist_sdata, mean_dist_props, mean_ids = make_dist_dfs(p_mean, p_mean_samples, column_names, max_loc, 1.5, 200.0)
             dist_dfs.append(mean_dist_data)
             dist_samples_dfs.append(mean_dist_sdata)
@@ -386,19 +394,19 @@ if __name__ == '__main__':
         dist_ids.append(mes_ids)
 
 
-    all_labels = ['Wang et al.', 'Sun et al.', 'Myopic-PLUMES', 'Morere et al.', 'PLUMES']
+    all_labels = ['Myopic-MVI', 'UCB-MCTS', 'MVI-MCTS', 'UCB-COM', 'COMPOSIT']
     # def generate_stats(dfs, labels, params, end_time=149, fname='stats.txt'):
-    generate_stats(all_dfs, all_labels, ['distance', 'MSE', 'max_loc_error', 'max_val_error', 'max_value_info', 'info_regret'], 149, file_start + '_stats.txt')
+    # generate_stats(all_dfs, all_labels, ['distance', 'MSE', 'max_loc_error', 'max_val_error', 'max_value_info', 'info_regret'], 149, file_start + '_stats.txt')
     generate_dist_stats(dist_dfs, all_labels, ['distance', 'MSE', 'max_loc_error', 'max_val_error', 'max_value_info', 'info_regret'], dist_ids, file_start + '_dist_stats.txt')
 
     # # def generate_histograms(dfs, props, labels, figname='', save_fig=False)
-    generate_histograms(all_sample_dfs, all_props, all_labels, title='All Iterations', figname=file_start, save_fig=False)
+    # generate_histograms(all_sample_dfs, all_props, all_labels, title='All Iterations', figname=file_start, save_fig=False)
     generate_histograms(dist_samples_dfs, dist_props, all_labels, title='200$m$ Budget', figname=file_start, save_fig=False)
 
     # # def planning_iteration_plots(dfs, labels, param, title, end_time=149, d=20, plot_confidence=False, save_fig=False, fname='')
-    planning_iteration_plots(all_dfs, all_labels, 'MSE', 'Averaged MSE', 149, len(seeds), True, False, file_start+'_avg_mse.png')
-    planning_iteration_plots(all_dfs, all_labels, 'max_value_info', 'Reward Accumulation', 149, len(seeds), True, False, file_start+'_avg_rac.png')
-    planning_iteration_plots(all_dfs, all_labels, 'info_regret', 'Info Regret', 149, len(seeds), True, False, file_start+'_avg_ireg.png')
+    # planning_iteration_plots(all_dfs, all_labels, 'MSE', 'Averaged MSE', 149, len(seeds), True, False, file_start+'_avg_mse.png')
+    # planning_iteration_plots(all_dfs, all_labels, 'max_value_info', 'Reward Accumulation', 149, len(seeds), True, False, file_start+'_avg_rac.png')
+    # planning_iteration_plots(all_dfs, all_labels, 'info_regret', 'Info Regret', 149, len(seeds), True, False, file_start+'_avg_ireg.png')
 
     # (dfs, sdfs, labels, param, title, dist_lim=150., granularity=10, d=20, plot_confidence=False, save_fig=False, fname=''):
     distance_iteration_plots(dist_dfs, dist_ids, all_labels, 'MSE', 'Averaged MSE', 200., 100, len(seeds), True, False, '_avg_mse_dist.png' )
