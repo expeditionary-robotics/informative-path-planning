@@ -433,6 +433,7 @@ class Tree(object):
             if child.nqueries == 0:
                 return child
             vals[child] = child.reward/float(child.nqueries) + self.c * np.sqrt((float(current_node.nqueries) ** e_d)/float(child.nqueries)) 
+            #vals[child] = child.reward/float(child.nqueries) + self.c * np.sqrt(np.log(float(current_node.nqueries))/float(child.nqueries)) 
         # Return the max node, or a random node if the value is equal
         return random.choice([key for key in vals.keys() if vals[key] == max(vals.values())])
         
@@ -453,18 +454,21 @@ class Tree(object):
                                     zvals = None))
 
     def print_tree(self):
-        self.print_helper(self.root)
+        counter = self.print_helper(self.root)
+        print "# nodes in tree:", counter
 
     def print_helper(self, cur_node):
         if cur_node.children is None:
-            cur_node.print_self()
-            return
+            #cur_node.print_self()
+            #print cur_node.name
+            return 1
         else:
-            cur_node.print_self()
-            print "\n"
+            #cur_node.print_self()
+            #print "\n"
+            counter = 0
             for child in cur_node.children:
-                self.print_helper(child)
-            return
+                counter += self.print_helper(child)
+            return counter
 
 ''' Inherit class, that implements more standard MCTS, and assumes MLE observation to deal with continuous spaces '''
 class BeliefTree(Tree):
@@ -473,24 +477,20 @@ class BeliefTree(Tree):
 
     # Max Reward-based node selection
     def get_best_child(self):
-        return self.root.children[np.argmax([node.reward for node in self.root.children])]
+        return self.root.children[np.argmax([node.nqueries for node in self.root.children])]
 
     def random_rollouts(self, current_node, reward, belief):
-        #print "Current depth:", current_node.depth
-        #print "Max depth:", self.max_depth
         cur_depth = current_node.depth
         pose = current_node.pose
         while cur_depth <= self.max_depth:
-            #print "Depth:", cur_depth
             actions, dense_paths = self.path_generator.get_path_set(pose)
             keys = actions.keys()
             # No viable trajectories from current location
-            #print "No. actions:", len(actions)
             if len(actions) <= 1:
                 return reward
 
             #select a random action
-            a = np.random.randint(0,len(actions) - 1)
+            a = np.random.randint(0, len(actions) - 1)
             obs = np.array(actions[keys[a]])
             xobs = np.vstack([obs[:,0], obs[:,1]]).T
 
@@ -617,6 +617,8 @@ class cMCTS(MCTS):
             if self.tree_type == 'belief':
                 self.c = 1.0 / np.sqrt(2.0)
             elif self.tree_type == 'dpw':
+                #self.c = 1.0 / np.sqrt(2.0)
+                #self.c = 1.0
                 self.c = 1.5
         else:
             self.c = 1.0
@@ -653,14 +655,14 @@ class cMCTS(MCTS):
             gp = copy.copy(self.GP)
             self.tree.get_next_leaf(gp)
         time_end = time.time()
-        print "Rollouts completed in", str(time_end - time_start) +  "s", 
+        print "Rollouts completed in", str(time_end - time_start) +  "s"
+        print "Number of rollouts:", i
+        self.tree.print_tree()
 
         print [(node.nqueries, node.reward/node.nqueries) for node in self.tree.root.children]
 
-
-        # best_child = self.tree.root.children[np.argmax([node.nqueries for node in self.tree.root.children])]
+        #best_child = self.tree.root.children[np.argmax([node.nqueries for node in self.tree.root.children])]
         best_child = random.choice([node for node in self.tree.root.children if node.nqueries == max([n.nqueries for n in self.tree.root.children])])
-        # random.choice([key for key in leaf_eval.keys() if leaf_eval[key] == max(leaf_eval.values())])
         all_vals = {}
         for i, child in enumerate(self.tree.root.children):
             all_vals[i] = child.reward / float(child.nqueries)
@@ -673,8 +675,8 @@ class cMCTS(MCTS):
         #best_sequence, best_val, all_vals = self.get_best_child()
 
         #Document the information
-        print "Number of rollouts:", i, "\t Size of tree:", len(self.tree)
-        logger.info("Number of rollouts: {} \t Size of tree: {}".format(i, len(self.tree)))
-        np.save('./figures/' + self.f_rew + '/tree_' + str(t) + '.npy', self.tree)
-        return self.tree[best_sequence][0], self.tree[best_sequence][1], best_val, paths, all_vals, self.max_locs, self.max_val
+        #print "Number of rollouts:", i, "\t Size of tree:", len(self.tree)
+        #logger.info("Number of rollouts: {} \t Size of tree: {}".format(i, len(self.tree)))
+        #np.save('./figures/' + self.f_rew + '/tree_' + str(t) + '.npy', self.tree)
+        #return self.tree[best_sequence][0], self.tree[best_sequence][1], best_val, paths, all_vals, self.max_locs, self.max_val
 
