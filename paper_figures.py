@@ -3,6 +3,7 @@
 import pandas as pd
 import numpy as np
 import scipy as sp
+from scipy import stats
 import matplotlib
 import matplotlib.pyplot as plt
 import math
@@ -78,9 +79,19 @@ def generate_histograms(dfs, props, labels, title, figname='', save_fig=False):
     fig, axes = plt.subplots(1, len(dfs), sharey = True)
     colors = ['b', 'g', 'r', 'c', 'm', 'y', 'b', 'g', 'r', 'c', 'm', 'y']
 
-    print '----'
-    l = [(np.mean(m), np.std(m)) for m in props]
-    print l
+    print '---- Mean and STD for each proportion ---'
+    for q,m in enumerate(props):
+        print labels[q] + ': ' + str(np.mean(m)) + ', ' + str(np.std(m))
+    print '---- Sig Test, COMPOSIT v other ----'
+    for q,m in enumerate(props):
+        print labels[q] + ' v COMPOSIT: ' + str(stats.ttest_ind(props[-1],m, equal_var=False))
+    print '---- Convergence % ----'
+    for q,m in enumerate(props):
+        count = 0
+        for pro in m:
+            if pro >= 0.25:
+                count += 1
+        print labels[q] + ': ' + str(float(count)/len(m))
 
     for i in range(0, len(dfs)):
         axes[i].hist(dfs[i]['Distance'].values, bins = np.linspace(min(dfs[0]['Distance'].values), max(dfs[0]['Distance'].values), np.floor(max(dfs[0]['Distance'].values)-min(dfs[0]['Distance'].values))), color = colors[i])
@@ -275,8 +286,8 @@ def distance_iteration_plots(dfs, trunids, labels, param, title, dist_lim=150., 
 
 ######### MAIN LOOP ###########
 if __name__ == '__main__':
-    # seed_numbers = range(0, 2000, 100)
-    seed_numbers = [0, 100, 200, 400, 500, 700, 800, 900, 1000, 1200, 1300, 1400, 1600, 1700, 1800, 1900]
+    seed_numbers = range(0, 300, 100)
+    # seed_numbers = [0, 100, 200, 400, 500, 700, 800, 900, 1000, 1200, 1300, 1400, 1600, 1700, 1800, 1900]
     print seed_numbers
     seeds = ['seed'+ str(x) + '-' for x in seed_numbers]
 
