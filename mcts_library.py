@@ -426,7 +426,8 @@ class Tree(object):
 
     def get_next_child(self, current_node):
         vals = {}
-        e_d = 0.5 * (1.0 - (3.0/10.0*(self.max_depth - current_node.depth)))
+        # e_d = 0.5 * (1.0 - (3.0/10.0*(self.max_depth - current_node.depth)))
+        e_d = 0.5 * (1.0 - (3.0/(10.0*(self.max_depth - current_node.depth))))
         for i, child in enumerate(current_node.children):
             #print "Considering child:", child.name, "with queries:", child.nqueries
             if child.nqueries == 0:
@@ -616,7 +617,7 @@ class cMCTS(MCTS):
             if self.tree_type == 'belief':
                 self.c = 1.0 / np.sqrt(2.0)
             elif self.tree_type == 'dpw':
-                self.c = 1.0
+                self.c = 1.5
         else:
             self.c = 1.0
         print "Setting c to :", self.c
@@ -656,7 +657,10 @@ class cMCTS(MCTS):
 
         print [(node.nqueries, node.reward/node.nqueries) for node in self.tree.root.children]
 
-        best_child = self.tree.root.children[np.argmax([node.nqueries for node in self.tree.root.children])]
+
+        # best_child = self.tree.root.children[np.argmax([node.nqueries for node in self.tree.root.children])]
+        best_child = random.choice([node for node in self.tree.root.children if node.nqueries == max([n.nqueries for n in self.tree.root.children])])
+        # random.choice([key for key in leaf_eval.keys() if leaf_eval[key] == max(leaf_eval.values())])
         all_vals = {}
         for i, child in enumerate(self.tree.root.children):
             all_vals[i] = child.reward / float(child.nqueries)

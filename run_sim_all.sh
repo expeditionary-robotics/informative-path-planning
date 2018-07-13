@@ -13,11 +13,11 @@ pushd experiments
             do
                 for cost in False 
                 do
-                    for nonmyopic in True False 
+                    for nonmyopic in True #False 
                     do
                         for reward_func in mes mean 
                         do
-                          for tree_type in dpw belief
+                          for tree_type in dpw #belief
                           do
                               echo sim_seed${seed}-pathset${pathset}-nonmyopic${nonmyopic}-tree${tree_type}
                               # Dont want to run either cost or goal only
