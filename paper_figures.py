@@ -79,9 +79,12 @@ def generate_histograms(dfs, props, labels, title, figname='', save_fig=False):
     fig, axes = plt.subplots(1, len(dfs), sharey = True)
     colors = ['b', 'g', 'r', 'c', 'm', 'y', 'b', 'g', 'r', 'c', 'm', 'y']
 
-    print '---- Mean and STD for each proportion ---'
+    print '---- Mean and STD and Median for each proportion ---'
     for q,m in enumerate(props):
-        print labels[q] + ': ' + str(np.mean(m)) + ', ' + str(np.std(m))
+        print labels[q] + ': ' + str(np.mean(m)) + ', ' + str(np.std(m)) + ', ' + str(np.median(m))
+    print '---- MIN and MAX for each proportion ---'
+    for q,m in enumerate(props):
+        print labels[q] + ': ' + str(np.min(m)) + ', ' + str(np.max(m))
     print '---- Sig Test, COMPOSIT v other ----'
     for q,m in enumerate(props):
         print labels[q] + ' v COMPOSIT: ' + str(stats.ttest_ind(props[-1],m, equal_var=False))
@@ -89,7 +92,7 @@ def generate_histograms(dfs, props, labels, title, figname='', save_fig=False):
     for q,m in enumerate(props):
         count = 0
         for pro in m:
-            if pro >= 0.25:
+            if pro >= 0.15:
                 count += 1
         print labels[q] + ': ' + str(float(count)/len(m))
 
@@ -286,7 +289,7 @@ def distance_iteration_plots(dfs, trunids, labels, param, title, dist_lim=150., 
 
 ######### MAIN LOOP ###########
 if __name__ == '__main__':
-    seed_numbers = range(0, 300, 100)
+    seed_numbers = range(0, 3900, 100)
     # seed_numbers = [0, 100, 200, 400, 500, 700, 800, 900, 1000, 1200, 1300, 1400, 1600, 1700, 1800, 1900]
     print seed_numbers
     seeds = ['seed'+ str(x) + '-' for x in seed_numbers]
@@ -301,8 +304,8 @@ if __name__ == '__main__':
                   'pathsetdubins-nonmyopicTrue-treebelief',
                   'pathsetdubins-nonmyopicTrue-treedpw']
 
-    labels = ['myopic', 'MCTS', 'COMPOSIT']#['frpd', 'frgd', 'frgo', 'frpo', 'my', 'plumes']
-    file_start = 'all_mse'
+    labels = ['myopic', 'MCTS', 'COMPOSIT']#['myopic', 'MCTS', 'COMPOSIT']#['frpd', 'frgd', 'frgo', 'frpo', 'my', 'plumes']
+    file_start = 'noise_info'
 
     path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/'
     # path= '/home/genevieve/mit-whoi/informative-path-planning/experiments/'
@@ -334,24 +337,24 @@ if __name__ == '__main__':
 
         for root, dirs, files in os.walk(path):
             for name in files:
-                if 'metrics' in name and 'mean' in root and param in root and 'old_fully_reachable' not in root and 'BLOCKWORLD' not in root:
+                if 'metrics' in name and 'mean' in root and param in root and 'old_fully_reachable' not in root and 'NOISE' not in root:
                    for s in seeds:
                        if s in root:
                            p_mean.append(root+"/"+name)
-                if 'metric' in name and 'mes' in root and param in root and 'old_fully_reachable' not in root and 'BLOCKWORLD' not in root:
+                if 'metric' in name and 'mes' in root and param in root and 'old_fully_reachable' not in root and 'NOISE' not in root:
                     for s in seeds:
                         if s in root:
                             p_mes.append(root+"/"+name)
-                elif 'robot_model' in name and 'mean' in root and param in root and 'old_fully_reachable' not in root and 'BLOCKWORLD' not in root:
+                elif 'robot_model' in name and 'mean' in root and param in root and 'old_fully_reachable' not in root and 'NOISE' not in root:
                    for s in seeds:
                        if s in root:
                            p_mean_samples.append(root+"/"+name)
-                elif 'robot_model' in name and 'mes' in root and param in root and 'old_fully_reachable' not in root and 'BLOCKWORLD' not in root:
+                elif 'robot_model' in name and 'mes' in root and param in root and 'old_fully_reachable' not in root and 'NOISE' not in root:
                     for s in seeds:
                         if s in root:
                             p_mes_samples.append(root+"/"+name)
 
-                if 'log' in name and 'mes' in root and param in root and 'old_fully_reachable' not in root and 'BLOCKWORLD' not in root:
+                if 'log' in name and 'mes' in root and param in root and 'old_fully_reachable' not in root and 'NOISE' not in root:
                     for s in seeds:
                         ls = []
                         if str(s) in root:
@@ -423,5 +426,7 @@ if __name__ == '__main__':
     distance_iteration_plots(dist_dfs, dist_ids, all_labels, 'MSE', 'Averaged MSE', 200., 100, len(seeds), True, False, '_avg_mse_dist.png' )
     distance_iteration_plots(dist_dfs, dist_ids, all_labels, 'max_value_info', 'Reward Accumulation', 200., 100, len(seeds), True, False, '_avg_rac_dist.png' )
     distance_iteration_plots(dist_dfs, dist_ids, all_labels, 'info_regret', 'Info Regret', 200., 100, len(seeds), True, False, '_avg_ireg_dist.png' )
+    distance_iteration_plots(dist_dfs, dist_ids, all_labels, 'max_loc_error', 'Loc Error', 200., 100, len(seeds), True, False, '_avg_locerr_dist.png' )
+
 
     plt.show()
