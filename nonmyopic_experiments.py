@@ -48,10 +48,10 @@ logger = logging.getLogger('robot')
 ranges = (0., 10., 0., 10.)
 
 # Create obstacle world
-# ow = obslib.FreeWorld()
+ow = obslib.FreeWorld()
 # ow = obslib.ChannelWorld(ranges, (3.5, 7.), 3., 0.3)
 # ow = obslib.BugTrap(ranges, (2.2, 3.0), 4.6, orientation = 'left', width = 5.0)
-ow = obslib.BlockWorld(ranges,12, dim_blocks=(1., 1.), centers=[(2.5, 2.5), (7.,4.), (5., 8.), (8.75, 6.), (3.5,6.), (6.,1.5), (1.75,5.), (6.2,6.), (8.,8.5), (4.2, 3.8), (8.75,2.5), (2.2,8.2)])
+# ow = obslib.BlockWorld(ranges,12, dim_blocks=(1., 1.), centers=[(2.5, 2.5), (7.,4.), (5., 8.), (8.75, 6.), (3.5,6.), (6.,1.5), (1.75,5.), (6.2,6.), (8.,8.5), (4.2, 3.8), (8.75,2.5), (2.2,8.2)])
 
 world = envlib.Environment(ranges = ranges,
                            NUM_PTS = 20, 
@@ -61,7 +61,8 @@ world = envlib.Environment(ranges = ranges,
                            seed = SEED,
                            MIN_COLOR=MIN_COLOR, 
                            MAX_COLOR=MAX_COLOR, 
-                           obstacle_world = ow)
+                           obstacle_world = ow,
+                           noise=10.0)
 
 # Create the evaluation class used to quantify the simulation metrics
 evaluation = evalib.Evaluation(world = world, reward_function = REWARD_FUNCTION)
@@ -76,7 +77,7 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      prior_dataset = None,
                      init_lengthscale = 1.0, 
                      init_variance = 100.0, 
-                     noise = 1.0001,
+                     noise = 10.0001,
                      #noise = 0.5000,
                      path_generator = PATHSET, #options: default, dubins, equal_dubins, fully_reachable_goal, fully_reachable_step
                      goal_only = GOAL_ONLY, #select only if using fully reachable step and you want the reward of the step to only be the goal

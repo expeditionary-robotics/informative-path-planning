@@ -617,9 +617,9 @@ class cMCTS(MCTS):
             if self.tree_type == 'belief':
                 self.c = 1.0 / np.sqrt(2.0)
             elif self.tree_type == 'dpw':
-                #self.c = 1.0 / np.sqrt(2.0)
-                #self.c = 1.0
-                self.c = 1.5
+                # self.c = 1.0 / np.sqrt(2.0)
+                self.c = 1.0
+                # self.c = 5.0
         else:
             self.c = 1.0
         print "Setting c to :", self.c

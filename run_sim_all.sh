@@ -5,7 +5,7 @@ fi
 
 pushd experiments
     #for seed in 0 100 200 300 400 500 600 700 800 900 1000 1100 1200 1300 1400 1500 1600 1700 1800 1900 2000 2100 2200 2300 2400 2500 2600 2700 2800 2900 3000 3100 3200 3300 3400 3500 3600 3700 3800 3900 4000 #0 500 1000 1500 2000 2500 3000 3500 4000 4500 5000 10000 15000 20000 25000 30000 35000 40000 45000 5500 6000 6500 7000 7500 8000 8500 9000 9500 10500 11000 11500 12000 12500 13000 13500 14000 14500 15500 16000 16500 #17000 17500 18000 18500 19000 19500 20500 21000 21500
-    for seed in {0..4000..100}
+    for seed in {0..10000..100}
     # for seed in 2000 1900 1800 1700 1600 1500 1400 1300 1200 1100 1000 
     do
         for pathset in dubins
@@ -16,9 +16,9 @@ pushd experiments
                 do
                     for nonmyopic in True #False 
                     do
-                        for reward_func in mes mean 
+                        for reward_func in mes #mean 
                         do
-                          for tree_type in dpw #belief
+                          for tree_type in dpw belief
                           do
                               echo sim_seed${seed}-pathset${pathset}-nonmyopic${nonmyopic}-tree${tree_type}
                               # Dont want to run either cost or goal only
@@ -49,9 +49,9 @@ pushd experiments
                               # fi
 
                               if [ ${nonmyopic} = False ]; then
-                                workdir=sim_seed${seed}-pathset${pathset}-nonmyopic${nonmyopic}
+                                workdir=sim_seed${seed}-pathset${pathset}-nonmyopic${nonmyopic}-NOISE
                               else
-                                workdir=sim_seed${seed}-pathset${pathset}-nonmyopic${nonmyopic}-tree${tree_type}
+                                workdir=sim_seed${seed}-pathset${pathset}-nonmyopic${nonmyopic}-tree${tree_type}-NOISE
                               fi
                               
                               if [ -d $workdir ] && [ -f ${workdir}/figures/${reward_func}/trajectory-N.SUMMARY.png ] ; then 

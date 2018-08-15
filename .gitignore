@@ -14,3 +14,7 @@ fresh_run_victoria/*
 previous_paper_experiments/*
 all_mse_dist_stats.txt
 all_mse_stats.txt
+breaking_exps/*
+condensed_experiments/*
+temp_final/*
+figures_and_experiments/*
