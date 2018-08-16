@@ -92,7 +92,7 @@ def plot_trees(trees, path):
 
 
 if __name__ == '__main__':
-    path = 'figures/mean/'
+    path = 'figures/mean/' #change this line to the true path to the saved tree representations
     trees = get_trees(path)
     plot_trees(trees, path)
     
