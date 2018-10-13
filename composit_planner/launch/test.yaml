@@ -1,0 +1,7 @@
+ranges: [0., 10., 0., 10.]
+num_pts: 10
+variance: 100
+lengthscale: 0.1
+noise: 0.0001
+seed: 0
+rate: 10.
