@@ -1,4 +1,5 @@
 string aq_func # acquisition function type, should be mes, ei, or ucb 
 geometry_msgs/Pose2D pose # Potential pose
+int32 time
 ---
 float64 value # the value of the query point under a specific aq function

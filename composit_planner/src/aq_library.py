@@ -56,6 +56,9 @@ def mves(time, xvals, robot_model, param):
  
 def info_gain(time, xvals, robot_model, param = None):
     ''' Compute the information gain of a set of potential sample locations with respect to the underlying function conditioned or previous samples xobs'''        
+    if robot_model.xvals is None:
+        return 1.0
+
     data = np.array(xvals)
     x1 = data[:,0]
     x2 = data[:,1]
@@ -100,6 +103,9 @@ def info_gain(time, xvals, robot_model, param = None):
     
 def mean_ucb(time, xvals, robot_model, param = None):
     ''' Computes the UCB for a set of points along a trajectory '''
+    if robot_model.xvals is None:
+        return 1.0
+
     data = np.array(xvals)
     x1 = data[:,0]
     x2 = data[:,1]
@@ -118,6 +124,8 @@ def mean_ucb(time, xvals, robot_model, param = None):
 
 def exp_improvement(time, xvals, robot_model, param = None):
     ''' The aquisition function using expected information, as defined in Hennig and Schuler Entropy Search'''
+    if robot_model.xvals is None:
+        return 1.0
     data = np.array(xvals)
     x1 = data[:,0]
     x2 = data[:,1]

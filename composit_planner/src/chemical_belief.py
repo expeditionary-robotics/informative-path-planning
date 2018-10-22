@@ -37,10 +37,14 @@ class ChemicalBelief:
             prior_dataset (tuple of nparrays) a tuple (xvals, zvals), where xvals is a Npoint x 2 nparray of type float and zvals is a Npoint x 1 nparray of type float
     ''' 
     def __init__(self):
+        # Initialize member variables
         self.current_max = -float("inf")
         self.data_queue = list()
+        self.pose_queue = list()
         self._maxima = None
-
+        self.pose = geometry_msgs.msg.Pose2D()
+        
+        # Create mutex for the data queue
         self.data_lock = threading.Lock()
 
         ''' Get ROS parameters '''
@@ -56,20 +60,16 @@ class ChemicalBelief:
         self.GP = OnlineGPModel(ranges = self.ranges, lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
 
         # Define ROS service
-        self.srv_replan = rospy.Service('update_model', RequestReplan, self.update_model)
+        self.srv_replan = rospy.Service('replan', RequestReplan, self.update_model)
         self.srv_maxima= rospy.Service('pred_value', GetValue, self.predict_value)
        
         # Subscribe to the chem data topic
         self.data = rospy.Subscriber("chem_data", ChemicalSample, self.get_sensordata)
+
+        # Only for the simulation, because 
+        self.odom = rospy.Subscriber("odom_spoof", geometry_msgs.msg.Pose2D, self.update_pose)
         
         rospy.spin()
-
-    @property
-    def maxima(self):
-        if self._maxima is None:
-            max_vals, max_locs, func = aq.sample_max_vals(self.GP) 
-            self._maxima = (max_vals, max_locs, func)
-        return self._maxima
     
     def update_model(self, _):
         ''' Adds all data currently in the data queue into the GP model and clears the data queue. Threadsafe. 
@@ -84,7 +84,7 @@ class ChemicalBelief:
             # Add all current observations in the data queue to the current model
             NUM_PTS = len(self.data_queue)
             zobs = np.array([msg.data for msg in self.data_queue]).reshape(NUM_PTS, 1)
-            xobs = np.array([[msg.loc.x, msg.loc.y] for msg in self.data_queue]).reshape(NUM_PTS, 2)
+            xobs = np.array([[msg.x, msg.y] for msg in self.pose_queue]).reshape(NUM_PTS, 2)
             self.GP.add_data(xobs, zobs)
         
             # Update the current best max for EI
@@ -94,14 +94,16 @@ class ChemicalBelief:
                     self.current_max_loc = [x[0],x[1]]
 
             # Delete data from the data_queue
-            del self.data_queue[:] #in Python3, would be self.data_queue.clear()
+            del self.data_queue[:] 
+            del self.pose_queue[:] 
             self._maxima = None
 
             # Release the data lock
             self.data_lock.release()
 
             return RequestReplanResponse(True)
-        except:
+        except ValueError:
+            print ValueError
             return RequestReplanResponse(False)
 
     def predict_value(self, req):
@@ -114,13 +116,13 @@ class ChemicalBelief:
         xvals = np.array([req.pose.x, req.pose.y]).reshape(1,2)
         aq_func = req.aq_func 
         if aq_func == 'ei':
-            value = aq.exp_improvement(time = 0, xvals = xvals, robot_model = self.GP, param = self.current_max)
+            value = aq.exp_improvement(time = req.time, xvals = xvals, robot_model = self.GP, param = self.current_max)
         elif aq_func == 'ucb':
-            value = aq.mean_ucb(time = 0, xvals = xvals, robot_model = self.GP, param = None)
+            value = aq.mean_ucb(time = req.time, xvals = xvals, robot_model = self.GP, param = None)
         elif aq_func == 'mes':
-            value = aq.mves(time = 0, xvals = xvals, robot_model = self.GP, param = self.maxima)
+            value = aq.mves(time = req.time, xvals = xvals, robot_model = self.GP, param = self.maxima)
         elif aq_func == 'ig':
-            value = aq.info_gain(time = 0, xvals = xvals, robot_model = self.GP, param = None)
+            value = aq.info_gain(time = req.time, xvals = xvals, robot_model = self.GP, param = None)
         else:
             print aq_func
             raise ValueError('Aqusition function must be one of ei, ucb, ig, or mes')
@@ -134,7 +136,18 @@ class ChemicalBelief:
 
         self.data_lock.acquire()
         self.data_queue.append(msg)
+        self.pose_queue.append(self.pose)
         self.data_lock.release()    
+
+    def update_pose(self, msg):
+        self.pose = msg
+
+    @property
+    def maxima(self):
+        if self._maxima is None:
+            max_vals, max_locs, func = aq.sample_max_vals(self.GP) 
+            self._maxima = (max_vals, max_locs, func)
+        return self._maxima
 
 def main():
 	#initialize node

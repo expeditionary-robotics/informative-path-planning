@@ -2,18 +2,23 @@
 
 # Copyright 2018 Massachusetts Institute of Technology
 
+# System includes
 import numpy as np
 import math
 import os
+
+# GPy and GP includes
 import GPy as GPy
 from gpmodel_library import GPModel, OnlineGPModel
-# import obstacles as obslib
+
+# ROS includes
 import rospy
 from std_msgs.msg import *
 from composit_planner.srv import *
 
 '''
-This is a ROSSERVICE tos perform the following task(s): publish noisy sensor information on request at a specific pose.
+This is a ROSSERVICE tos perform the following task(s): 
+    * publish noisy sensor information on request at the current robot pose.
 '''
 
 class Environment:
@@ -39,6 +44,10 @@ class Environment:
         self.lengthscale = float(rospy.get_param('lengthscale','0.1'))
         self.noise = float(rospy.get_param('noise', '0.0001'))
         self.seed = int(rospy.get_param('seed','0'))
+
+        # Keeps track of current pose of the robot so to report the correct sensor measurement
+        self.current_pose = geometry_msgs.msg.Pose2D()
+        self.pose = rospy.Subscriber("odom_spoof", geometry_msgs.msg.Pose2D, self.update_pose)
 
         # Expect ranges to be a list of 4 elements consisting of x1min, x1max, x2min, and x2max
         self.x1min = float(self.ranges[0])
@@ -89,10 +98,13 @@ class Environment:
 
         # Define ROS service
         self.srv = rospy.Service('query_chemical', SimMeasurement, self.sample_value)
+        
         rospy.spin()
 
+    def update_pose(self, msg):
+        self.current_pose = msg
 
-    def sample_value(self, req):
+    def sample_value(self, _):
         ''' The public interface to the Environment class. Returns a noisy sample of the true value of environment at a set of point. 
         Input:
             xvals (float array): an nparray of floats representing observation locations, with dimension num_pts x 2 
@@ -100,13 +112,11 @@ class Environment:
         Returns:
             mean (float array): an nparray of floats representing predictive mean, with dimension num_pts x 1 
         '''
-        xvals = np.array([req.msg.x,req.msg.y]).reshape(1,2)
 
-        assert(xvals.shape[0] >= 1)            
-        assert(xvals.shape[1] == 2)        
+        # In simulation, the chemical sensor must know the pose of the robot to report sensor measurement
+        xvals = np.array([self.current_pose.x, self.current_pose.y]).reshape(1,2)
 
         mean, var = self.GP.predict_value(xvals, include_noise = False)
-
         return SimMeasurementResponse(mean + np.random.normal(loc = 0, scale = np.sqrt(self.noise)))
 
 

@@ -5,3 +5,4 @@ lengthscale: 0.1
 noise: 0.0001
 seed: 0
 rate: 1.
+odom_rate: 10.

@@ -12,24 +12,31 @@ from composit_planner.srv import *
 from composit_planner.msg import *
 
 '''
-This node spoofs a localization node. Can be queried and will respond with a 2D pose
+This node spoofs a localization node. Publishes a random 2D pose at a fixed rate
 '''
 
-def write_pose(req):
-    pose = geometry_msgs.msg.Pose2D()
-    # Sample a uniformly random pose
-    pose.x = np.random.uniform(low = 0.0, high = 10.0)
-    pose.y = np.random.uniform(low = 0.0, high = 10.0)
-    pose.theta  = 0.0
-
-    return SimPoseResponse(pose)
-
-
 if __name__ == '__main__':
-	rospy.init_node('pose_spoofer')
-	try:
-            rospy.Service('query_pose', SimPose, write_pose)
-            rospy.spin()
+    rospy.init_node('odom_spoofer')
+    try:
+        # Initialize ros publisher, set queue size to be 1 so only the freshest chem measurement is processed 
+        pub = rospy.Publisher('odom_spoof', geometry_msgs.msg.Pose2D, queue_size = 1)
+        
+        # Set odom loop rate
+        rate = float(rospy.get_param('odom_rate','100'))
+        r = rospy.Rate(rate)
 
-	except rospy.ROSInterruptException:
-		pass
+        current_pose = geometry_msgs.msg.Pose2D()
+
+        while not rospy.is_shutdown():
+            # Sample a uniformly random pose
+            current_pose.x = np.random.uniform(low = 0.0, high = 10.0)
+            current_pose.y = np.random.uniform(low = 0.0, high = 10.0)
+            current_pose.theta  = 0.0
+
+            # Publish data
+            pub.publish(current_pose)
+            r.sleep()
+
+
+    except rospy.ROSInterruptException:
+            pass
