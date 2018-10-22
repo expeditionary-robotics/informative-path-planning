@@ -1,6 +1,9 @@
 <launch>
-	<node pkg="composit_planner" type="sniff_sim.py" name="sniff_sim" output="screen"/>
+	<node pkg="composit_planner" type="chemical_sensor.py" name="chemical_sensor" output="screen"/>
 	<node pkg="composit_planner" type="chemical_world_sim.py" name="chemical_world_sim" output="screen"/>
+	<node pkg="composit_planner" type="chemical_belief.py" name="chemical_belief" output="screen"/>
+
+	<node pkg="composit_planner" type="publish_pose.py" name="pose_spoofer" output="screen"/>
 
 	<rosparam command="load" file="$(find composit_planner)/launch/test.yaml" />
 

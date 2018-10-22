@@ -100,7 +100,7 @@ class Environment:
         Returns:
             mean (float array): an nparray of floats representing predictive mean, with dimension num_pts x 1 
         '''
-        xvals=np.array([req.msg.position.x,req.msg.position.y]).reshape(1,2)
+        xvals = np.array([req.msg.x,req.msg.y]).reshape(1,2)
 
         assert(xvals.shape[0] >= 1)            
         assert(xvals.shape[1] == 2)        

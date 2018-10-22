@@ -17,3 +17,5 @@ breaking_exps/*
 condensed_experiments/*
 temp_final/*
 figures_and_experiments/*
+*.swp*
+*.swo*

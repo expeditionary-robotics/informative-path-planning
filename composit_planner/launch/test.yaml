@@ -4,4 +4,4 @@ variance: 100
 lengthscale: 0.1
 noise: 0.0001
 seed: 0
-rate: 10.
+rate: 1.
