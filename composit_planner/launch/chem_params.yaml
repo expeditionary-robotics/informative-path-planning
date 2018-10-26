@@ -1,8 +1,8 @@
 ranges: [0., 10., 0., 10.]
 num_pts: 10
 variance: 100
-lengthscale: 0.1
-noise: 0.0001
+lengthscale: 1.0
+noise: 0.5
 seed: 0
 rate: 1.
 odom_rate: 10.

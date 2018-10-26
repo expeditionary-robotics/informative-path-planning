@@ -14,7 +14,9 @@ from gpmodel_library import GPModel, OnlineGPModel
 # ROS includes
 import rospy
 from std_msgs.msg import *
+from nav_msgs.msg import Odometry
 from composit_planner.srv import *
+from composit_planner.msg import *
 
 '''
 This is a ROSSERVICE tos perform the following task(s): 
@@ -28,8 +30,6 @@ class Environment:
         ''' Initialize a random Gaussian environment using the input kernel, 
             assuming zero mean function.
         Input:
-        ranges (list of floats): a tuple representing the max/min of 2D 
-            rectangular domain i.e. (-10, 10, -50, 50)
         num_pts (int): the number of points in each dimension to sample for 
             initialization, resulting in a sample grid of size num_pts x num_pts
         variance (float): the variance parameter of the kernel
@@ -38,34 +38,33 @@ class Environment:
         seed (int): an integer seed for the random draws. If set to \'None\', 
             no seed is used 
         '''
-        self.ranges = rospy.get_param('ranges',[0,10,0,10])
         self.num_pts = int(rospy.get_param('num_pts','10'))
         self.variance = float(rospy.get_param('variance','100'))
         self.lengthscale = float(rospy.get_param('lengthscale','0.1'))
         self.noise = float(rospy.get_param('noise', '0.0001'))
         self.seed = int(rospy.get_param('seed','0'))
+        self.x1min = float(rospy.get_param('xmin', '0'))
+        self.x1max = float(rospy.get_param('xmax', '10'))
+        self.x2min = float(rospy.get_param('ymin', '0'))
+        self.x2max = float(rospy.get_param('ymax', '10'))
+        #self.delta = float(rospy.get_param('delta', '0.05'))
+        self.delta = 0.5 # TODO: make seperate paraam 
 
         # Keeps track of current pose of the robot so to report the correct sensor measurement
-        self.current_pose = geometry_msgs.msg.Pose2D()
-        self.pose = rospy.Subscriber("odom_spoof", geometry_msgs.msg.Pose2D, self.update_pose)
-
-        # Expect ranges to be a list of 4 elements consisting of x1min, x1max, x2min, and x2max
-        self.x1min = float(self.ranges[0])
-        self.x1max = float(self.ranges[1])
-        self.x2min = float(self.ranges[2])
-        self.x2max = float(self.ranges[3])
+        self.current_pose = Odometry()
+        self.pose = rospy.Subscriber("/odom", Odometry, self.update_pose)
 
         # Generate the world
         # Generate a set of discrete grid points, uniformly spread across the environment
-        x1 = np.linspace(self.x1min, self.x1max, self.num_pts)
-        x2 = np.linspace(self.x2min, self.x2max, self.num_pts)
+        x1 = np.linspace(self.x1min, self.x1max, (self.x1max - self.x1min) / self.delta)
+        x2 = np.linspace(self.x2min, self.x2max, (self.x1max - self.x1min) / self.delta)
         # dimension: num_pts x num_pts
         x1vals, x2vals = np.meshgrid(x1, x2, sparse = False, indexing = 'xy') 
         # dimension: num_pts*num_pts x 2
         data = np.vstack([x1vals.ravel(), x2vals.ravel()]).T 
 
-        bb = ((self.ranges[1] - self.ranges[0])*0.05, (self.ranges[3] - self.ranges[2]) * 0.05)
-        ranges = (self.ranges[0] + bb[0], self.ranges[1] - bb[0], self.ranges[2] + bb[1], self.ranges[3] - bb[1])
+        bb = ((self.x1max - self.x1min)*0.05, (self.x2max - self.x2min) * 0.05)
+        ranges = (self.x1min + bb[0], self.x1max - bb[0], self.x2min + bb[1], self.x2max - bb[1])
         # Initialize maxima arbitrarily to violate boundary constraints
         maxima = [self.x1min, self.x2min]
 
@@ -96,6 +95,8 @@ class Environment:
             self.GP.add_data(data[1:, :], observations) 
             maxima = self.GP.xvals[np.argmax(self.GP.zvals), :]
 
+        print "World genreated! Size:", x1.shape, ",", x2.shape
+
         # Define ROS service
         self.srv = rospy.Service('query_chemical', SimMeasurement, self.sample_value)
         
@@ -114,7 +115,7 @@ class Environment:
         '''
 
         # In simulation, the chemical sensor must know the pose of the robot to report sensor measurement
-        xvals = np.array([self.current_pose.x, self.current_pose.y]).reshape(1,2)
+        xvals = np.array([self.current_pose.pose.pose.position.x, self.current_pose.pose.pose.position.y]).reshape(1,2)
 
         mean, var = self.GP.predict_value(xvals, include_noise = False)
         return SimMeasurementResponse(mean + np.random.normal(loc = 0, scale = np.sqrt(self.noise)))

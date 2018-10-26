@@ -19,3 +19,4 @@ temp_final/*
 figures_and_experiments/*
 *.swp*
 *.swo*
+*.pyc

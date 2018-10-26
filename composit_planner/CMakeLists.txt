@@ -61,7 +61,6 @@ find_package(catkin REQUIRED COMPONENTS
 add_service_files(
   FILES
   SimMeasurement.srv
-  SimPose.srv
   RequestReplan.srv
   GetValue.srv
 #   Service2.srv
