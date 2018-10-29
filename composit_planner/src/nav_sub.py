@@ -1,22 +1,22 @@
 #!/usr/bin/env python
 
-#code heavily modified from simple tutorials by Fiorella Sibona (https://github.com/FiorellaSibona) which use actionlib with python interfaces
+# Copyright 2018 Massachusetts Institute of Technology
 
 import rospy
 import actionlib
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from actionlib_msgs.msg import GoalStatus
-from sensor_msgs.msg import PointCloud
+from nav_msgs.msg import Path
 from geometry_msgs.msg import Pose, Point, Quaternion
 from tf.transformations import quaternion_from_euler
 
-class MoveBaseSeq():
+class ExecuteDubinSeq():
 	def __init__(self):
-		#initialize node and callback signal
-		rospy.init_node('nav_sub')
+		#initialize node and callback
+		rospy.init_node('execute_dubin')
 		self.ready_for_next = True
 
-		#want to wait for all other nodes to be established before connecting to server
+		#make sure all nodes are established
 		rospy.sleep(20.)
 		self.client = actionlib.SimpleActionClient('move_base', MoveBaseAction)
 		rospy.loginfo("Waiting for move_base server...")
@@ -28,47 +28,29 @@ class MoveBaseSeq():
 		rospy.loginfo("Connected to server")
 		rospy.loginfo("Starting goal navigation")
 
-		#subscribe to the navigation points of interest
-		self.sub = rospy.Subscriber("/possible_points", PointCloud, self.cloud_cb, queue_size=10)
-		
+		#subscribe to trajectory topic
+		self.sub = rospy.Subscriber("/selected_trajectory", Path, self.handle_trajectory, queue_size=1)
+
 		#spin until shutdown
 		while not rospy.is_shutdown():
 			rospy.spin()
 
-	def cloud_cb(self, cloud):
-		''' Callback function for target points published. Selects the highest utility point to navigate to.
-		Input:
-			cloud: PointCloud object with (x,y) points and channel utility values
-		Output:
-			accesses the navigation client to publish target
+	def handle_trajectory(self, traj):
 		'''
-		#if the last target has been reached, go ahead and update
-		if self.ready_for_next:
-			#parse the callback data
-			frame_id = cloud.header.frame_id
-			points = cloud.points
-			vals = cloud.channels
-
-			#identify the highest valued point
-			current_max = -1000
-			target = None
-			for p,v in zip(points,vals):
-				if v > current_max:
-					current_max = v
-					target = p
-			t = [target.x, target.y, 0]
-
-			#turn point into navigation goal
-			p_select = Pose(Point(*(t)), Quaternion(*(quaternion_from_euler(0,0,90*3.14/180, axes='sxyz'))))
-			goal = MoveBaseGoal()
-			goal.target_pose.header.frame_id = frame_id
+		The trajectory comes in as a series of poses. It is assumed that the desired angle has already been determined
+		'''
+		print 'Executing new Trajectory'
+		self.client.cancel_goal()
+		self.new_goals = traj.poses
+		if len(self.new_goals) != 0:
+			goal=MoveBaseGoal()
+			goal.target_pose.header.frame_id = traj.header.frame_id
 			goal.target_pose.header.stamp = rospy.Time.now()
-			goal.target_pose.pose = p_select
-			rospy.loginfo("Sending new pose to server")
+			goal.target_pose.pose = self.new_goals[0].pose
 			self.client.send_goal(goal, self.done_cb, self.active_cb, self.feedback_cb)
-			self.ready_for_next = False
+			self.new_goals.pop(0)
 		else:
-			pass
+			print 'No trajectory is viable'
 
 	def active_cb(self):
 		''' Native callback for the navigation client. Indicates when goal point is received.'''
@@ -83,27 +65,29 @@ class MoveBaseSeq():
 
 		if status == 2:
 			rospy.loginfo("Goal pose canceled")
-			self.ready_for_next = True
 
 		if status == 3:
 			rospy.loginfo("Goal pose reached")
-			self.ready_for_next = True
+			if len(self.new_goals) != 0:
+				goal=MoveBaseGoal()
+				goal.target_pose.header.frame_id = self.new_goals[0].header.frame_id
+				goal.target_pose.header.stamp = rospy.Time.now()
+				goal.target_pose.pose = self.new_goals[0].pose
+				self.client.send_goal(goal, self.done_cb, self.active_cb, self.feedback_cb)
+				self.new_goals.pop(0)
 
 		if status == 4:
 			rospy.loginfo("Goal pose aborted")
-			self.ready_for_next = True
 
 		if status == 5:
 			rospy.loginfo("Goal pose rejected")
-			self.ready_for_next = True
 
 		if status == 8:
 			rospy.loginfo("Goal pose canceled")
-			self.ready_for_next = True
 
 
 if __name__ == '__main__':
 	try:
-		MoveBaseSeq()
+		ExecuteDubinSeq()
 	except rospy.ROSInterruptException:
 		rospy.loginfo("Navigation test finished.")

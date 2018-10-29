@@ -15,10 +15,10 @@
   <include file="$(find turtlebot3_gazebo)/launch/turtlebot3_gazebo_rviz.launch"/>
   
   <!-- Load the autonomos driving, for now -->
-  <include file="$(find turtlebot3_gazebo)/launch/turtlebot3_simulation.launch"/>
+  <!-- <include file="$(find turtlebot3_gazebo)/launch/turtlebot3_simulation.launch"/> -->
 
     <!-- SLAM mapping node -->
-  <node pkg="gmapping" type="slam_gmapping" name="turtlebot3_slam_gmapping" output="screen">
+  <node pkg="gmapping" type="slam_gmapping" name="turtlebot3_slam_gmapping">
     <param name="base_frame" value="$(arg set_base_frame)"/>
     <param name="odom_frame" value="$(arg set_odom_frame)"/>
     <param name="map_frame"  value="$(arg set_map_frame)"/>
@@ -43,7 +43,16 @@
   <!-- Map server for navigation -->
   <include file="$(find composit_planner)/launch/nav_sim.launch"/>
 
-  <!-- Interface with map_server client which listens for points ublished by the slam adaptive sampling node and then executes single robot navigation -->
+  <!-- Trajectory listener and move_base executive -->
   <node pkg="composit_planner" type="nav_sub.py" name="nav_sub" output="screen"/>
-    
+
+  <!-- Trajectory formulation service -->
+  <node pkg="composit_planner" type="obstacle_check_server.py" name="obstacle_check" output="screen"/>
+
+  <!-- Trajectory planning spoof -->
+  <!-- <node pkg="composit_planner" type="traj_spoof.py" name="traj_spoofer" output="screen"/> -->
+
+  <!-- Cost map server -->
+  <node pkg="composit_planner" type="costmap_server.py" name="costmap_server" output="screen"/>
+
 </launch>

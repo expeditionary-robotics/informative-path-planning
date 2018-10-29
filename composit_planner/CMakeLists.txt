@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   geometry_msgs
+  nav_msgs
   message_generation
   actionlib
   move_base_msgs
@@ -63,6 +64,8 @@ add_service_files(
   SimMeasurement.srv
   RequestReplan.srv
   GetValue.srv
+  GetCostMap.srv
+  TrajectoryCheck.srv
 #   Service2.srv
 )
 
@@ -78,6 +81,7 @@ generate_messages(
   DEPENDENCIES
   std_msgs
   geometry_msgs
+  nav_msgs
 )
 
 ################################################

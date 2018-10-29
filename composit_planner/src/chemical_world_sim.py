@@ -95,7 +95,12 @@ class Environment:
             self.GP.add_data(data[1:, :], observations) 
             maxima = self.GP.xvals[np.argmax(self.GP.zvals), :]
 
-        print "World genreated! Size:", x1.shape, ",", x2.shape
+        print "World generated! Size:", x1.shape, ",", x2.shape
+        # Save the map for later comparison
+        # np.save('../world_map_x1vals', x1vals)
+        # np.save('../world_map_x2vals', x2vals)
+        # np.save('../world_map_zvals', self.GP.zvals.reshape(x1vals.shape))
+        np.savez('../world_map', x1=x1vals, x2=x2vals, z=self.GP.zvals.reshape(x1vals.shape))
 
         # Define ROS service
         self.srv = rospy.Service('query_chemical', SimMeasurement, self.sample_value)
