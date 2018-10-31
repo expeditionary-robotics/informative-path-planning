@@ -47,8 +47,6 @@ class Environment:
         self.x1max = float(rospy.get_param('xmax', '10'))
         self.x2min = float(rospy.get_param('ymin', '0'))
         self.x2max = float(rospy.get_param('ymax', '10'))
-        #self.delta = float(rospy.get_param('delta', '0.05'))
-        self.delta = 0.5 # TODO: make seperate paraam 
 
         # Keeps track of current pose of the robot so to report the correct sensor measurement
         self.current_pose = Odometry()
@@ -56,8 +54,8 @@ class Environment:
 
         # Generate the world
         # Generate a set of discrete grid points, uniformly spread across the environment
-        x1 = np.linspace(self.x1min, self.x1max, (self.x1max - self.x1min) / self.delta)
-        x2 = np.linspace(self.x2min, self.x2max, (self.x1max - self.x1min) / self.delta)
+        x1 = np.linspace(self.x1min, self.x1max, self.num_pts)
+        x2 = np.linspace(self.x2min, self.x2max, self.num_pts)
         # dimension: num_pts x num_pts
         x1vals, x2vals = np.meshgrid(x1, x2, sparse = False, indexing = 'xy') 
         # dimension: num_pts*num_pts x 2

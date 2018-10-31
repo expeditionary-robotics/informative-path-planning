@@ -45,7 +45,8 @@ class ExecuteDubinSeq():
 		if len(self.new_goals) != 0:
 			goal=MoveBaseGoal()
 			goal.target_pose.header.frame_id = traj.header.frame_id
-			goal.target_pose.header.stamp = rospy.Time.now()
+			#goal.target_pose.header.stamp = rospy.Time.now()
+			goal.target_pose.header.stamp = rospy.Time(0)
 			goal.target_pose.pose = self.new_goals[0].pose
 			self.client.send_goal(goal, self.done_cb, self.active_cb, self.feedback_cb)
 			self.new_goals.pop(0)
@@ -71,7 +72,8 @@ class ExecuteDubinSeq():
 			if len(self.new_goals) != 0:
 				goal=MoveBaseGoal()
 				goal.target_pose.header.frame_id = self.new_goals[0].header.frame_id
-				goal.target_pose.header.stamp = rospy.Time.now()
+				#goal.target_pose.header.stamp = rospy.Time.now()
+				goal.target_pose.header.stamp = rospy.Time(0)
 				goal.target_pose.pose = self.new_goals[0].pose
 				self.client.send_goal(goal, self.done_cb, self.active_cb, self.feedback_cb)
 				self.new_goals.pop(0)

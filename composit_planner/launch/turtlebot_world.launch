@@ -15,7 +15,7 @@
   <include file="$(find turtlebot3_gazebo)/launch/turtlebot3_gazebo_rviz.launch"/>
   
   <!-- Load the autonomos driving, for now -->
-  <!-- <include file="$(find turtlebot3_gazebo)/launch/turtlebot3_simulation.launch"/> -->
+  include file="$(find turtlebot3_gazebo)/launch/turtlebot3_simulation.launch"/>
 
     <!-- SLAM mapping node -->
   <node pkg="gmapping" type="slam_gmapping" name="turtlebot3_slam_gmapping">

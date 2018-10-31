@@ -39,7 +39,8 @@ class TrajectorySpoofer():
                 for coord in true_path:
                     c = PoseStamped()
                     c.header.frame_id = 'odom'
-                    c.header.stamp = rospy.Time.now()
+                    #c.header.stamp = rospy.Time.now()
+                    c.header.stamp = rospy.Time(0)
                     c.pose.position.x = coord[0]
                     c.pose.position.y = coord[1]
                     c.pose.position.z = 0.
@@ -52,11 +53,13 @@ class TrajectorySpoofer():
 
                 pte = Path()
                 pte.header.frame_id = 'odom'
-                pte.header.stamp = rospy.Time.now()
+                #pte.header.stamp = rospy.Time.now()
+                pte.header.stamp = rospy.Time(0)
                 pte.poses = pub_path
                 pte = self.check_traj(TrajectoryCheckRequest(pte))
                 pte.safe_path.header.frame_id = 'odom'
-                pte.safe_path.header.stamp = rospy.Time.now() 
+                #pte.safe_path.header.stamp = rospy.Time.now() 
+                pte.safe_path.header.stamp = rospy.Time(0) 
                 self.pub.publish(pte.safe_path)
             r.sleep()
 

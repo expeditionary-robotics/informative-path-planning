@@ -1,8 +1,16 @@
-ranges: [0., 10., 0., 10.]
-num_pts: 10
+num_pts: 40
 variance: 100
-lengthscale: 1.0
+lengthscale: 0.8
 noise: 0.5
 seed: 0
-rate: 1.
-odom_rate: 10.
+
+model_variance: 100
+model_lengthscale: 0.8
+model_noise: 0.5
+
+sensor_rate: 1.
+
+xmin: -50.0
+xmax: 50.0
+ymin: -50.0
+ymax: 50.0

@@ -58,8 +58,6 @@ class ChemicalBelief:
         self.x1max = float(rospy.get_param('xmax', '10'))
         self.x2min = float(rospy.get_param('ymin', '0'))
         self.x2max = float(rospy.get_param('ymax', '10'))
-        #self.delta = float(rospy.get_param('delta', '0.05'))
-        self.delta = 0.5
         
         # Initialize the robot's GP model with the initial kernel parameters
         self.GP = OnlineGPModel(ranges = [self.x1min, self.x1max, self.x2min, self.x2max], lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
@@ -112,8 +110,8 @@ class ChemicalBelief:
             self.data_lock.release()
 
             # Generate a set of observations from robot model with which to make contour plots
-            grid_size = 5.0 # grid size in meters
-            num_pts = 30
+            grid_size = 8.0 # grid size in meters
+            num_pts = 100
             x1max = self.pose.pose.pose.position.x + grid_size / 2.0
             x1min = self.pose.pose.pose.position.x - grid_size / 2.0
             x2max = self.pose.pose.pose.position.y + grid_size / 2.0

@@ -73,7 +73,8 @@ class ObstacleCheck:
                 break
         #create the response message
         resp = Path()
-        resp.header.stamp = rospy.Time.now()
+        #resp.header.stamp = rospy.Time.now()
+        resp.header.stamp = rospy.Time(0)
         resp.header.frame_id = 'odom'
         resp.poses = updated_trajectory
         return TrajectoryCheckResponse(resp)

@@ -26,7 +26,7 @@ def get_measurements():
     pub = rospy.Publisher('chem_data', ChemicalSample, queue_size = 1)
 
     # Set sampling rate
-    rate = float(rospy.get_param('rate','10'))
+    rate = float(rospy.get_param('sensor_rate','10'))
 
     # Set sensing loop rate
     r = rospy.Rate(rate)
