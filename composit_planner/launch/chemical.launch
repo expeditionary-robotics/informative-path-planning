@@ -3,5 +3,5 @@
 	<node pkg="composit_planner" type="chemical_sensor.py" name="chemical_sensor" output="screen"/>
 	<node pkg="composit_planner" type="chemical_world_sim.py" name="chemical_world_sim" output="screen"/>
 	<node pkg="composit_planner" type="chemical_belief.py" name="chemical_belief" output="screen"/>
-	<node pkg="composit_planner" type="planner_spoof.py" name="planner_spoof" output="screen"/>
+	<!-- <node pkg="composit_planner" type="planner_spoof.py" name="planner_spoof" output="screen"/> -->
 </launch>

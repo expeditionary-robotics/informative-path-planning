@@ -194,7 +194,6 @@ class ChannelWorld(BlockWorld):
 				return True
 		return False
 
-
 if __name__ == '__main__':
 	# bw = BlockWorld([0.,10.,0.,10.], 1, (8.,3.), [(5,5)])
 	# bw.draw_obstacles()
