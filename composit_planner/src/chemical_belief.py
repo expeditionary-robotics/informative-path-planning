@@ -19,6 +19,7 @@ from composit_planner.msg import *
 import GPy as GPy
 from gpmodel_library import GPModel, OnlineGPModel
 from scipy.stats import multivariate_normal
+from scipy.stats import norm
 
 import aq_library as aq
 
@@ -124,8 +125,10 @@ class ChemicalBelief:
             observations, var = self.GP.predict_value(data)
             #max_val = np.max(observations)
             #min_val = np.min(observations)
-            max_val = 25.0
-            min_val = -25.0
+            print "GP size:", self.GP.zvals.shape
+
+            max_val = norm.ppf(q = 0.90, loc = 0.0, scale = np.sqrt(self.GP.variance))
+            min_val = norm.ppf(q = 0.10, loc = 0.0, scale = np.sqrt(self.GP.variance))
 
             if max_val == min_val and max_val == 0.00: 
                 topixel = lambda val: 0.0
@@ -136,7 +139,6 @@ class ChemicalBelief:
             pt_vals = np.array([topixel(c) for c in observations]).reshape(num_pts *  num_pts)
 	    pt_locs = data.T
             pt_cloud = np.array(np.hstack([pt_locs[0, :], pt_locs[1, :], pt_vals]), dtype = np.float32)
-            print pt_cloud.shape
 		
             msg = PointCloud()
             msg.header.frame_id = 'map' # Global frame
