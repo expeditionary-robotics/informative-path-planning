@@ -73,7 +73,66 @@ class ChemicalBelief:
 
         self.pub = rospy.Publisher('chem_map', PointCloud, queue_size = 100)
         
-        rospy.spin()
+        # Set sensing loop rate
+        #r = rospy.Rate(rate)
+        r = rospy.Rate(2)
+
+        while not rospy.is_shutdown():
+            # Pubish current belief map
+            self.publish_gpbelief()
+            r.sleep()
+
+    def publish_gpbelief(self):
+        # Generate a set of observations from robot model with which to make contour plots
+        grid_size = 8.0 # grid size in meters
+        num_pts = 100 # number of points to visaulzie in grid (num_pts x num_pts)
+        x1max = self.pose.pose.pose.position.x + grid_size / 2.0
+        x1min = self.pose.pose.pose.position.x - grid_size / 2.0
+        x2max = self.pose.pose.pose.position.y + grid_size / 2.0
+        x2min = self.pose.pose.pose.position.y - grid_size / 2.0
+
+        x1 = np.linspace(x1min, x1max, num_pts)
+        x2 = np.linspace(x2min, x2max, num_pts)
+        x1, x2 = np.meshgrid(x1, x2, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
+        data = np.vstack([x1.ravel(), x2.ravel()]).T
+
+        if self.GP.xvals is not None:
+            observations, var = self.GP.predict_value(data)
+
+            max_val = norm.ppf(q = 0.90, loc = 0.0, scale = np.sqrt(self.GP.variance))
+            min_val = norm.ppf(q = 0.10, loc = 0.0, scale = np.sqrt(self.GP.variance))
+
+            if max_val == min_val and max_val == 0.00: 
+                topixel = lambda val: 0.0
+            else:
+                # Define lambda for transforming from observation to 0-255 range
+                topixel = lambda val: int((val - min_val) / (max_val - min_val) * 255.0)
+
+            pt_vals = np.array([topixel(c) for c in observations]).reshape(num_pts *  num_pts)
+            pt_locs = data.T
+            pt_cloud = np.array(np.hstack([pt_locs[0, :], pt_locs[1, :], pt_vals]), dtype = np.float32)
+            
+        msg = PointCloud()
+        msg.header.frame_id = 'map' # Global frame
+
+        val = ChannelFloat32()
+        val.name = 'intensity'
+        
+        #msg.header.stamp = rospy.get_rostime()
+        for i, d in enumerate(data):
+            pt = geometry_msgs.msg.Point32()
+            pt.x = data[i, 0]
+            pt.y = data[i, 1]
+            pt.z = 1.0
+            msg.points.append(pt)
+
+            if self.GP.xvals is None:
+                val.values.append(255./2.)
+            else:
+                val.values.append(topixel(observations[i, :]))
+
+        msg.channels.append(val)
+        self.pub.publish(msg)
     
     def update_model(self, _):
         ''' Adds all data currently in the data queue into the GP model and clears the data queue. Threadsafe. 
@@ -95,6 +154,7 @@ class ChemicalBelief:
             xobs = np.array([[msg.pose.pose.position.x, msg.pose.pose.position.y] for msg in self.pose_queue]).reshape(NUM_PTS, 2)
 
             self.GP.add_data(xobs, zobs)
+            rospy.loginfo("Number of sample points in belief model %d", self.GP.zvals.shape[0])
         
             # Update the current best max for EI
             for z, x in zip (zobs, xobs):
@@ -109,55 +169,6 @@ class ChemicalBelief:
 
             # Release the data lock
             self.data_lock.release()
-
-            # Generate a set of observations from robot model with which to make contour plots
-            grid_size = 8.0 # grid size in meters
-            num_pts = 100
-            x1max = self.pose.pose.pose.position.x + grid_size / 2.0
-            x1min = self.pose.pose.pose.position.x - grid_size / 2.0
-            x2max = self.pose.pose.pose.position.y + grid_size / 2.0
-            x2min = self.pose.pose.pose.position.y - grid_size / 2.0
-
-            x1 = np.linspace(x1min, x1max, num_pts)
-            x2 = np.linspace(x2min, x2max, num_pts)
-            x1, x2 = np.meshgrid(x1, x2, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
-            data = np.vstack([x1.ravel(), x2.ravel()]).T
-            observations, var = self.GP.predict_value(data)
-            #max_val = np.max(observations)
-            #min_val = np.min(observations)
-            print "GP size:", self.GP.zvals.shape
-
-            max_val = norm.ppf(q = 0.90, loc = 0.0, scale = np.sqrt(self.GP.variance))
-            min_val = norm.ppf(q = 0.10, loc = 0.0, scale = np.sqrt(self.GP.variance))
-
-            if max_val == min_val and max_val == 0.00: 
-                topixel = lambda val: 0.0
-            else:
-                # Define lambda for transforming from observation to 0-255 range
-                topixel = lambda val: int((val - min_val) / (max_val - min_val) * 255.0)
-
-            pt_vals = np.array([topixel(c) for c in observations]).reshape(num_pts *  num_pts)
-	    pt_locs = data.T
-            pt_cloud = np.array(np.hstack([pt_locs[0, :], pt_locs[1, :], pt_vals]), dtype = np.float32)
-		
-            msg = PointCloud()
-            msg.header.frame_id = 'map' # Global frame
-
-            val = ChannelFloat32()
-            val.name = 'intensity'
-            
-            #msg.header.stamp = rospy.get_rostime()
-            for i, obs in enumerate(observations):
-                pt = geometry_msgs.msg.Point32()
-                pt.x = data[i, 0]
-                pt.y = data[i, 1]
-                pt.z = 1.0
-                msg.points.append(pt)
-
-                val.values.append(topixel(obs))
-
-            msg.channels.append(val)
-            self.pub.publish(msg)
 
             return RequestReplanResponse(True)
         except ValueError as e:
