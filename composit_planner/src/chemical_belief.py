@@ -83,6 +83,9 @@ class ChemicalBelief:
             r.sleep()
 
     def publish_gpbelief(self):
+        # Aquire the data lock
+        self.data_lock.acquire()
+
         # Generate a set of observations from robot model with which to make contour plots
         grid_size = 8.0 # grid size in meters
         num_pts = 100 # number of points to visaulzie in grid (num_pts x num_pts)
@@ -133,6 +136,10 @@ class ChemicalBelief:
 
         msg.channels.append(val)
         self.pub.publish(msg)
+
+        # Release the data lock
+        self.data_lock.release()
+
     
     def update_model(self, _):
         ''' Adds all data currently in the data queue into the GP model and clears the data queue. Threadsafe. 
