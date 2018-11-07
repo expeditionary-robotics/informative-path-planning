@@ -8,7 +8,8 @@ model_variance: 100
 model_lengthscale: 0.8
 model_noise: 0.5
 
-sensor_rate: 1.
+sensor_rate: 2.
+visualize_rate: 2.
 
 xmin: -50.0
 xmax: 50.0

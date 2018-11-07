@@ -25,7 +25,6 @@ def mves(time, xvals, robot_model, param):
     ''' Define the Acquisition Function and the Gradient of MES'''
     # Compute the aquisition function value f and garident g at the queried point x using MES, given samples
     # function maxes and a previous set of functino maxes
-    print "param:", param
     maxes = param[0]
     # If no max values are provided, return default value
     if maxes is None:

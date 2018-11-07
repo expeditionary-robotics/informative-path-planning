@@ -23,7 +23,7 @@ def get_measurements():
     replan = rospy.ServiceProxy('replan', RequestReplan)
 
     # Set sampling rate
-    rate = 0.5
+    rate = 0.1
 
     # Set sensing loop rate
     r = rospy.Rate(rate)
