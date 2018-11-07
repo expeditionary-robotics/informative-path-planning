@@ -8,8 +8,6 @@ import math
 import os
 import threading
 
-
-
 # ROS includes
 import rospy
 from geometry_msgs.msg import *
@@ -88,14 +86,13 @@ class Planner:
         self.pub = rospy.Publisher('/chem_map', PointCloud, queue_size = 100)
         self.plan_pub = rospy.Publisher("/selected_trajectory", Path, queue_size=1)
         
-        #r = rospy.Rate(self.visualize_rate)
-        r = rospy.Rate(0.5)
+        r = rospy.Rate(self.visualize_rate)
         while not rospy.is_shutdown():
             # Pubish current belief map
-            status = self.update_model()
-            print "Status of model update:", status
+            status = self.update_model()  #Updating the model this frequently is costly, but helps visualization 
             self.publish_gpbelief()
             r.sleep()
+
     @property
     def maxima(self):
         ''' Property that returns the maxima for value calculations if already 
@@ -112,7 +109,7 @@ class Planner:
         try:
             # Cannot update model if no data has been collected
             if len(self.data_queue) == 0:
-                return False
+                return True 
 
             # Aquire the data lock
             self.data_lock.acquire()
@@ -148,6 +145,7 @@ class Planner:
         Input: None
         Output: Boolean success service reesponse. ''' 
         status = self.update_model()
+        print "Update model status:", status
         # Publish the best plan
         if status is True:
             self.get_plan()
