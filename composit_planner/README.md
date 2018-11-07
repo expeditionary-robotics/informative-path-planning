@@ -28,6 +28,15 @@ Please note that the basis of most of the fundamental implementation is derived 
 ## Running the ROS-Release Branch
 *Currently in development*
 
+Additionally, the following ROS packages/repos are necessary:
+* Install ROS Kinetic Kame and create a catkin workspace
+* Clone this repo into the src directory of your catkin workspace.
+* Update ROS dependencies by:`rosdep update`
+* Install ROS movebase by: `sudo apt-get install ros-kinetic-move-base`
+* Setup Turtlebot3 for ROS [link here](http://emanual.robotis.com/docs/en/platform/turtlebot3/pc_setup/#install-dependent-ros-packages)
+* Setup Turtlebot3 simulation for ROS [link here](http://emanual.robotis.com/docs/en/platform/turtlebot3/simulation/#simulation)
+* Make sure you can build your ROS workspace.
+
 In order to run this branch, please note the following dependencies:
 * GPy
 * dubins
