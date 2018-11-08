@@ -56,7 +56,7 @@ class ExecuteDubinSeq():
 			self.client.send_goal(goal, self.done_cb, self.active_cb, self.feedback_cb)
 			self.new_goals.pop(0)
 		else:
-			print 'No trajectory is viable'
+			print 'No trajectory is viable, Triggering Replan'
 			self.replan()
 
 	def active_cb(self):

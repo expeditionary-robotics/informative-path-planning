@@ -91,6 +91,7 @@ class ROS_Path_Generator():
             pte.header.frame_id = 'odom'
             pte.header.stamp = rospy.Time(0)
             pte.poses = pub_path
+            #TODO rewrite trajectory service to handle mulitple queries for single map
             pte = self.check_traj(TrajectoryCheckRequest(pte))
             if len(pte.safe_path.poses) != 0:
                 clear_paths.append(pte.safe_path)

@@ -158,9 +158,6 @@ class Planner:
         Input: msg (nav_msgs/Odometry)
         Output: None ''' 
         self.pose = msg.pose.pose # of type odometry messages
-        # q = self.pose.orientation
-        # angle = euler_from_quaternion((q.x,q.y,q.z,q.w))
-        # self.cp = (self.pose.position.x, self.pose.position.y, angle[2])
     
     def publish_gpbelief(self):
         ''' Publishes the current GP belief as a point cloud for visualization. 
@@ -251,37 +248,9 @@ class Planner:
         self.data_lock.release()    
 
     def choose_myopic_trajectory(self):
-        # Generate options
-        # options = self.path_generator.get_path_set(self.cp)
+        # Generate paths (will be obstacle checked against current map)
         clear_paths = self.srv_paths(PathFromPoseRequest(self.pose))
         clear_paths = clear_paths.safe_paths
-        # clear_paths = clear_paths
-
-        # clear_paths = []
-        # # Check options against the current map
-        # for path in options:
-        #     pub_path = []
-        #     for coord in path:
-        #         c = PoseStamped()
-        #         c.header.frame_id = 'odom'
-        #         #c.header.stamp = rospy.Time.now()
-        #         c.header.stamp = rospy.Time(0)
-        #         c.pose.position.x = coord[0]
-        #         c.pose.position.y = coord[1]
-        #         c.pose.position.z = 0.
-        #         q = quaternion_from_euler(0, 0, coord[2])
-        #         c.pose.orientation.x = q[0]
-        #         c.pose.orientation.y = q[1]
-        #         c.pose.orientation.z = q[2]
-        #         c.pose.orientation.w = q[3]
-        #         pub_path.append(c)
-        #     pte = Path()
-        #     pte.header.frame_id = 'odom'
-        #     #pte.header.stamp = rospy.Time.now()
-        #     pte.header.stamp = rospy.Time(0)
-        #     pte.poses = pub_path
-        #     pte = self.srv_traj(TrajectoryCheckRequest(pte))
-        #     clear_paths.append(pte)
 
         #Now, select the path with the highest potential reward
         path_selector = {}
@@ -302,7 +271,7 @@ class Planner:
         if self.type_planner == 'myopic':
             if self.pose is not None:
                 best_path, value = self.choose_myopic_trajectory()
-                self.plan_pub.publish(best_path)
+                self.plan_pub.publish(best_path) #send the trajectory to move base
             else:
                 pass
         else:
