@@ -4,6 +4,8 @@
 
 import rospy
 import actionlib
+from composit_planner.srv import *
+from composit_planner.msg import *
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from actionlib_msgs.msg import GoalStatus
 from nav_msgs.msg import Path
@@ -31,6 +33,9 @@ class ExecuteDubinSeq():
 		#subscribe to trajectory topic
 		self.sub = rospy.Subscriber("/selected_trajectory", Path, self.handle_trajectory, queue_size=1)
 
+		#access replan service to trigger when finished a trajectory
+		self.replan = rospy.ServiceProxy('replan', RequestReplan)
+
 		#spin until shutdown
 		while not rospy.is_shutdown():
 			rospy.spin()
@@ -40,7 +45,7 @@ class ExecuteDubinSeq():
 		The trajectory comes in as a series of poses. It is assumed that the desired angle has already been determined
 		'''
 		print 'Executing new Trajectory'
-		self.client.cancel_goal()
+		# self.client.cancel_goal()
 		self.new_goals = traj.poses
 		if len(self.new_goals) != 0:
 			goal=MoveBaseGoal()
@@ -52,6 +57,7 @@ class ExecuteDubinSeq():
 			self.new_goals.pop(0)
 		else:
 			print 'No trajectory is viable'
+			self.replan()
 
 	def active_cb(self):
 		''' Native callback for the navigation client. Indicates when goal point is received.'''
@@ -66,6 +72,7 @@ class ExecuteDubinSeq():
 
 		if status == 2:
 			rospy.loginfo("Goal pose canceled")
+			self.replan()
 
 		if status == 3:
 			rospy.loginfo("Goal pose reached")
@@ -77,15 +84,20 @@ class ExecuteDubinSeq():
 				goal.target_pose.pose = self.new_goals[0].pose
 				self.client.send_goal(goal, self.done_cb, self.active_cb, self.feedback_cb)
 				self.new_goals.pop(0)
+			else:
+				self.replan()
 
 		if status == 4:
 			rospy.loginfo("Goal pose aborted")
+			self.replan()
 
 		if status == 5:
 			rospy.loginfo("Goal pose rejected")
+			self.replan()
 
 		if status == 8:
 			rospy.loginfo("Goal pose canceled")
+			self.replan()
 
 
 if __name__ == '__main__':

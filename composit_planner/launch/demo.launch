@@ -1,5 +1,6 @@
 <launch>
 	<rosparam command="load" file="$(find composit_planner)/launch/chem_params.yaml" />
+	<rosparam command="load" file="$(find composit_planner)/launch/planner_params.yaml" />
 	<node pkg="composit_planner" type="chemical_sensor.py" name="chemical_sensor" output="screen"/>
 	<node pkg="composit_planner" type="chemical_world_sim.py" name="chemical_world_sim" output="screen"/>
 	<node pkg="composit_planner" type="mcts_planner.py" name="mcts_planner" output="screen"/>

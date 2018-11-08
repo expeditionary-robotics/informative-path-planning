@@ -66,6 +66,7 @@ add_service_files(
   GetValue.srv
   GetCostMap.srv
   TrajectoryCheck.srv
+  PathFromPose.srv
 #   Service2.srv
 )
 

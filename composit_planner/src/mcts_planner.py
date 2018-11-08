@@ -62,13 +62,12 @@ class Planner:
         self.pose_queue = list()
         self._maxima = None
         self.pose = Pose() 
-        self.cp = None
         
         # Initialize the robot's GP model with the initial kernel parameters
         self.GP = OnlineGPModel(ranges = [self.x1min, self.x1max, self.x2min, self.x2max], lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
        
         # Initialize path generator
-        self.path_generator = paths_lib.ROS_Path_Generator(self.fs, self.hl, self.tr, self.ss)
+        # self.path_generator = paths_lib.ROS_Path_Generator(self.fs, self.hl, self.tr, self.ss)
 
         # Create mutex for the data queue
         self.data_lock = threading.Lock()
@@ -77,6 +76,7 @@ class Planner:
         rospy.wait_for_service('query_obstacles')
         rospy.wait_for_service('query_chemical')
         self.srv_traj = rospy.ServiceProxy('query_obstacles', TrajectoryCheck)
+        self.srv_paths = rospy.ServiceProxy('get_paths', PathFromPose)
         self.srv_chem = rospy.ServiceProxy('query_chemical', SimMeasurement)
         self.pose_sub = rospy.Subscriber("/odom", Odometry, self.update_pose)
         self.data = rospy.Subscriber("/chem_data", ChemicalSample, self.get_sensordata)
@@ -143,7 +143,7 @@ class Planner:
     def replan(self, _):
         ''' Updates the GP model and generates the next best path. 
         Input: None
-        Output: Boolean success service reesponse. ''' 
+        Output: Boolean success service response. ''' 
         status = self.update_model()
         print "Update model status:", status
         # Publish the best plan
@@ -158,9 +158,9 @@ class Planner:
         Input: msg (nav_msgs/Odometry)
         Output: None ''' 
         self.pose = msg.pose.pose # of type odometry messages
-        q = self.pose.orientation
-        angle = euler_from_quaternion((q.x,q.y,q.z,q.w))
-        self.cp = (self.pose.position.x, self.pose.position.y, angle[2])
+        # q = self.pose.orientation
+        # angle = euler_from_quaternion((q.x,q.y,q.z,q.w))
+        # self.cp = (self.pose.position.x, self.pose.position.y, angle[2])
     
     def publish_gpbelief(self):
         ''' Publishes the current GP belief as a point cloud for visualization. 
@@ -252,49 +252,42 @@ class Planner:
 
     def choose_myopic_trajectory(self):
         # Generate options
-        options = self.path_generator.get_path_set(self.cp)
+        # options = self.path_generator.get_path_set(self.cp)
+        clear_paths = self.srv_paths(PathFromPoseRequest(self.pose))
+        clear_paths = clear_paths.safe_paths
+        # clear_paths = clear_paths
 
-        clear_paths = []
-        # Check options against the current map
-        for path in options:
-            pub_path = []
-            for coord in path:
-                c = PoseStamped()
-                c.header.frame_id = 'odom'
-                #c.header.stamp = rospy.Time.now()
-                c.header.stamp = rospy.Time(0)
-                c.pose.position.x = coord[0]
-                c.pose.position.y = coord[1]
-                c.pose.position.z = 0.
-                q = quaternion_from_euler(0, 0, coord[2])
-                c.pose.orientation.x = q[0]
-                c.pose.orientation.y = q[1]
-                c.pose.orientation.z = q[2]
-                c.pose.orientation.w = q[3]
-                pub_path.append(c)
-            pte = Path()
-            pte.header.frame_id = 'odom'
-            #pte.header.stamp = rospy.Time.now()
-            pte.header.stamp = rospy.Time(0)
-            pte.poses = pub_path
-            pte = self.srv_traj(TrajectoryCheckRequest(pte))
-            clear_paths.append(pte)
+        # clear_paths = []
+        # # Check options against the current map
+        # for path in options:
+        #     pub_path = []
+        #     for coord in path:
+        #         c = PoseStamped()
+        #         c.header.frame_id = 'odom'
+        #         #c.header.stamp = rospy.Time.now()
+        #         c.header.stamp = rospy.Time(0)
+        #         c.pose.position.x = coord[0]
+        #         c.pose.position.y = coord[1]
+        #         c.pose.position.z = 0.
+        #         q = quaternion_from_euler(0, 0, coord[2])
+        #         c.pose.orientation.x = q[0]
+        #         c.pose.orientation.y = q[1]
+        #         c.pose.orientation.z = q[2]
+        #         c.pose.orientation.w = q[3]
+        #         pub_path.append(c)
+        #     pte = Path()
+        #     pte.header.frame_id = 'odom'
+        #     #pte.header.stamp = rospy.Time.now()
+        #     pte.header.stamp = rospy.Time(0)
+        #     pte.poses = pub_path
+        #     pte = self.srv_traj(TrajectoryCheckRequest(pte))
+        #     clear_paths.append(pte)
 
         #Now, select the path with the highest potential reward
         path_selector = {}
         for i,path in enumerate(clear_paths):
-            '''
-            value = 0
-            for sample in path.safe_path.poses:
-                s = Pose()
-                s.position.x = sample.pose.position.x
-                s.position.y = sample.pose.position.y
-                val = self.srv_maxima(GetValueRequest(self.rew,s,1))
-                value += val.value
-            '''
-            # TODO: why are there safe paths of length 0?
-            if len(path.safe_path.poses) != 0:
-                path_selector[i] = self.predict_aqu(path.safe_path.poses, self.rew, time = 0)
+            if len(path.poses) != 0:
+                path_selector[i] = self.predict_aqu(path.poses, self.rew, time = 0)
             else:
                 path_selector[i] = -float("inf")
 
@@ -304,9 +297,9 @@ class Planner:
 
     def get_plan(self):
         if self.type_planner == 'myopic':
-            if self.cp is not None:
+            if self.pose is not None:
                 best_path, value = self.choose_myopic_trajectory()
-                self.plan_pub.publish(best_path.safe_path)
+                self.plan_pub.publish(best_path)
             else:
                 pass
         else:

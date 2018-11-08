@@ -1,0 +1,3 @@
+geometry_msgs/Pose query
+---
+nav_msgs/Path[] safe_paths
