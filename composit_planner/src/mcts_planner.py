@@ -296,6 +296,9 @@ class Planner:
 
 
     def get_plan(self):
+        # Aquire the data lock
+        self.data_lock.acquire()
+
         if self.type_planner == 'myopic':
             if self.pose is not None:
                 best_path, value = self.choose_myopic_trajectory()
@@ -309,6 +312,9 @@ class Planner:
             # sampling_path, best_path, best_val, all_paths, all_values, self.max_locs, self.max_val = mcts.choose_trajectory(t=None)
             # self.plan_pub.publish(best_path)
             pass
+
+        # Release the data lock
+        self.data_lock.release()
 
 
 if __name__ == '__main__':
