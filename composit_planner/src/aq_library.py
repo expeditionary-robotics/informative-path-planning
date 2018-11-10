@@ -19,7 +19,64 @@ import GPy as GPy
 import dubins
 import time
 from itertools import chain
-# import obstacles as obslib TODO
+
+# ROS includes
+import GPy as GPy
+import rospy
+from geometry_msgs.msg import Pose
+   
+class GetValue():
+    def __init__(self, GP, reward):
+        self.GP = GP
+        self.reward = reward
+
+        self._maxima = None
+        self._max_val = None
+
+    def update(self, GP):
+        self.GP = GP
+        self._maxima = None
+        self._max_val = None
+
+    def predict_value(path, time = 0):
+        ''' Gets the value of a list of points in the request  
+        Input: (geometry_msgs/Pose []) list of points for value evaluation
+        Output: (float) value at point
+        ''' 
+        xvals = [[loc.pose.position.x, loc.pose.position.y] for loc in path]
+        xvals = np.array(xvals).reshape(len(path), 2)
+
+        if self.reward == 'ei':
+            self.value = exp_improvement(time = time, xvals = xvals, robot_model = self.GP, param = self.maxima)
+        elif self.reward == 'ucb':
+            self.value = mean_ucb(time = time, xvals = xvals, robot_model = self.GP, param = None)
+        elif self.reward == 'mes':
+            value = mves(time = time, xvals = xvals, robot_model = self.GP, param = self.max_val)
+        elif self.reward == 'ig':
+            value = info_gain(time = time, xvals = xvals, robot_model = self.GP, param = None)
+        else:
+            print self.reward 
+            raise ValueError('Aqusition function must be one of ei, ucb, ig, or mes')
+
+        return value
+    
+    @property
+    def maxima(self):
+        ''' Property that returns the maxima for value calculations if already 
+            set, or computes if new maxima not yet computed. ''' 
+        if self._maxima is None:
+            max_vals, max_locs, func = sample_max_vals(self.GP) 
+            self._maxima = (max_vals, max_locs, func)
+        return self._maxima
+   
+    # TODO: implement this current max val for EI comparison
+    @property
+    def max_val(self):
+        ''' Property that returns the current maximum value in the observation set,
+        or computes if new maxima not yet computed. ''' 
+        if self._max_val is None:
+            self._max_val = -float("inf")
+        return self._max_val
 
 def mves(time, xvals, robot_model, param):
     ''' Define the Acquisition Function and the Gradient of MES'''

@@ -26,7 +26,8 @@ from scipy.stats import norm
 
 # Libraries includes
 import paths_library as paths_lib
-import aq_library as aq
+import aq_library as aq_lib
+import mcts_library as mcts_lib
 
 '''
 This node runs the MCTS system in order to select trajectories
@@ -45,22 +46,21 @@ class Planner:
         self.x2max = float(rospy.get_param('ymax', '10'))
 
         # Get planning parameters like number of replanning steps
-        self.replan_budget = rospy.get_param('replan_budget',150)
-        self.fs = rospy.get_param('frontier_size',15)
-        self.hl = rospy.get_param('horizon_length',1.5)
-        self.tr = rospy.get_param('turning_radius',0.05)
-        self.ss = rospy.get_param('sample_step',0.5)
-        self.type_planner = rospy.get_param('type_planner', 'myopic')
-        self.rl = rospy.get_param('rollout_length', 5)
-        self.tt = rospy.get_param('tree_type','dpw')
-        self.visualize_rate = rospy.get_param('visualize_rate',0.1)
-        self.rew = rospy.get_param('reward_func','mes')
+        self.visualize_rate = rospy.get_param('visualize_rate', 0.1)
+        self.reward = rospy.get_param('reward_func','mes')
+        self.replan_budget = rospy.get_param('replan_budget' ,150)
+        self.frontier_size = rospy.get_param('frontier_size',15)
+        self.horizon_len = rospy.get_param('horizon_length',1.5)
+        self.turn_radius  = rospy.get_param('turning_radius',0.05)
+        self.sample_step = rospy.get_param('sample_step',0.5)
+        self.rollout_length  = rospy.get_param('rollout_length', 5)
+        self.tree_type = rospy.get_param('tree_type','dpw_tree')
+        self.planner_type = rospy.get_param('type_planner', 'myopic')
         
         # Initialize member variables
         self.current_max = -float("inf")
         self.data_queue = list()
         self.pose_queue = list()
-        self._maxima = None
         self.pose = Pose() 
         
         # Initialize the robot's GP model with the initial kernel parameters
@@ -81,7 +81,7 @@ class Planner:
         self.pose_sub = rospy.Subscriber("/odom", Odometry, self.update_pose)
         self.data = rospy.Subscriber("/chem_data", ChemicalSample, self.get_sensordata)
         
-        # Publications and service offerning 
+        # Publications and service offering 
         self.srv_replan = rospy.Service('replan', RequestReplan, self.replan)
         self.pub = rospy.Publisher('/chem_map', PointCloud, queue_size = 100)
         self.plan_pub = rospy.Publisher("/selected_trajectory", Path, queue_size=1)
@@ -93,15 +93,6 @@ class Planner:
             self.publish_gpbelief()
             r.sleep()
 
-    @property
-    def maxima(self):
-        ''' Property that returns the maxima for value calculations if already 
-            set, or computes if new maxima not yet computed. ''' 
-        if self._maxima is None:
-            max_vals, max_locs, func = aq.sample_max_vals(self.GP) 
-            self._maxima = (max_vals, max_locs, func)
-        return self._maxima
-    
     def update_model(self):
         ''' Adds all data currently in the data queue into the GP model and clears the data queue. Threadsafe. 
         Input: None
@@ -122,20 +113,14 @@ class Planner:
             self.GP.add_data(xobs, zobs)
             rospy.loginfo("Number of sample points in belief model %d", self.GP.zvals.shape[0])
         
-            # Update the current best max for EI
-            for z, x in zip (zobs, xobs):
-                if z[0] > self.current_max:
-                    self.current_max = z[0]
-                    self.current_max_loc = [x[0],x[1]]
-
             # Delete data from the data_queue
             del self.data_queue[:] 
             del self.pose_queue[:] 
-            self._maxima = None
 
             # Release the data lock
             self.data_lock.release()
             return True
+
         except ValueError as e:
             print e 
             return False
@@ -158,6 +143,15 @@ class Planner:
         Input: msg (nav_msgs/Odometry)
         Output: None ''' 
         self.pose = msg.pose.pose # of type odometry messages
+    
+    def get_sensordata(self, msg):
+        ''' Creates a queue of incoming sample points on the /chem_data topic 
+        Input: msg (flat64) checmical data at current pose
+        '''
+        self.data_lock.acquire()
+        self.data_queue.append(msg)
+        self.pose_queue.append(self.pose)
+        self.data_lock.release()    
     
     def publish_gpbelief(self):
         ''' Publishes the current GP belief as a point cloud for visualization. 
@@ -216,47 +210,16 @@ class Planner:
         # Release the data lock
         self.data_lock.release()
     
-    def predict_aqu(self, path, aq_func, time = 0):
-        ''' Gets the value of a list of points in the request  
-        Input: (geometry_msgs/Pose []) list of points for value evaluation
-        Output: (float) value at point
-        ''' 
-        xvals = [[loc.pose.position.x, loc.pose.position.y] for loc in path]
-        xvals = np.array(xvals).reshape(len(path), 2)
-
-        if aq_func == 'ei':
-            value = aq.exp_improvement(time = time, xvals = xvals, robot_model = self.GP, param = self.current_max)
-        elif aq_func == 'ucb':
-            value = aq.mean_ucb(time = time, xvals = xvals, robot_model = self.GP, param = None)
-        elif aq_func == 'mes':
-            value = aq.mves(time = time, xvals = xvals, robot_model = self.GP, param = self.maxima)
-        elif aq_func == 'ig':
-            value = aq.info_gain(time = time, xvals = xvals, robot_model = self.GP, param = None)
-        else:
-            print aq_func
-            raise ValueError('Aqusition function must be one of ei, ucb, ig, or mes')
-
-        return value
-    
-    def get_sensordata(self, msg):
-        ''' Creates a queue of incoming sample points on the /chem_data topic 
-        Input: msg (flat64) checmical data at current pose
-        '''
-        self.data_lock.acquire()
-        self.data_queue.append(msg)
-        self.pose_queue.append(self.pose)
-        self.data_lock.release()    
-
-    def choose_myopic_trajectory(self):
+    def choose_myopic_trajectory(self, eval_value):
         # Generate paths (will be obstacle checked against current map)
         clear_paths = self.srv_paths(PathFromPoseRequest(self.pose))
         clear_paths = clear_paths.safe_paths
-
         #Now, select the path with the highest potential reward
         path_selector = {}
         for i,path in enumerate(clear_paths):
             if len(path.poses) != 0:
-                path_selector[i] = self.predict_aqu(path.poses, self.rew, time = 0)
+                # TODO: need to keep an updated discrete time for the UCB reward
+                path_selector[i] = eval_value.predict_value(path.poses, time = 0)
             else:
                 path_selector[i] = -float("inf")
 
@@ -265,19 +228,29 @@ class Planner:
 
 
     def get_plan(self):
-        # Aquire the data lock
+        # Aquire the data lock (no new data can be added to the GP model during planning)
         self.data_lock.acquire()
+
+        # Generate object to calculate reward from list of geometry_msgs/Pose
+        eval_value = aq_lib.GetValue(self.GP, self.reward)
 
         if self.type_planner == 'myopic':
             if self.pose is not None:
-                best_path, value = self.choose_myopic_trajectory()
+                best_path, value = self.choose_myopic_trajectory(eval_value
+                        )
                 self.plan_pub.publish(best_path) #send the trajectory to move base
             else:
                 pass
         else:
+            #if self.pose is not None:
+            #    best_path, value = self.choose_nonmyopic_trajctory()
+
             #TODO rewrite the MCTS library in order to support the type of planning we want to do
             # belief_snapshot = None #placeholder
-            # mcts = mctslib.cMCTS(self.cb, self.GP, self.cp, self.rl, self.path_generator, self.aquisition_function, self.f_rew, None, tree_type = self.tt)
+            #mcts = mctslib.cMCTS(self.computation_budget, self.GP, self.cp, self.rl, self.path_generator, self.aquisition_function, self.f_rew, None, tree_type = self.tt)
+        # Get planning parameters like number of replanning steps
+        
+            mcts = mctslib.cMCTS(self.GP, self.pose, self.replan_budget, self.rollout_len, self.srv_paths, eval_value, time = t, tree_type = self.tree_type)
             # sampling_path, best_path, best_val, all_paths, all_values, self.max_locs, self.max_val = mcts.choose_trajectory(t=None)
             # self.plan_pub.publish(best_path)
             pass
@@ -287,7 +260,7 @@ class Planner:
 
 
 if __name__ == '__main__':
-    rospy.init_node('mcts_planner')
+    rospy.init_node('plumes_planner')
     try:
         Planner()
     except rospy.ROSInterruptException:

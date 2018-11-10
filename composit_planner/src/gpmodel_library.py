@@ -164,6 +164,15 @@ class GPModel(object):
         else:
             raise ValueError("Failed to train kernel. No training data provided.")
 
+    @property
+    def maxima(self):
+        ''' Property that returns the maxima for value calculations if already 
+            set, or computes if new maxima not yet computed. ''' 
+        if self._maxima is None:
+            max_vals, max_locs, func = aq_lib.sample_max_vals(self.GP) 
+            self._maxima = (max_vals, max_locs, func)
+        return self._maxima
+
 class OnlineGPModel(GPModel):
     ''' This class inherits from the GP model class
         Implements online, recursive updates for a Gaussian Process using the 
