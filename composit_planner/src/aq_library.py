@@ -26,19 +26,12 @@ import rospy
 from geometry_msgs.msg import Pose
    
 class GetValue():
-    def __init__(self, GP, reward):
-        self.GP = GP
+    def __init__(self, reward):
         self.reward = reward
-
         self._maxima = None
         self._max_val = None
 
-    def update(self, GP):
-        self.GP = GP
-        self._maxima = None
-        self._max_val = None
-
-    def predict_value(path, time = 0):
+    def predict_value(self, GP, path, time = 0):
         ''' Gets the value of a list of points in the request  
         Input: (geometry_msgs/Pose []) list of points for value evaluation
         Output: (float) value at point
@@ -46,12 +39,14 @@ class GetValue():
         xvals = [[loc.pose.position.x, loc.pose.position.y] for loc in path]
         xvals = np.array(xvals).reshape(len(path), 2)
 
+        self.GP = GP
+
         if self.reward == 'ei':
-            self.value = exp_improvement(time = time, xvals = xvals, robot_model = self.GP, param = self.maxima)
+            self.value = exp_improvement(time = time, xvals = xvals, robot_model = self.GP, param = self.max_val)
         elif self.reward == 'ucb':
             self.value = mean_ucb(time = time, xvals = xvals, robot_model = self.GP, param = None)
         elif self.reward == 'mes':
-            value = mves(time = time, xvals = xvals, robot_model = self.GP, param = self.max_val)
+            value = mves(time = time, xvals = xvals, robot_model = self.GP, param = self.maxima)
         elif self.reward == 'ig':
             value = info_gain(time = time, xvals = xvals, robot_model = self.GP, param = None)
         else:

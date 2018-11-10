@@ -53,7 +53,7 @@ class Planner:
         self.horizon_len = rospy.get_param('horizon_length',1.5)
         self.turn_radius  = rospy.get_param('turning_radius',0.05)
         self.sample_step = rospy.get_param('sample_step',0.5)
-        self.rollout_length  = rospy.get_param('rollout_length', 5)
+        self.rollout_len = rospy.get_param('rollout_length', 5)
         self.tree_type = rospy.get_param('tree_type','dpw_tree')
         self.planner_type = rospy.get_param('planner_type', 'myopic')
         
@@ -219,7 +219,7 @@ class Planner:
         for i, path in enumerate(clear_paths):
             if len(path.poses) != 0:
                 # TODO: need to keep an updated discrete time for the UCB reward
-                path_selector[i] = eval_value.predict_value(self.GP, path.poses, time = 0)
+                path_selector[i] = eval_value.predict_value(self.GP, path.poses)
             else:
                 path_selector[i] = -float("inf")
 
@@ -242,8 +242,10 @@ class Planner:
                 pass
         else:
             if self.pose is not None:
-                mcts = mctslib.cMCTS(self.GP, self.pose, self.replan_budget, self.rollout_len, self.srv_paths, eval_value, time = t, tree_type = self.tree_type)
-                best_path, value = mcts.choose_trajectory()
+                # TODO: set time
+                mcts = mcts_lib.cMCTS(self.GP, self.pose, self.replan_budget, self.rollout_len, self.srv_paths, eval_value, time = 0, tree_type = self.tree_type)
+                # TODO: set time
+                best_path, value = mcts.choose_trajectory(t = 0)
                 self.plan_pub.publish(best_path) #send the trajectory to move base
             else:
                 pass
@@ -260,8 +262,8 @@ class Planner:
 
 
 if __name__ == '__main__':
-    rospy.init_node('plumes_planner')
+    rospy.init_node('mcts_planner')
     try:
         Planner()
     except rospy.ROSInterruptException:
-        exit()
+        exit(0)

@@ -24,11 +24,15 @@ import GPy as GPy
 from aq_library import *
 
 # ROS Imports 
+import rospy
 from geometry_msgs.msg import Pose
+from std_msgs.msg import *
+from composit_planner.srv import *
+from composit_planner.msg import *
 
 class Node(object):
     def __init__(self, pose, parent, name, action = None, dense_path = None, zvals = None):
-        self.pose = pose
+        self.pose = pose # of type geometry_msgs/Pose
         self.name = name
         self.zvals = zvals
         self.reward = 0.0
@@ -64,20 +68,20 @@ class Node(object):
         print self.name
 
 class DPWTree(object):
-    def __init__(self, f_aqu, belief, pose, path_service, time, depth, c):
+    def __init__(self, eval_value, belief, pose, path_service, time, depth, c):
         self.path_service = path_service
+        self.eval_value = eval_value 
+
         self.max_depth = depth
-        self.param = param
         self.t = time
-        self.f_rew = f_rew
-        self.aquisition_function = f_aqu
         self.c = c
 
         self.root = Node(pose, parent = None, name = 'root', action = None, dense_path = None, zvals = None)  
         #self.build_action_children(self.root) 
-
-    def get_best_child(self):
-        return self.root.children[np.argmax([node.nqueries for node in self.root.children])]
+    
+    def get_next_leaf(self, belief):
+        next_leaf, reward = self.leaf_helper(self.root, reward = 0.0,  belief = belief) 
+        self.backprop(next_leaf, reward)
 
     def backprop(self, leaf_node, reward):
         if leaf_node.parent is None:
@@ -89,10 +93,6 @@ class DPWTree(object):
             leaf_node.reward += reward
             self.backprop(leaf_node.parent, reward)
             return
-    
-    def get_next_leaf(self, belief):
-        next_leaf, reward = self.leaf_helper(self.root, reward = 0.0,  belief = belief) 
-        self.backprop(next_leaf, reward)
 
     def leaf_helper(self, current_node, reward, belief):
         if current_node.node_type == 'B':
@@ -104,7 +104,7 @@ class DPWTree(object):
                 if current_node.children is None:
                     self.build_action_children(current_node)
 
-                # If no viable actions are avaliable
+                # If no viable actions are available
                 if current_node.children is None:
                     return current_node, reward
 
@@ -121,18 +121,21 @@ class DPWTree(object):
             #gp_new = current_node.belief
 
             # Sample a new set of observations and form a new belief
-            #xobs = current_node.action
-            #obs = np.array(current_node.action)
+            # xobs = current_node.action.poses
+            #obs = np.array(current_node.action.poses)
             #xobs = np.vstack([obs[:,0], obs[:,1]]).T
-            r = self.predict_aqu(current_node.action, time = self.t)
-            r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief, param = self.param)
+            xobs = np.array([[msg.pose.position.x, msg.pose.position.y] for msg in current_node.action.poses]).reshape(len(current_node.action.poses), 2)
 
+            r = self.eval_value.predict_value(belief, current_node.action.poses, time = self.t)
+
+            '''
             if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
                 r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief, param = self.param)
             elif self.f_rew == 'exp_improve':
                 r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief, param = self.param)
             else:
                 r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief)
+            '''
 
             if current_node.children is not None:
                 alpha = 3.0 / (10.0 * (self.max_depth - current_node.depth) - 3.0)
@@ -160,7 +163,9 @@ class DPWTree(object):
                 zobs = belief.posterior_samples(xobs, full_cov = False, size = 1)
 
             belief.add_data(xobs, zobs)
-            pose_new = current_node.dense_path[-1]
+            # TODO: figure out if this should be dense path to get accurate end point
+            #pose_new = current_node.dense_path[-1]
+            pose_new = current_node.action.poses[-1].pose
             child = Node(pose = pose_new, 
                          parent = current_node, 
                          name = current_node.name + '_belief' + str(current_node.depth + 1), 
@@ -187,20 +192,28 @@ class DPWTree(object):
         return random.choice([key for key in vals.keys() if vals[key] == max(vals.values())])
         
     def build_action_children(self, parent):
-        actions, dense_paths = self.path_service.get_path_set(parent.pose)
+        #actions, dense_paths = self.path_service.get_path_set(parent.pose)
+        actions = self.path_service(PathFromPoseRequest(parent.pose))
+        actions = actions.safe_paths
+        dense_paths = None # TODO: legacy, do we have dense Paths?
         if len(actions) == 0:
             print "No actions!", 
             return
         
         #print "Creating children for:", parent.name
-        for i, action in enumerate(actions.keys()):
+        #for i, action in enumerate(actions.keys()):
+        for i, action in enumerate(actions):
             #print "Action:", i
             parent.add_children(Node(pose = parent.pose, 
                                     parent = parent, 
                                     name = parent.name + '_action' + str(i), 
-                                    action = actions[action], 
-                                    dense_path = dense_paths[action],
+                                    action = actions[i], 
+                                    # TODO: get dense path here? 
+                                    #dense_path = dense_paths[action],
+                                    dense_path = None,
                                     zvals = None))
+    def get_best_child(self):
+        return self.root.children[np.argmax([node.nqueries for node in self.root.children])]
 
     def print_tree(self):
         counter = self.print_helper(self.root)
@@ -208,12 +221,8 @@ class DPWTree(object):
 
     def print_helper(self, cur_node):
         if cur_node.children is None:
-            #cur_node.print_self()
-            #print cur_node.name
             return 1
         else:
-            #cur_node.print_self()
-            #print "\n"
             counter = 0
             for child in cur_node.children:
                 counter += self.print_helper(child)
@@ -221,8 +230,8 @@ class DPWTree(object):
 
 ''' Inherit class, that implements more standard MCTS, and assumes MLE observation to deal with continuous spaces '''
 class MLETree(DPWTree):
-    def __init__(self, f_aqu, belief, pose, path_service, time, depth, c):
-        super(MLETree, self).__init__(f_aqu,  belief, pose, path_service, time, depth, c)
+    def __init__(self, eval_value, belief, pose, path_service, time, depth, c):
+        super(MLETree, self).__init__(eval_value,  belief, pose, path_service, time, depth, c)
 
     # Max Reward-based node selection
     def get_best_child(self):
@@ -232,14 +241,20 @@ class MLETree(DPWTree):
         cur_depth = current_node.depth
         pose = current_node.pose
         while cur_depth <= self.max_depth:
-            actions, dense_paths = self.path_service.get_path_set(pose)
-            keys = actions.keys()
+            #actions, dense_paths = self.path_service.get_path_set(pose)
+            actions = self.path_service(PathFromPoseRequest(parent.pose))
+            actions = actions.safe_paths
+            dense_paths = None # TODO: should there be paths here?
             # No viable trajectories from current location
             if len(actions) <= 1:
                 return reward
 
             #select a random action
             a = np.random.randint(0, len(actions) - 1)
+            r = self.eval_value.predict_value(belief, actions[a].poses, time = self.t)
+            xobs = np.array([[msg.pose.position.x, msg.pose.position.y] for msg in actions[a].poses]).reshape(len(actions[a].poses), 2)
+
+            '''
             obs = np.array(actions[keys[a]])
             xobs = np.vstack([obs[:,0], obs[:,1]]).T
 
@@ -249,6 +264,7 @@ class MLETree(DPWTree):
                 r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief, param = self.param)
             else:
                 r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief)
+            '''
 
             # ''Simulate'' the maximum likelihood observation
             if belief.model is None:
@@ -259,7 +275,9 @@ class MLETree(DPWTree):
                 zobs, _= belief.predict_value(xobs)
 
             belief.add_data(xobs, zobs)
-            pose = dense_paths[keys[a]][-1]
+            # pose = dense_paths[keys[a]][-1] # TODO should this be dense
+            pose = actions[a][-1].pose
+
             reward += r
             cur_depth += 1
 
@@ -296,6 +314,10 @@ class MLETree(DPWTree):
             #gp_new = copy.copy(current_node.belief) 
             #gp_new = current_node.belief
 
+            r = self.eval_value.predict_value(belief, current_node.action.poses, time = self.t)
+            xobs = np.array([[msg.pose.position.x, msg.pose.position.y] for msg in current_node.action.poses]).reshape(len(current_node.action.poses), 2)
+
+            '''
             # Sample a new set of observations and form a new belief
             obs = np.array(current_node.action)
             xobs = np.vstack([obs[:,0], obs[:,1]]).T
@@ -306,6 +328,7 @@ class MLETree(DPWTree):
                 r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief, param = self.param)
             else:
                 r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief)
+            '''
 
             # ''Simulate'' the maximum likelihood observation
             if belief.model is None:
@@ -373,6 +396,9 @@ class cMCTS():
         self.tree_type = tree_type
 
         # The different constants for logarithmic vs polynomial exploration
+        # TODO: fix this; currently the tree doesn't know it's reward type
+        self.c = 1.0
+        '''
         if self.f_rew == 'mean':
             if self.tree_type == 'mle_tree':
                 self.c = 1000
@@ -390,6 +416,7 @@ class cMCTS():
         else:
             self.c = 1.0
         print "Setting c to :", self.c
+        '''
 
     def choose_trajectory(self, t):
         #Main function loop which makes the tree and selects the best child
@@ -419,6 +446,7 @@ class cMCTS():
         i = 0
         while i < self.comp_budget: #time.time() - time_start < self.comp_budget:
             i += 1
+            print "On iteration", i, "of", self.comp_budget
             gp = copy.copy(self.GP)
             self.tree.get_next_leaf(gp)
         time_end = time.time()
@@ -426,16 +454,20 @@ class cMCTS():
         print "Number of rollouts:", i
         self.tree.print_tree()
 
-        # TODO: update this code to return the right thing
-        print [(node.nqueries, node.reward/node.nqueries) for node in self.tree.root.children]
+        print [(node.nqueries, node.reward/node.nqueries) for node in self.tree.root.children if node.nqueries > 0]
 
         best_child = random.choice([node for node in self.tree.root.children if node.nqueries == max([n.nqueries for n in self.tree.root.children])])
         all_vals = {}
         for i, child in enumerate(self.tree.root.children):
-            all_vals[i] = child.reward / float(child.nqueries)
+            if child.nqueries > 0: 
+                all_vals[i] = child.reward / float(child.nqueries)
+            else:
+                all_vals[i] = -float("inf")
 
-        clear_paths = self.path_service(PathFromPoseRequest(self.pose))
-        return best_child.action, best_child.dense_path, best_child.reward/float(best_child.nqueries), paths, all_vals, self.max_locs, self.max_val
+        print all_vals
+
+        # TODO: figure out if we should return dense path
+        return best_child.action, best_child.reward/float(best_child.nqueries)
 
         #Document the information
         #print "Number of rollouts:", i, "\t Size of tree:", len(self.tree)
