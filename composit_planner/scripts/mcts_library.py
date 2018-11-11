@@ -520,7 +520,7 @@ class BeliefTree(Tree):
         if current_node.node_type == 'B':
             # belief node
             if current_node.depth == self.max_depth:
-                #print "Returning leaf node:", current_node.name, "with reward", reward
+                # Return leaf node and reward
                 return current_node, reward
             # Intermediate belief node
             else:
@@ -532,17 +532,13 @@ class BeliefTree(Tree):
                     return current_node, reward
 
                 child, full_action_set  = self.get_next_child(current_node)
-                #print "Selecting next action child:", child.name
-                #print "Full action set?", full_action_set
 
                 if full_action_set:
                     # Recursive call
                     return self.leaf_helper(child, reward, belief)
                 else:
                     # Do random rollouts
-                    #print "Doing random rollouts!"
                     rollout_reward = self.random_rollouts(current_node, reward, belief) 
-                    #print "Rollout reward:", rollout_reward
                     return child, rollout_reward
 
         # At random node, after selected action from a specific node
@@ -552,7 +548,6 @@ class BeliefTree(Tree):
             #gp_new = current_node.belief
 
             # Sample a new set of observations and form a new belief
-            #xobs = current_node.action
             obs = np.array(current_node.action)
             xobs = np.vstack([obs[:,0], obs[:,1]]).T
 
@@ -596,7 +591,6 @@ class BeliefTree(Tree):
         # Return the max node, or a random node if the value is equal
         return random.choice([key for key in vals.keys() if vals[key] == max(vals.values())]), True
         
-
 
 class cMCTS(MCTS):
     '''Class that establishes a MCTS for nonmyopic planning'''
@@ -648,9 +642,9 @@ class cMCTS(MCTS):
         #print self.tree.root.children[0].children
 
         time_start = time.time()            
-        # while we still have time to compute, generate the tree
+        # While we still have time to compute, generate the tree
         i = 0
-        while i < self.comp_budget:#time.time() - time_start < self.comp_budget:
+        while i < self.comp_budget: #time.time() - time_start < self.comp_budget:
             i += 1
             gp = copy.copy(self.GP)
             self.tree.get_next_leaf(gp)
