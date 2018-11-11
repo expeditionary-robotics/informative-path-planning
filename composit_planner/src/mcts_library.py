@@ -144,9 +144,6 @@ class DPWTree(object):
                 #print "First:", np.floor(nchild ** alpha)
                 #print "Second:", np.floor((nchild - 1) ** alpha)
                 if current_node.depth < self.max_depth - 1 and np.floor(nchild ** alpha) == np.floor((nchild - 1) ** alpha):
-                    #print "Choosing from among current nodes"
-                    #child = random.choice(current_node.children)
-                    #print "number quieres:", nqueries
                     child = random.choice(current_node.children)
                     nqueries = [node.nqueries for node in current_node.children]
                     child = random.choice([node for node in current_node.children if node.nqueries == min(nqueries)])
@@ -232,10 +229,6 @@ class DPWTree(object):
 class MLETree(DPWTree):
     def __init__(self, eval_value, belief, pose, path_service, time, depth, c):
         super(MLETree, self).__init__(eval_value,  belief, pose, path_service, time, depth, c)
-
-    # Max Reward-based node selection
-    def get_best_child(self):
-        return self.root.children[np.argmax([node.nqueries for node in self.root.children])]
 
     def random_rollouts(self, current_node, reward, belief):
         cur_depth = current_node.depth
@@ -362,6 +355,10 @@ class MLETree(DPWTree):
             vals[child] = child.reward/float(child.nqueries) + self.c * np.sqrt(2.0*np.log(float(current_node.nqueries))/float(child.nqueries)) 
         # Return the max node, or a random node if the value is equal
         return random.choice([key for key in vals.keys() if vals[key] == max(vals.values())]), True
+    
+    # Max Reward-based node selection
+    def get_best_child(self):
+        return self.root.children[np.argmax([node.reward for node in self.root.children])]
         
 
 class cMCTS():
@@ -456,15 +453,15 @@ class cMCTS():
 
         print [(node.nqueries, node.reward/node.nqueries) for node in self.tree.root.children if node.nqueries > 0]
 
-        best_child = random.choice([node for node in self.tree.root.children if node.nqueries == max([n.nqueries for n in self.tree.root.children])])
+        # TODO: should be the most visited, but that's leading to a lot of noise with few samples
+        #best_child = random.choice([node for node in self.tree.root.children if node.nqueries == max([n.nqueries for n in self.tree.root.children])])
+        best_child = random.choice([node for node in self.tree.root.children if node.reward/node.nqueries == max([n.reward/n.nqueries for n in self.tree.root.children if n.nqueries > 0])])
         all_vals = {}
         for i, child in enumerate(self.tree.root.children):
             if child.nqueries > 0: 
                 all_vals[i] = child.reward / float(child.nqueries)
             else:
                 all_vals[i] = -float("inf")
-
-        print all_vals
 
         # TODO: figure out if we should return dense path
         return best_child.action, best_child.reward/float(best_child.nqueries)
