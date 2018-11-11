@@ -92,10 +92,12 @@ class ROS_Path_Generator():
             pte.header.stamp = rospy.Time(0)
             pte.poses = pub_path
             #TODO rewrite trajectory service to handle mulitple queries for single map
-            pte = self.check_traj(TrajectoryCheckRequest(pte))
-            if len(pte.safe_path.poses) != 0:
-                clear_paths.append(pte.safe_path)
-        return clear_paths
+            # pte = self.check_traj(TrajectoryCheckRequest(pte))
+            clear_paths.append(pte)
+        clear_paths = self.check_traj(TrajectoryCheckRequest(clear_paths))
+            # if len(pte.safe_path.poses) != 0:
+            #     clear_paths.append(pte.safe_path)
+        return clear_paths.safe_path
 
     def get_path_set(self, req):
         '''Primary interface for getting list of path sample points for evaluation

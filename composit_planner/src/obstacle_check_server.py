@@ -31,7 +31,8 @@ class ObstacleCheck:
         '''
 
         # get params
-        self.safe_threshold = rospy.get_param('cost_limit', 85.)
+        self.safe_threshold = rospy.get_param('cost_limit', 80.)
+        self.turn_threshold = rospy.get_param('turn_limit', 50.)
 
         # subscribe to transforms
         self.tf = TransformListener()
@@ -43,41 +44,48 @@ class ObstacleCheck:
         rospy.spin()
 
     def check_obstacles(self, req):
-        #parse the poses in a trajectory and check if any are in/near obstacles
-        #TODO think of a clever matrix-transform way of doing this for speed up
-        updated_trajectory = []
+        ''' Given a list of Paths, check agains the current map for truncating
+        Input: list of nav_msg/Path 
+        Output: list of nav_msg/Path
+        '''
+        safe_paths = []
+        # get the costmap of interest
         map_resp = self.world(GetCostMapRequest())
         current_map = map_resp.map
-        # reshape the array to be the matrix of interest
+        # reshape the array to be a matrix for querying
         data = self.make_array(current_map.data, current_map.info.height, current_map.info.width)
-        np.save('../cost_map', data)
-        # transform trajectory coordinates into indices of the matrix to query
-        true_coords = req.query_path.poses
-        for c in true_coords:
-            self.tf.getLatestCommonTime("/odom", "/base_link")
-            p = self.tf.transformPose('/base_link', c)
-            self.tf.getLatestCommonTime("/map", "/base_link")
-            p = self.tf.transformPose('/map', p)
-            idx = (p.pose.position.x-current_map.info.origin.position.x)/current_map.info.resolution
-            idy = (p.pose.position.y-current_map.info.origin.position.y)/current_map.info.resolution
-            # check that each index is less than some threshold
-            queryx, queryy = self.traj_index(idx,idy)
-            safe_flag = True
-            for x,y in zip(queryx,queryy):
-                if data[x,y] > self.safe_threshold:
-                    safe_flag = False
+        # np.save('../cost_map', data)
+        # get the most recent transforms
+        self.tf.getLatestCommonTime("/odom", "/base_link")
+        self.tf.getLatestCommonTime("/map", "/base_link")
+        # walk through the paths to check
+        for path in req.query_path:
+            updated_trajectory = []
+            last_safe = 0
+            # transform trajectory coordinates into indices of the matrix to query
+            true_coords = path.poses
+            for i,c in enumerate(true_coords):
+                p = self.tf.transformPose('/base_link', c)
+                p = self.tf.transformPose('/map', p)
+                idx = int(round((p.pose.position.x-current_map.info.origin.position.x)/current_map.info.resolution))
+                idy = int(round((p.pose.position.y-current_map.info.origin.position.y)/current_map.info.resolution))
+
+                if data[idx,idy] <= self.turn_threshold:
+                    updated_trajectory.append(c)
+                    last_safe = i
+                elif data[idx,idy] < self.safe_threshold:
+                    updated_trajectory.append(c)
+                elif data[idx,idy] >= self.safe_threshold:
                     break
-            if safe_flag:
-                updated_trajectory.append(c)
-            else:
-                break
-        #create the response message
-        resp = Path()
-        #resp.header.stamp = rospy.Time.now()
-        resp.header.stamp = rospy.Time(0)
-        resp.header.frame_id = 'odom'
-        resp.poses = updated_trajectory
-        return TrajectoryCheckResponse(resp)
+            updated_trajectory = updated_trajectory[0:last_safe]
+            if len(updated_trajectory) != 0:
+                #create the response message
+                resp = Path()
+                resp.header.stamp = rospy.Time(0)
+                resp.header.frame_id = 'odom'
+                resp.poses = updated_trajectory
+                safe_paths.append(resp)
+        return TrajectoryCheckResponse(safe_paths)
 
     def traj_index(self, idx, idy, buff=3):
         x = []
