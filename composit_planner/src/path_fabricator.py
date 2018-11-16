@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 '''
 This library can be used to access the multiple ways in which path sets can be generated for the simulated vehicle in the PLUMES framework.

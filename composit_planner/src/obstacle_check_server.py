@@ -56,8 +56,8 @@ class ObstacleCheck:
         data = self.make_array(current_map.data, current_map.info.height, current_map.info.width)
         # np.save('../cost_map', data)
         # get the most recent transforms
-        self.tf.getLatestCommonTime("/odom", "/base_link")
-        self.tf.getLatestCommonTime("/map", "/base_link")
+        self.tf.getLatestCommonTime("/odom", "/body")
+        self.tf.getLatestCommonTime("/map", "/body")
         # walk through the paths to check
         for path in req.query_path:
             updated_trajectory = []
@@ -65,7 +65,7 @@ class ObstacleCheck:
             # transform trajectory coordinates into indices of the matrix to query
             true_coords = path.poses
             for i,c in enumerate(true_coords):
-                p = self.tf.transformPose('/base_link', c)
+                p = self.tf.transformPose('/body', c)
                 p = self.tf.transformPose('/map', p)
                 idx = int(round((p.pose.position.x-current_map.info.origin.position.x)/current_map.info.resolution))
                 idy = int(round((p.pose.position.y-current_map.info.origin.position.y)/current_map.info.resolution))

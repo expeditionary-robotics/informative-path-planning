@@ -294,7 +294,7 @@ class OnlineGPModel(GPModel):
         # Calculate for the test point
         assert(xvals.shape[0] >= 1)            
         assert(xvals.shape[1] == self.dim)    
-	n_points, input_dim = xvals.shape
+        n_points, input_dim = xvals.shape
 
         # With no observations, predict 0 mean everywhere and prior variance
         if self.xvals is None:

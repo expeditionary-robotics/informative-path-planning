@@ -12,7 +12,7 @@ horizon_length: 1.5
 turning_radius: 0.3
 sample_step: 0.1
 rollout_length: 2
-planner_type: 'nonmyopic'
+planner_type: 'myopic'
 tree_type: 'dpw_tree'
 reward_func: 'mes'
 
