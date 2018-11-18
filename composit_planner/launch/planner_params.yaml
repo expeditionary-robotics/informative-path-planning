@@ -1,11 +1,3 @@
-model_variance: 100
-model_lengthscale: 0.8
-model_noise: 0.5
-xmin: -50.0
-xmax: 50.0
-ymin: -50.0
-ymax: 50.0
-
 replan_budget: 100
 frontier_size: 15
 horizon_length: 1.5

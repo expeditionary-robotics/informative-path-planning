@@ -1,17 +1,17 @@
-num_pts: 40
 variance: 100
-lengthscale: 0.8
+lengthscale: 1.5
 noise: 0.5
 seed: 0
 
 model_variance: 100
-model_lengthscale: 0.8
+model_lengthscale: 1.5
 model_noise: 0.5
 
 sensor_rate: 2.
 visualize_rate: 1.
 
-xmin: -50.0
-xmax: 50.0
-ymin: -50.0
-ymax: 50.0
+xmin: -7.5
+xmax: 7.5
+ymin: -7.5
+ymax: 7.5
+num_pts: 40

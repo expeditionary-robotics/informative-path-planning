@@ -15,6 +15,7 @@ from gpmodel_library import GPModel, OnlineGPModel
 import rospy
 from std_msgs.msg import *
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import PointCloud, PointField, ChannelFloat32
 from composit_planner.srv import *
 from composit_planner.msg import *
 
@@ -101,9 +102,63 @@ class Environment:
         np.savez('../world_map', x1=x1vals, x2=x2vals, z=self.GP.zvals.reshape(x1vals.shape))
 
         # Define ROS service
-        self.srv = rospy.Service('query_chemical', SimMeasurement, self.sample_value)
+        self.query_chemical = rospy.Service('query_chemical', SimMeasurement, self.sample_value)
+        self.visualize_map = rospy.Service('vis_chemworld', RequestReplan, self.publish_gp)
+        self.pub_vis = rospy.Publisher('vis_chemworld', PointCloud, queue_size = 100)
+        self.pub_max = rospy.Publisher('vis_maxima', PointCloud, queue_size = 100)
         
         rospy.spin()
+    
+    def publish_gp(self, _):
+        # Generate a set of observations from robot model with which to make contour plots
+        max_val = np.max(self.GP.zvals)
+        min_val = np.min(self.GP.zvals)
+        print "Max val:", max_val
+        print "Min val:", min_val
+
+        if max_val == min_val and max_val == 0.00: 
+            topixel = lambda val: 0.0
+        else:
+            # Define lambda for transforming from observation to 0-255 range
+            topixel = lambda val: int((val - min_val) / (max_val - min_val) * 255.0)
+
+        msg = PointCloud()
+        msg.header.frame_id = 'map' # Global frame
+
+        val = ChannelFloat32()
+        val.name = 'ground_truth'
+        
+        #msg.header.stamp = rospy.get_rostime()
+        for i, d in enumerate(self.GP.xvals):
+            pt = geometry_msgs.msg.Point32()
+            pt.x = self.GP.xvals[i, 0]
+            pt.y = self.GP.xvals[i, 1]
+            pt.z = 1.0
+            msg.points.append(pt)
+            val.values.append(topixel(self.GP.zvals[i, :]))
+
+        msg.channels.append(val)
+        self.pub_vis.publish(msg)
+
+        msg = PointCloud()
+        msg.header.frame_id = 'map' # Global frame
+
+        val = ChannelFloat32()
+        val.name = 'maxima'
+        
+        #msg.header.stamp = rospy.get_rostime()
+        for i, d in enumerate(self.GP.xvals):
+            pt = geometry_msgs.msg.Point32()
+            pt.x = self.GP.xvals[i, 0]
+            pt.y = self.GP.xvals[i, 1]
+            pt.z = 1.0
+            msg.points.append(pt)
+            val.values.append(topixel(self.GP.zvals[i, :]))
+
+        msg.channels.append(val)
+        self.pub_vis.publish(msg)
+        return RequestReplanResponse(True)
+
 
     def update_pose(self, msg):
         self.current_pose = msg

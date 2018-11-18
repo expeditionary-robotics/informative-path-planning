@@ -111,10 +111,6 @@ class ChemicalBelief:
                 # Define lambda for transforming from observation to 0-255 range
                 topixel = lambda val: int((val - min_val) / (max_val - min_val) * 255.0)
 
-            pt_vals = np.array([topixel(c) for c in observations]).reshape(num_pts *  num_pts)
-            pt_locs = data.T
-            pt_cloud = np.array(np.hstack([pt_locs[0, :], pt_locs[1, :], pt_vals]), dtype = np.float32)
-            
         msg = PointCloud()
         msg.header.frame_id = 'map' # Global frame
 

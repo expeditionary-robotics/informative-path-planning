@@ -1,9 +1,9 @@
 <launch>
-	<rosparam command="load" file="$(find composit_planner)/launch/chem_params.yaml" />
+<rosparam command="load" file="$(find composit_planner)/launch/chem_params.yaml" />
 	<rosparam command="load" file="$(find composit_planner)/launch/planner_params.yaml" />
 
 	<!-- <include file="$(find turtlebot3_gazebo)/launch/turtlebot3_simulation.launch"/> -->
-	<include file="$(find composit_planner)/launch/turtlebot_world.launch"/>
+	<!-- <include file="$(find composit_planner)/launch/turtlebot_world.launch"/> -->
 
 	<node pkg="composit_planner" type="chemical_sensor.py" name="chemical_sensor" output="screen"/>
 	<node pkg="composit_planner" type="chemical_world_sim.py" name="chemical_world_sim" output="screen"/>
