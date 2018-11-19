@@ -56,7 +56,7 @@ class ObstacleCheck:
         data = self.make_array(current_map.data, current_map.info.height, current_map.info.width)
         # np.save('../cost_map', data)
         # get the most recent transforms
-        self.tf.getLatestCommonTime("/odom", "/body")
+        self.tf.getLatestCommonTime("/world", "/body")
         self.tf.getLatestCommonTime("/map", "/body")
         # walk through the paths to check
         for path in req.query_path:
@@ -82,7 +82,7 @@ class ObstacleCheck:
                 #create the response message
                 resp = Path()
                 resp.header.stamp = rospy.Time(0)
-                resp.header.frame_id = 'odom'
+                resp.header.frame_id = 'world'
                 resp.poses = updated_trajectory
                 safe_paths.append(resp)
         return TrajectoryCheckResponse(safe_paths)

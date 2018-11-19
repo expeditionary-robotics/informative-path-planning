@@ -75,7 +75,7 @@ class ROS_Path_Generator():
             pub_path = []
             for coord in path:
                 c = PoseStamped()
-                c.header.frame_id = 'odom'
+                c.header.frame_id = 'world'
                 #c.header.stamp = rospy.Time.now()
                 c.header.stamp = rospy.Time(0)
                 c.pose.position.x = coord[0]
@@ -88,7 +88,7 @@ class ROS_Path_Generator():
                 c.pose.orientation.w = q[3]
                 pub_path.append(c)
             pte = Path()
-            pte.header.frame_id = 'odom'
+            pte.header.frame_id = 'world'
             pte.header.stamp = rospy.Time(0)
             pte.poses = pub_path
             clear_paths.append(pte)
