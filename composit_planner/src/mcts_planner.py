@@ -78,7 +78,7 @@ class Planner:
         self.srv_traj = rospy.ServiceProxy('query_obstacles', TrajectoryCheck)
         self.srv_paths = rospy.ServiceProxy('get_paths', PathFromPose)
         self.srv_chem = rospy.ServiceProxy('query_chemical', SimMeasurement)
-        self.pose_sub = rospy.Subscriber("/odom", Odometry, self.update_pose)
+        self.pose_sub = rospy.Subscriber("/pose", PoseStamped, self.update_pose)
         self.data = rospy.Subscriber("/chem_data", ChemicalSample, self.get_sensordata)
         
         # Publications and service offering 
@@ -140,9 +140,9 @@ class Planner:
 
     def update_pose(self, msg):
         ''' Update the current pose of the robot.
-        Input: msg (nav_msgs/Odometry)
+        Input: msg (geometry_msgs/PoseStamped)
         Output: None ''' 
-        self.pose = msg.pose.pose # of type odometry messages
+        self.pose = msg.pose # of type odometry messages
     
     def get_sensordata(self, msg):
         ''' Creates a queue of incoming sample points on the /chem_data topic 
@@ -157,6 +157,10 @@ class Planner:
         ''' Publishes the current GP belief as a point cloud for visualization. 
         Input: None
         Output: msg (sensor_msgs/PointCloud) point cloud centered at current pose '''
+
+	rospy.loginfo("Publishing GP belief with pose:")
+	print self.pose.position.x
+	print self.pose.position.y
         # Aquire the data lock
         self.data_lock.acquire()
 

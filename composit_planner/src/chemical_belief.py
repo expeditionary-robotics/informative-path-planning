@@ -11,6 +11,7 @@ import threading
 # ROS includes
 import rospy
 from nav_msgs.msg import Odometry  
+from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import PointCloud, PointField, ChannelFloat32
 from composit_planner.srv import *
 from composit_planner.msg import *
@@ -43,7 +44,7 @@ class ChemicalBelief:
         self.data_queue = list()
         self.pose_queue = list()
         self._maxima = None
-        self.pose = Odometry() 
+        self.pose = PoseStamped() 
         
         # Create mutex for the data queue
         self.data_lock = threading.Lock()
@@ -69,7 +70,7 @@ class ChemicalBelief:
        
         #  Subscriptions and publiscations
         self.data = rospy.Subscriber("chem_data", ChemicalSample, self.get_sensordata)
-        self.odom = rospy.Subscriber("/odom", Odometry, self.update_pose)
+        self.odom = rospy.Subscriber("/pose", PoseStamped, self.update_pose)
 
         self.pub = rospy.Publisher('chem_map', PointCloud, queue_size = 100)
         
@@ -89,10 +90,10 @@ class ChemicalBelief:
         # Generate a set of observations from robot model with which to make contour plots
         grid_size = 8.0 # grid size in meters
         num_pts = 100 # number of points to visaulzie in grid (num_pts x num_pts)
-        x1max = self.pose.pose.pose.position.x + grid_size / 2.0
-        x1min = self.pose.pose.pose.position.x - grid_size / 2.0
-        x2max = self.pose.pose.pose.position.y + grid_size / 2.0
-        x2min = self.pose.pose.pose.position.y - grid_size / 2.0
+        x1max = self.pose.pose.position.x + grid_size / 2.0
+        x1min = self.pose.pose.position.x - grid_size / 2.0
+        x2max = self.pose.pose.position.y + grid_size / 2.0
+        x2min = self.pose.pose.position.y - grid_size / 2.0
 
         x1 = np.linspace(x1min, x1max, num_pts)
         x2 = np.linspace(x2min, x2max, num_pts)
@@ -158,7 +159,7 @@ class ChemicalBelief:
             # Add all current observations in the data queue to the current model
             NUM_PTS = len(self.data_queue)
             zobs = np.array([msg.data for msg in self.data_queue]).reshape(NUM_PTS, 1)
-            xobs = np.array([[msg.pose.pose.position.x, msg.pose.pose.position.y] for msg in self.pose_queue]).reshape(NUM_PTS, 2)
+            xobs = np.array([[msg.pose.position.x, msg.pose.position.y] for msg in self.pose_queue]).reshape(NUM_PTS, 2)
 
             self.GP.add_data(xobs, zobs)
             rospy.loginfo("Number of sample points in belief model %d", self.GP.zvals.shape[0])

@@ -1,4 +1,3 @@
-
 <launch>
 
     <!-- This launch file is used to launch autonomy stack nodes on a car vehicle -->
@@ -10,11 +9,9 @@
     <rosparam command="load" file="$(find composit_planner)/launch/chem_params.yaml" />
     <rosparam command="load" file="$(find composit_planner)/launch/planner_params.yaml" />
 
-
     <!-- Temporary Simulated Input -->
     <node pkg="composit_planner" type="chemical_sensor.py" name="chemical_sensor" output="screen"/>
     <node pkg="composit_planner" type="chemical_world_sim.py" name="chemical_world_sim" output="screen"/>
-
 
     <!-- Trajectory Services -->
 
@@ -25,12 +22,9 @@
     <node pkg="composit_planner" type="car_costmap.py" name="car_costmap" output="screen" />
     <node pkg="composit_planner" type="obstacle_check_server.py" name="obstacle_check_server" output="screen" />
 
-    <!-- <node pkg="composit_planner" type="traj_serv.py" name="traj_serv" output="screen"/> -->
-
+    <node pkg="composit_planner" type="traj_serv.py" name="traj_serv" output="screen"/>
 
     <!-- The planner node -->
     <node pkg="composit_planner" type="mcts_planner.py" name="mcts_planner" output="screen"/>
-
-
 
 </launch>

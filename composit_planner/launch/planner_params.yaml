@@ -1,19 +1,9 @@
-model_variance: 100
-model_lengthscale: 0.8
-model_noise: 0.5
-xmin: -50.0
-xmax: 50.0
-ymin: -50.0
-ymax: 50.0
-
 replan_budget: 100
 frontier_size: 15
 horizon_length: 1.5
-turning_radius: 0.3
+turning_radius: 1.0
 sample_step: 0.1
 rollout_length: 2
 planner_type: 'myopic'
 tree_type: 'dpw_tree'
 reward_func: 'mes'
-
-visualize_rate: 0.1
