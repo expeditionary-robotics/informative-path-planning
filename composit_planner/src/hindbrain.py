@@ -30,7 +30,7 @@ class Hindbrain:
         '''
 
         # get params
-        self.safety_radius = rospy.get_param('turning_radius', 0.25)
+        self.safety_radius = rospy.get_param('safety_radius', 0.25)
 
         # subscribe to lasers
         self.lasers_sub = rospy.Subscriber('/scan',LaserScan,self.check_for_obstacles)
@@ -52,7 +52,10 @@ class Hindbrain:
         ang_info = [req.angle_min, req.angle_max, req.angle_increment]
         range_info = [req.range_min, req.range_max]
 
-        ranges = map(self.check_scan, req.ranges)
+        length = len(req.ranges)
+        shrunk_range = req.ranges[length/2-30:length/2+30]
+
+        ranges = map(self.check_scan, shrunk_range)
 
         if sum(ranges) > 0:
             msg = PolygonStamped()
@@ -60,7 +63,10 @@ class Hindbrain:
             msg.header.frame_id = 'world'
             points = []
             self.path_pub.publish(msg)
-            self.replan()
+            try:
+                self.replan()
+            except rospy.ServiceException as exc:
+                pass
 
     def check_scan(self,r):
         if r < self.safety_radius:
