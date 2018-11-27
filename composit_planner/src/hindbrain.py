@@ -54,7 +54,7 @@ class Hindbrain:
 
         ranges = map(self.check_scan, req.ranges)
 
-        if sum(ranges) > 0:
+        if sum(ranges) > length(req.ranges/2):
             msg = PolygonStamped()
             msg.header.stamp = rospy.Time(0)
             msg.header.frame_id = 'world'

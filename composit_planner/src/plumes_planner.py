@@ -84,7 +84,7 @@ class Planner:
         # Publications and service offering 
         self.srv_replan = rospy.Service('replan', RequestReplan, self.replan)
         self.pub = rospy.Publisher('/chem_map', PointCloud, queue_size = 100)
-        self.plan_pub = rospy.Publisher("/selected_trajectory", Path, queue_size=1)
+        self.plan_pub = rospy.Publisher("/selected_trajectory", PolygonStamped, queue_size=1)
         
         r = rospy.Rate(self.visualize_rate)
         while not rospy.is_shutdown():
@@ -217,9 +217,9 @@ class Planner:
         #Now, select the path with the highest potential reward
         path_selector = {}
         for i, path in enumerate(clear_paths):
-            if len(path.poses) != 0:
+            if len(path.polygon.points) != 0:
                 # TODO: need to keep an updated discrete time for the UCB reward
-                path_selector[i] = eval_value.predict_value(self.GP, path.poses, time = 0)
+                path_selector[i] = eval_value.predict_value(self.GP, path.polygon.points, time = 0)
             else:
                 path_selector[i] = -float("inf")
 

@@ -36,7 +36,7 @@ class GetValue():
         Input: (geometry_msgs/Pose []) list of points for value evaluation
         Output: (float) value at point
         ''' 
-        xvals = [[loc.pose.position.x, loc.pose.position.y] for loc in path]
+        xvals = [[loc.x, loc.y] for loc in path]
         xvals = np.array(xvals).reshape(len(path), 2)
 
         self.GP = GP

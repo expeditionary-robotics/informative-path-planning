@@ -19,7 +19,7 @@ class ExecuteDubinSeq():
 		self.last_viable = None
 
 		#subscribe to trajectory topic
-		self.sub = rospy.Subscriber("/selected_trajectory", Path, self.handle_trajectory, queue_size=1)
+		self.sub = rospy.Subscriber("/selected_trajectory", PolygonStamped, self.handle_trajectory, queue_size=1)
 		self.pose_sub = rospy.Subscriber("/pose", PoseStamped, self.handle_pose, queue_size=1)
 		#access replan service to trigger when finished a trajectory
 		self.replan = rospy.ServiceProxy('replan', RequestReplan)
@@ -38,17 +38,10 @@ class ExecuteDubinSeq():
 		'''
 		print 'Executing new Trajectory'
 		# self.client.cancel_goal()
-		self.new_goals = traj.poses
+		self.new_goals = traj.polygon.points
 		if len(self.new_goals) != 0:
-		    msg = PolygonStamped()
-		    msg.header.stamp = rospy.Time(0)
-		    msg.header.frame_id = 'world'
-		    points = []
-		    for p in self.new_goals:
-			points += [Point32(p.pose.position.x, p.pose.position.y, 0)]
-		    msg.polygon.points = points
-		    self.path_pub.publish(msg)
-		    self.last_viable = self.new_goals[-1].pose
+			self.last_viable = self.new_goals[-1]
+			self.path_pub.publish(traj)
 		else:
 		    print 'No trajectory is viable, Triggering Replan'
 		    self.replan()
@@ -56,7 +49,7 @@ class ExecuteDubinSeq():
 	def handle_pose(self, msg):
 		self.pose = msg
 		if self.last_viable is not None:
-		    if (msg.pose.position.x-self.last_viable.position.x)**2 + (msg.pose.position.y-self.last_viable.position.y)**2 < self.allowed_error**2:
+		    if (msg.pose.position.x-self.last_viable.x)**2 + (msg.pose.position.y-self.last_viable.y)**2 < self.allowed_error**2:
 			self.replan()
 
 

@@ -14,6 +14,7 @@ import rospy
 from std_msgs.msg import *
 from composit_planner.srv import *
 from geometry_msgs.msg import *
+from sensor_msgs.msg import *
 from trajectory_msgs.msg import *
 from nav_msgs.msg import *
 from tf.transformations import quaternion_from_euler, euler_from_quaternion
@@ -42,7 +43,11 @@ class ROS_Path_Generator():
         self.cp = (0,0,0) #The current pose of the vehicle
 
         self.srv_path = rospy.Service('get_paths', PathFromPose, self.get_path_set)
-        self.check_traj = rospy.ServiceProxy('query_obstacles', TrajectoryCheck)
+        # self.check_traj = rospy.ServiceProxy('query_obstacles', TrajectoryCheck)
+
+        self.cost_srv = rospy.ServiceProxy('obstacle_map', GetCostMap)
+        self.path_pub = rospy.Publisher('/path_options', PointCloud, queue_size=1)
+        self.tf_listener = TransformListener()
 
         while not rospy.is_shutdown():
             rospy.spin()
@@ -71,29 +76,51 @@ class ROS_Path_Generator():
 
     def rosify_safe_path(self, paths):
         clear_paths = []
+
+        # Get the costmap
+        map_resp = self.cost_srv(GetCostMapRequest())
+        current_map = map_resp.map
+        data = self.make_array(current_map.data, current_map.info.height, current_map.info.width)
+
+        # Check the poses
         for path in paths:
-            pub_path = []
-            for coord in path:
-                c = PoseStamped()
-                c.header.frame_id = 'world'
-                #c.header.stamp = rospy.Time.now()
-                c.header.stamp = rospy.Time(0)
-                c.pose.position.x = coord[0]
-                c.pose.position.y = coord[1]
-                c.pose.position.z = 0.
-                q = quaternion_from_euler(0, 0, coord[2])
-                c.pose.orientation.x = q[0]
-                c.pose.orientation.y = q[1]
-                c.pose.orientation.z = q[2]
-                c.pose.orientation.w = q[3]
-                pub_path.append(c)
-            pte = Path()
-            pte.header.frame_id = 'world'
-            pte.header.stamp = rospy.Time(0)
-            pte.poses = pub_path
-            clear_paths.append(pte)
-        clear_paths = self.check_traj(TrajectoryCheckRequest(clear_paths))
-        return clear_paths.safe_path
+        	idx = int(round(([x[0] for x in path] - current_map.origin.x)/current_map.info.resolution))
+        	idy = int(round(([x[1] for x in path] - current_map.origin.y)/current_map.info.resolution))
+
+        	cost = data[idx,idy]
+        	if cost < self.safe_threshold:
+        		clear_paths.append(self.make_rosmsg(path))
+    	m = PointCloud()
+    	m.header.frame_if = 'world'
+		m.header.stamp = rospy.Time(0)
+    	for poly in clear_paths:
+    		m.points.append(poly.polygon.points)
+    		values = np.ones(np.size(poly.polygon.points))
+    		m.channels.append(values)
+		self.path_pub.publish(m)
+        return clear_paths
+
+    def make_rosmsg(self,path):
+    	pub_path = []
+    	self.tf.getLatestCommonTime("/world", "/map")
+        for coord in path:
+        	p = Pose()
+        	p.position.x = coord[0]
+        	p.position.y = coord[1]
+        	p.orientation = quaternion_from_euler(0,0,coord[2])
+        	coord = self.tf_listener.transformPose('/world', p)
+            c = Point32()
+            c.x = coord.position.x[0]
+            c.y = coord.position.y[1]
+            q = coord.orientation
+        	angle = euler_from_quaternion((q.x, q.y, q.z, q.w))
+            c.z = angle[2] # keep heading information
+            pub_path.append(c)
+        pte = PolygonStamped()
+        pte.header.frame_id = 'world'
+        pte.header.stamp = rospy.Time(0)
+        pte.polygon.points = pub_path
+        return pte
 
     def get_path_set(self, req):
         '''Primary interface for getting list of path sample points for evaluation
@@ -113,9 +140,21 @@ class ROS_Path_Generator():
         return self.goals
 
     def handle_pose(self, msg):
-        q = msg.orientation
+    	''' Gets the pose of the robot, in body frame and converts to pose in the map frame'''
+    	self.tf.getLatestCommonTime("/world", "/map")
+    	t = PoseStamped()
+    	t.header.frame_id = '/world'
+    	t.header.stamp = rospy.Time(0)
+    	t.pose.position.x = msg.x
+    	t.pose.position.y = msg.y
+    	t.pose.orientation = quaternion_from_euler(0,0,msg.z)
+
+        p = self.tf_listener.transformPose('/map', t)
+        q = p.orientation
         angle = euler_from_quaternion((q.x, q.y, q.z, q.w))
-        return (msg.position.x, msg.position.y, angle[2])
+        self.map_frame = (p.position.x, p.position.y, angle[2])
+
+        return self.map_frame #for checking obstacles
 
 
 if __name__ == '__main__':

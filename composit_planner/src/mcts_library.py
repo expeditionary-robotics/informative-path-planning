@@ -244,8 +244,8 @@ class MLETree(DPWTree):
 
             #select a random action
             a = np.random.randint(0, len(actions) - 1)
-            r = self.eval_value.predict_value(belief, actions[a].poses, time = self.t)
-            xobs = np.array([[msg.pose.position.x, msg.pose.position.y] for msg in actions[a].poses]).reshape(len(actions[a].poses), 2)
+            r = self.eval_value.predict_value(belief, actions[a].polygon.points, time = self.t)
+            xobs = np.array([[msg.x, msg.y] for msg in actions[a].polygon.points]).reshape(len(actions[a].polygon.points), 2)
 
             '''
             obs = np.array(actions[keys[a]])
@@ -269,7 +269,13 @@ class MLETree(DPWTree):
 
             belief.add_data(xobs, zobs)
             # pose = dense_paths[keys[a]][-1] # TODO should this be dense
-            pose = actions[a][-1].pose
+            p = actions[a].poygon.points[-1]
+            pose = Pose()
+            pose.position.x = p.x
+            pose.position.y = p.y
+            pose.orientation = quaternion_from_euler(0,0,p[2])
+            # pose = actions[a].poygon.points[-1]
+
 
             reward += r
             cur_depth += 1

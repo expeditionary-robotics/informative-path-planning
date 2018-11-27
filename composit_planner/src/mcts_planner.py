@@ -142,7 +142,14 @@ class Planner:
         ''' Update the current pose of the robot.
         Input: msg (geometry_msgs/PoseStamped)
         Output: None ''' 
-        self.pose = msg.pose # of type odometry messages
+        odom_pose = msg.pose # of type odometry messages
+        trans_pose = Point32()
+        trans_pose.x = odom_pose.position.x
+        trans_pose.y = odom_pose.position.y
+        q = odom_pose.orientation
+        trans_pose.z = euler_from_quaternion((q.x, q.y, q.z, q.w))[2]
+        self.pose = trans_pose
+
     
     def get_sensordata(self, msg):
         ''' Creates a queue of incoming sample points on the /chem_data topic 
@@ -158,9 +165,9 @@ class Planner:
         Input: None
         Output: msg (sensor_msgs/PointCloud) point cloud centered at current pose '''
 
-	rospy.loginfo("Publishing GP belief with pose:")
-	print self.pose.position.x
-	print self.pose.position.y
+    	rospy.loginfo("Publishing GP belief with pose:")
+    	print self.pose.position.x
+    	print self.pose.position.y
         # Aquire the data lock
         self.data_lock.acquire()
 
@@ -223,7 +230,7 @@ class Planner:
         for i, path in enumerate(clear_paths):
             if len(path.poses) != 0:
                 # TODO: need to keep an updated discrete time for the UCB reward
-                path_selector[i] = eval_value.predict_value(self.GP, path.poses)
+                path_selector[i] = eval_value.predict_value(self.GP, path.polygon.points)
             else:
                 path_selector[i] = -float("inf")
 
