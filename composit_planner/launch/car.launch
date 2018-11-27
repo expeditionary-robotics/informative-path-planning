@@ -13,6 +13,9 @@
     <node pkg="composit_planner" type="chemical_sensor.py" name="chemical_sensor" output="screen"/>
     <node pkg="composit_planner" type="chemical_world_sim.py" name="chemical_world_sim" output="screen"/>
 
+    <!-- Obstacle Avoidance Hindbrain -->
+    <node pkg="composit_planner" type="hindbrain.py" name="hindbrain" output="screen" />
+
     <!-- Trajectory Services -->
 
     <!-- Make safe paths -->
