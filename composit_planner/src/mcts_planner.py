@@ -12,7 +12,7 @@ import threading
 import rospy
 from geometry_msgs.msg import *
 from nav_msgs.msg import * 
-from sensor_msgs.msg import PointCloud, PointField, ChannelFloat32
+from sensor_msgs.msg import *
 from std_msgs.msg import *
 from composit_planner.srv import *
 from composit_planner.msg import *
@@ -61,7 +61,7 @@ class Planner:
         self.current_max = -float("inf")
         self.data_queue = list()
         self.pose_queue = list()
-        self.pose = Pose() 
+        self.pose = Point32() 
         
         # Initialize the robot's GP model with the initial kernel parameters
         self.GP = OnlineGPModel(ranges = [self.x1min, self.x1max, self.x2min, self.x2max], lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
@@ -84,7 +84,7 @@ class Planner:
         # Publications and service offering 
         self.srv_replan = rospy.Service('replan', RequestReplan, self.replan)
         self.pub = rospy.Publisher('/chem_map', PointCloud, queue_size = 100)
-        self.plan_pub = rospy.Publisher("/selected_trajectory", Path, queue_size=1)
+        self.plan_pub = rospy.Publisher("/selected_trajectory", PolygonStamped, queue_size=1)
         
         r = rospy.Rate(self.visualize_rate)
         while not rospy.is_shutdown():
@@ -108,7 +108,7 @@ class Planner:
             # Add all current observations in the data queue to the current model
             NUM_PTS = len(self.data_queue)
             zobs = np.array([msg.data for msg in self.data_queue]).reshape(NUM_PTS, 1)
-            xobs = np.array([[msg.position.x, msg.position.y] for msg in self.pose_queue]).reshape(NUM_PTS, 2)
+            xobs = np.array([[msg.x, msg.y] for msg in self.pose_queue]).reshape(NUM_PTS, 2)
 
             self.GP.add_data(xobs, zobs)
             rospy.loginfo("Number of sample points in belief model %d", self.GP.zvals.shape[0])
@@ -166,18 +166,18 @@ class Planner:
         Output: msg (sensor_msgs/PointCloud) point cloud centered at current pose '''
 
     	rospy.loginfo("Publishing GP belief with pose:")
-    	print self.pose.position.x
-    	print self.pose.position.y
+    	print self.pose.x
+    	print self.pose.y
         # Aquire the data lock
         self.data_lock.acquire()
 
         # Generate a set of observations from robot model with which to make contour plots
         grid_size = 8.0 # grid size in meters
         num_pts = 100 # number of points to visaulzie in grid (num_pts x num_pts)
-        x1max = self.pose.position.x + grid_size / 2.0
-        x1min = self.pose.position.x - grid_size / 2.0
-        x2max = self.pose.position.y + grid_size / 2.0
-        x2min = self.pose.position.y - grid_size / 2.0
+        x1max = self.pose.x + grid_size / 2.0
+        x1min = self.pose.x - grid_size / 2.0
+        x2max = self.pose.y + grid_size / 2.0
+        x2min = self.pose.y - grid_size / 2.0
 
         x1 = np.linspace(x1min, x1max, num_pts)
         x2 = np.linspace(x2min, x2max, num_pts)
@@ -225,10 +225,11 @@ class Planner:
         # Generate paths (will be obstacle checked against current map)
         clear_paths = self.srv_paths(PathFromPoseRequest(self.pose))
         clear_paths = clear_paths.safe_paths
+        clear_paths = map(self.remove_heading, clear_paths)
         #Now, select the path with the highest potential reward
         path_selector = {}
         for i, path in enumerate(clear_paths):
-            if len(path.poses) != 0:
+            if len(path.polygon.points) != 0:
                 # TODO: need to keep an updated discrete time for the UCB reward
                 path_selector[i] = eval_value.predict_value(self.GP, path.polygon.points)
             else:
@@ -248,7 +249,7 @@ class Planner:
         if self.planner_type == 'myopic':
             if self.pose is not None:
                 best_path, value = self.choose_myopic_trajectory(eval_value)
-                self.plan_pub.publish(best_path) #send the trajectory to move base
+                # self.plan_pub.publish(best_path) #send the trajectory to move base
             else:
                 pass
         else:
@@ -270,6 +271,15 @@ class Planner:
 
         # Release the data lock
         self.data_lock.release()
+
+    def remove_heading(self, l):
+        clear = []
+        for elem in l.polygon.points:
+            elem.z = 0
+            clear.append(elem)
+        l.polygon.points = clear
+        return l
+
 
 
 if __name__ == '__main__':
