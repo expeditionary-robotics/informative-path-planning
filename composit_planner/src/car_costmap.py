@@ -36,30 +36,30 @@ class CostMap:
         self.srv = rospy.Service('obstacle_map', GetCostMap, self.return_map)
         
         # subscribe to the occupancy grid
-        self.sub = rospy.Subscriber('/map', OccupancyGrid, self.get_map, queue_size=1)
+        self.sub = rospy.Subscriber('/projected_map', OccupancyGrid, self.get_map, queue_size=1)
 
         # temp pub
         self.temp_pub = rospy.Publisher('/costmap', OccupancyGrid)
 
         # costmap params
-        self.obstacle_threshold = 50.0
-        self.inflation_radius = 3.0
+        self.obstacle_threshold = 40.0
+        self.inflation_radius = 1.0
 
         # spin until interrupt
         rospy.spin()
 
-    def return_map(self, req):
-        '''
+    def return_map(self, req): 
+ 	'''
         The service request listened, forms the response
         '''
-        print 'Map Queried'
-        return GetCostMapResponse(self.map)
+        # print 'Map Queried'
+	return GetCostMapResponse(self.map)
 
     def get_map(self, msg):
         '''
         Clears the current map from periodic full map updates
         '''
-        print 'Map Established'
+        # print 'Map Established'
         self.map = self.process_map(msg)
         self.temp_pub.publish(self.map)
 
@@ -87,17 +87,19 @@ class CostMap:
         costmap = OccupancyGrid()
         costmap.header.stamp = rospy.Time(0)
         costmap.header.frame_id = msg.header.frame_id
-        costmap.data = global_grid.flatten('F')
+        costmap.data = global_grid.flatten('C')
         costmap.info = msg.info
 
         return costmap
 
     def make_array(self,data,height,width):
-        output = np.zeros((height,width))
-        for i in range(width):
-            for j in range(height):
-                output[i,j] = data[i+j*width]
-        return output
+        return np.array(data).reshape((height,width),order='C')#self.make_array(msg.data, msg.info.height, msg.info.width)
+
+        # output = np.zeros((height,width))
+        # for i in range(width):
+        #     for j in range(height):
+        #         output[i,j] = data[i+j*width]
+        # return output
 
     def inflate(self, operation_grid, inflation_radius):
         kernel_size = int(1+2*math.ceil(inflation_radius))

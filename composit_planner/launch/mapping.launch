@@ -4,12 +4,12 @@
   <node pkg="gmapping" type="slam_gmapping" name="car_slam_gmapping">
     <param name="base_frame" value="body"/>
       <!-- How often (in seconds) to update the map -->
-    <param name="map_update_interval" value="2.0"/> 
+    <param name="map_update_interval" value="0.1"/> 
       <!-- Maximum useable range of the laser -->
     <param name="maxUrange" value="3.0"/>
-    <param name="linearUpdate" value="1.0"/>
-    <param name="angularUpdate" value="0.2"/>
-    <param name="temporalUpdate" value="0.5"/>
+    <param name="linearUpdate" value="0.2"/>
+    <param name="angularUpdate" value="0.1"/>
+    <param name="temporalUpdate" value="0.1"/>
     <param name="resampleThreshold" value="0.5"/>
     <param name="particles" value="100"/>
       <!-- Initial map size in meters -->

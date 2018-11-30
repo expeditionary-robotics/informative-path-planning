@@ -225,7 +225,6 @@ class Planner:
         # Generate paths (will be obstacle checked against current map)
         clear_paths = self.srv_paths(PathFromPoseRequest(self.pose))
         clear_paths = clear_paths.safe_paths
-        clear_paths = map(self.remove_heading, clear_paths)
         #Now, select the path with the highest potential reward
         path_selector = {}
         for i, path in enumerate(clear_paths):
@@ -248,17 +247,25 @@ class Planner:
 
         if self.planner_type == 'myopic':
             if self.pose is not None:
-                best_path, value = self.choose_myopic_trajectory(eval_value)
-                # self.plan_pub.publish(best_path) #send the trajectory to move base
+                try:
+                    best_path, value = self.choose_myopic_trajectory(eval_value)
+                    controller_path = self.strip_angle(best_path)
+                    self.plan_pub.publish(controller_path) #send the trajectory to move base
+                except:
+                    print 'ATTENTION HUMAN! I AM STUCK. SAVE MEEEE'
             else:
                 pass
         else:
             if self.pose is not None:
-                # TODO: set time
-                mcts = mcts_lib.cMCTS(self.GP, self.pose, self.replan_budget, self.rollout_len, self.srv_paths, eval_value, time = 0, tree_type = self.tree_type)
-                # TODO: set time
-                best_path, value = mcts.choose_trajectory(t = 0)
-                self.plan_pub.publish(best_path) #send the trajectory to move base
+                try:
+                    # TODO: set time
+                    mcts = mcts_lib.cMCTS(self.GP, self.pose, self.replan_budget, self.rollout_len, self.srv_paths, eval_value, time = 0, tree_type = self.tree_type)
+                    # TODO: set time
+                    best_path, value = mcts.choose_trajectory(t = 0)
+                    controller_path = self.strip_angle(best_path)
+                    self.plan_pub.publish(controller_path) #send the trajectory to move base
+                except:
+                    print 'PLANNER FAILED'
             else:
                 pass
 
@@ -272,7 +279,7 @@ class Planner:
         # Release the data lock
         self.data_lock.release()
 
-    def remove_heading(self, l):
+    def strip_angle(self, l):
         clear = []
         for elem in l.polygon.points:
             elem.z = 0

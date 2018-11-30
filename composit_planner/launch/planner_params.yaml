@@ -2,8 +2,8 @@ replan_budget: 100
 frontier_size: 15
 horizon_length: 1.5
 turning_radius: 1.0
-sample_step: 0.1
-rollout_length: 2
+sample_step: 0.2
+rollout_length: 3
 planner_type: 'myopic'
 tree_type: 'dpw_tree'
 reward_func: 'mes'
