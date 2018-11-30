@@ -28,6 +28,6 @@
     <node pkg="composit_planner" type="traj_serv.py" name="traj_serv" output="screen"/>
 
     <!-- The planner node -->
-    <node pkg="composit_planner" type="mcts_planner.py" name="mcts_planner" output="screen"/>
+    <! -- <node pkg="composit_planner" type="mcts_planner.py" name="mcts_planner" output="screen"/> -->
 
 </launch>

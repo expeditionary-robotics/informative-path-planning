@@ -31,7 +31,7 @@ from composit_planner.srv import *
 from composit_planner.msg import *
 
 class Node(object):
-    def __init__(self, pose, parent, name, action = None, dense_path = None, zvals = None):
+    def __init__(self, pose, parent, name, action = None, zvals = None):
         self.pose = pose # of type geometry_msgs/Pose
         self.name = name
         self.zvals = zvals
@@ -46,7 +46,6 @@ class Node(object):
         if action is None:
             self.node_type = 'B'
             self.action = None 
-            self.dense_path = None
 
             # If the root node, depth is 0
             if parent is None:
@@ -56,7 +55,6 @@ class Node(object):
         else:
             self.node_type = 'BA'
             self.action = action
-            self.dense_path = dense_path
             self.depth = parent.depth
 
     def add_children(self, child_node):
@@ -76,7 +74,7 @@ class DPWTree(object):
         self.t = time
         self.c = c
 
-        self.root = Node(pose, parent = None, name = 'root', action = None, dense_path = None, zvals = None)  
+        self.root = Node(pose, parent = None, name = 'root', action = None, zvals = None)  
         #self.build_action_children(self.root) 
     
     def get_next_leaf(self, belief):
@@ -160,14 +158,11 @@ class DPWTree(object):
                 zobs = belief.posterior_samples(xobs, full_cov = False, size = 1)
 
             belief.add_data(xobs, zobs)
-            # TODO: figure out if this should be dense path to get accurate end point
-            #pose_new = current_node.dense_path[-1]
             pose_new = current_node.action.poses[-1].pose
             child = Node(pose = pose_new, 
                          parent = current_node, 
                          name = current_node.name + '_belief' + str(current_node.depth + 1), 
                          action = None, 
-                         dense_path = None, 
                          zvals = zobs)
             #print "Adding next belief child:", child.name
             current_node.add_children(child)
@@ -189,10 +184,8 @@ class DPWTree(object):
         return random.choice([key for key in vals.keys() if vals[key] == max(vals.values())])
         
     def build_action_children(self, parent):
-        #actions, dense_paths = self.path_service.get_path_set(parent.pose)
         actions = self.path_service(PathFromPoseRequest(parent.pose))
         actions = actions.safe_paths
-        dense_paths = None # TODO: legacy, do we have dense Paths?
         if len(actions) == 0:
             print "No actions!", 
             return
@@ -205,9 +198,6 @@ class DPWTree(object):
                                     parent = parent, 
                                     name = parent.name + '_action' + str(i), 
                                     action = actions[i], 
-                                    # TODO: get dense path here? 
-                                    #dense_path = dense_paths[action],
-                                    dense_path = None,
                                     zvals = None))
     def get_best_child(self):
         return self.root.children[np.argmax([node.nqueries for node in self.root.children])]
@@ -234,10 +224,8 @@ class MLETree(DPWTree):
         cur_depth = current_node.depth
         pose = current_node.pose
         while cur_depth <= self.max_depth:
-            #actions, dense_paths = self.path_service.get_path_set(pose)
             actions = self.path_service(PathFromPoseRequest(parent.pose))
             actions = actions.safe_paths
-            dense_paths = None # TODO: should there be paths here?
             # No viable trajectories from current location
             if len(actions) <= 1:
                 return reward
@@ -268,7 +256,6 @@ class MLETree(DPWTree):
                 zobs, _= belief.predict_value(xobs)
 
             belief.add_data(xobs, zobs)
-            # pose = dense_paths[keys[a]][-1] # TODO should this be dense
             pose = actions[a][-1].pose
 
             reward += r
@@ -332,12 +319,11 @@ class MLETree(DPWTree):
                 zobs, _= belief.predict_value(xobs)
 
             belief.add_data(xobs, zobs)
-            pose_new = current_node.dense_path[-1]
+            pose_new = current_node.action.poses[-1].pose
             child = Node(pose = pose_new, 
                          parent = current_node, 
                          name = current_node.name + '_belief' + str(current_node.depth + 1), 
                          action = None, 
-                         dense_path = None, 
                          zvals = zobs)
             #print "Adding next belief child:", child.name
             current_node.add_children(child)
@@ -463,7 +449,6 @@ class cMCTS():
             else:
                 all_vals[i] = -float("inf")
 
-        # TODO: figure out if we should return dense path
         return best_child.action, best_child.reward/float(best_child.nqueries)
 
         #Document the information
