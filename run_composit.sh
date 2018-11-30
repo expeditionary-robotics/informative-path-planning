@@ -60,11 +60,11 @@ echo "Starting the estimator"
 sleep 2
 
 source ~/rrg/devel/setup.bash
-echo "Starting Gmapping"
-# { roslaunch octomap_metrics_msgs octomap_server_racecar.launch & } &> /dev/null
-# sleep 2
-{ roslaunch composit_planner mapping.launch & } &> /dev/null
+echo "Starting Octomap"
+{ roslaunch octomap_metrics_msgs octomap_server_racecar.launch & } &> /dev/null
 sleep 2
+# { roslaunch composit_planner mapping.launch & } &> /dev/null
+# sleep 2
 
 source ~/rrg/devel/setup.bash
 echo "Starting the COMPOSIT Planner"

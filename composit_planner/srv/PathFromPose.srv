@@ -1,3 +1,3 @@
-geometry_msgs/Pose query
+geometry_msgs/Point32 query
 ---
-nav_msgs/Path[] safe_paths
+geometry_msgs/PolygonStamped[] safe_paths

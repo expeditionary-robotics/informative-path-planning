@@ -122,9 +122,8 @@ class DPWTree(object):
             # xobs = current_node.action.poses
             #obs = np.array(current_node.action.poses)
             #xobs = np.vstack([obs[:,0], obs[:,1]]).T
-            xobs = np.array([[msg.pose.position.x, msg.pose.position.y] for msg in current_node.action.poses]).reshape(len(current_node.action.poses), 2)
-
-            r = self.eval_value.predict_value(belief, current_node.action.poses, time = self.t)
+            xobs = np.array([[msg.x, msg.y] for msg in current_node.action.polygon.points]).reshape(len(current_node.action.polygon.points), 2)
+            r = self.eval_value.predict_value(belief, current_node.action.polygon.points, time = self.t)
 
             '''
             if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
@@ -158,7 +157,10 @@ class DPWTree(object):
                 zobs = belief.posterior_samples(xobs, full_cov = False, size = 1)
 
             belief.add_data(xobs, zobs)
-            pose_new = current_node.action.poses[-1].pose
+            # TODO: figure out if this should be dense path to get accurate end point
+            #pose_new = current_node.dense_path[-1]
+            pose_new = current_node.action.polygon.points[-1]
+
             child = Node(pose = pose_new, 
                          parent = current_node, 
                          name = current_node.name + '_belief' + str(current_node.depth + 1), 
@@ -224,7 +226,8 @@ class MLETree(DPWTree):
         cur_depth = current_node.depth
         pose = current_node.pose
         while cur_depth <= self.max_depth:
-            actions = self.path_service(PathFromPoseRequest(parent.pose))
+            #actions, dense_paths = self.path_service.get_path_set(pose)
+            actions = self.path_service(PathFromPoseRequest(pose))
             actions = actions.safe_paths
             # No viable trajectories from current location
             if len(actions) <= 1:
@@ -232,8 +235,8 @@ class MLETree(DPWTree):
 
             #select a random action
             a = np.random.randint(0, len(actions) - 1)
-            r = self.eval_value.predict_value(belief, actions[a].poses, time = self.t)
-            xobs = np.array([[msg.pose.position.x, msg.pose.position.y] for msg in actions[a].poses]).reshape(len(actions[a].poses), 2)
+            r = self.eval_value.predict_value(belief, actions[a].polygon.points, time = self.t)
+            xobs = np.array([[msg.x, msg.y] for msg in actions[a].polygon.points]).reshape(len(actions[a].polygon.points), 2)
 
             '''
             obs = np.array(actions[keys[a]])
@@ -256,7 +259,14 @@ class MLETree(DPWTree):
                 zobs, _= belief.predict_value(xobs)
 
             belief.add_data(xobs, zobs)
-            pose = actions[a][-1].pose
+            # pose = dense_paths[keys[a]][-1] # TODO should this be dense
+            # p = actions[a].poygon.points[-1]
+            # pose = Pose()
+            # pose.position.x = p.x
+            # pose.position.y = p.y
+            # pose.orientation = quaternion_from_euler(0,0,p[2])
+            pose = actions[a].polygon.points[-1]
+
 
             reward += r
             cur_depth += 1
@@ -294,8 +304,8 @@ class MLETree(DPWTree):
             #gp_new = copy.copy(current_node.belief) 
             #gp_new = current_node.belief
 
-            r = self.eval_value.predict_value(belief, current_node.action.poses, time = self.t)
-            xobs = np.array([[msg.pose.position.x, msg.pose.position.y] for msg in current_node.action.poses]).reshape(len(current_node.action.poses), 2)
+            r = self.eval_value.predict_value(belief, current_node.action.polygon.points, time = self.t)
+            xobs = np.array([[msg.x, msg.y] for msg in current_node.action.polygon.points]).reshape(len(current_node.action.polygon.points), 2)
 
             '''
             # Sample a new set of observations and form a new belief
@@ -319,7 +329,7 @@ class MLETree(DPWTree):
                 zobs, _= belief.predict_value(xobs)
 
             belief.add_data(xobs, zobs)
-            pose_new = current_node.action.poses[-1].pose
+            pose_new = current_node.action.polygon.points[-1]
             child = Node(pose = pose_new, 
                          parent = current_node, 
                          name = current_node.name + '_belief' + str(current_node.depth + 1), 
