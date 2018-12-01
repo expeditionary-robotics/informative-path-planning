@@ -30,14 +30,16 @@ class Hindbrain:
         ''' Initialize the environment either from a parameter input or by subscribing to a topic of interest. 
         '''
 
-        self.safe_threshold = 80
+        self.safe_threshold = rospy.get_param('cost_limit', 50.)
+
         self.map = None
         self.map_data = None
         self.path = None
 
         # subscribe to costmap and trajectory
-        self.map_sub = rospy.Subscriber('/costmap',OccupancyGrid, self.handle_map)
-        self.traj_sub = rospy.Subscriber('/trajectory/current', PolygonStamped, self.handle_trajectory)
+        # self.map_sub = rospy.Subscriber('/costmap',OccupancyGrid, self.handle_map)
+        self.traj_sub = rospy.Subscriber('/selected_trajectory', PolygonStamped, self.handle_trajectory)
+        self.cost_srv = rospy.ServiceProxy('obstacle_map', GetCostMap)
 
         # publish to generate new plan
         self.replan = rospy.ServiceProxy('replan', RequestReplan)
@@ -56,8 +58,9 @@ class Hindbrain:
             r.sleep()
 
     def handle_map(self, req):
-        self.map = self.make_array(req.data, req.info.height, req.info.width)
-        self.map_data = req
+        pass
+        # self.map = self.make_array(req.data, req.info.height, req.info.width)
+        # self.map_data = req
 
     def handle_trajectory(self, msg):
         coordinates = []
@@ -66,18 +69,30 @@ class Hindbrain:
         self.path = coordinates
 
     def check_trajectory(self):
-        self.data_lock.acquire()
-        if self.path is not None and self.map_data is not None:
-            idx = [int(round((x[0]-self.map_data.info.origin.position.x)/self.map_data.info.resolution)) for x in self.path]
-            idy = [int(round((x[1]-self.map_data.info.origin.position.y)/self.map_data.info.resolution)) for x in self.path]
-            cost = np.sum(self.map[idx,idy])
+        map_resp = self.cost_srv(GetCostMapRequest())
+        current_map = map_resp.map
+        data = self.make_array(current_map.data, current_map.info.height, current_map.info.width)
+
+        if self.path is not None:
+            idx = [int(round((x[0]-current_map.info.origin.position.x)/current_map.info.resolution)) for x in self.path]
+            idy = [int(round((x[1]-current_map.info.origin.position.y)/current_map.info.resolution)) for x in self.path]
+            try:
+                cost = np.sum(self.map[idx,idy])
+            except:
+                cost = 0
+                for m, n in zip(idx, idy):
+                    try:
+                        cost += data[m, n]
+                    except:
+                        break
             if cost > self.safe_threshold:
+                print 'Replanning!'
                 abort_mission = PolygonStamped()
                 abort_mission.header.frame_id = 'world'
                 abort_mission.header.stamp = rospy.Time(0)
                 self.path_pub.publish(abort_mission)
                 self.replan()
-        self.data_lock.release()
+                self.path = None
 
     def make_array(self,data,height,width):
         return np.array(data).reshape((height,width),order='C')#self.make_array(msg.data, msg.info.height, msg.info.width)

@@ -1,12 +1,12 @@
 num_pts: 40
 
 variance: 100
-lengthscale: 0.8
+lengthscale: 1.5
 noise: 0.1
 seed: 0
 
 model_variance: 100
-model_lengthscale: 0.8
+model_lengthscale: 1.5
 model_noise: 0.1
 
 sensor_rate: 2.

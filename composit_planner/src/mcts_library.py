@@ -104,6 +104,10 @@ class DPWTree(object):
 
                 # If no viable actions are available
                 if current_node.children is None:
+                    # If a first level action has no children avalilable
+                    if current_node.depth == 1:
+                        return current_node, -float('inf') 
+
                     return current_node, reward
 
                 child = self.get_next_child(current_node)

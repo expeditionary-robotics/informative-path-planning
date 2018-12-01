@@ -73,9 +73,9 @@ class Planner:
         self.data_lock = threading.Lock()
 
         # Subscriptions to topics and services 
-        rospy.wait_for_service('query_obstacles')
+        # rospy.wait_for_service('query_obstacles')
         rospy.wait_for_service('query_chemical')
-        self.srv_traj = rospy.ServiceProxy('query_obstacles', TrajectoryCheck)
+        # self.srv_traj = rospy.ServiceProxy('query_obstacles', TrajectoryCheck)
         self.srv_paths = rospy.ServiceProxy('get_paths', PathFromPose)
         self.srv_chem = rospy.ServiceProxy('query_chemical', SimMeasurement)
         self.pose_sub = rospy.Subscriber("/pose", PoseStamped, self.update_pose)

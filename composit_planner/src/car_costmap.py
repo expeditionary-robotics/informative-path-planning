@@ -42,8 +42,10 @@ class CostMap:
         self.temp_pub = rospy.Publisher('/costmap', OccupancyGrid)
 
         # costmap params
-        self.obstacle_threshold = 40.0
-        self.inflation_radius = 1.0
+        self.obstacle_threshold = 80.0
+        inflation_radius_m = rospy.get_param('obstacle_buffer_m',0.25)
+        map_resolution = 0.05 #TODO Read this automatically
+        self.inflation_radius = np.round(inflation_radius_m/map_resolution)
 
         # spin until interrupt
         rospy.spin()
@@ -86,7 +88,7 @@ class CostMap:
 
         costmap = OccupancyGrid()
         costmap.header.stamp = rospy.Time(0)
-        costmap.header.frame_id = msg.header.frame_id
+        costmap.header.frame_id = 'world'
         costmap.data = global_grid.flatten('C')
         costmap.info = msg.info
 

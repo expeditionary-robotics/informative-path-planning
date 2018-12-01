@@ -37,6 +37,7 @@ class ROS_Path_Generator():
         self.hl = rospy.get_param('horizon_length',1.5)
         self.tr = rospy.get_param('turning_radius',0.05)
         self.ss = rospy.get_param('sample_step',0.5)
+	self.ang = rospy.get_param('frontier_angle_range',np.pi/4)
         self.safe_threshold = rospy.get_param('cost_limit', 50.)
 
         # Global variables
@@ -55,14 +56,21 @@ class ROS_Path_Generator():
 
     def generate_frontier_points(self):
         '''From the frontier_size and horizon_length, generate the frontier points to goal'''
-        angle = np.linspace(-1.75,1.75,self.fs) #fix the possibilities to 75% of the unit circle, ignoring points directly behind the vehicle
+        angle = np.linspace(-self.ang,self.ang,self.fs) #fix the possibilities to 75% of the unit circle, ignoring points directly behind the vehicle
         goals = []
         for a in angle:
             x = self.hl*np.cos(self.cp[2]+a)+self.cp[0]
             y = self.hl*np.sin(self.cp[2]+a)+self.cp[1]
             p = self.cp[2]+a
             goals.append((x,y,p))
-        goals.append(self.cp)
+
+            a = np.unwrap([a+np.pi])[0]
+            x = self.hl*np.cos(self.cp[2]+a)+self.cp[0]
+            y = self.hl*np.sin(self.cp[2]+a)+self.cp[1]
+            p = self.cp[2]+a
+            goals.append((x,y,p))
+
+        #goals.append(self.cp)
         self.goals = goals
         return self.goals
 
@@ -70,8 +78,16 @@ class ROS_Path_Generator():
         '''Connect the current_pose to the goal places'''
         all_paths = []
         for goal in self.goals:
-            path = dubins.shortest_path(self.cp, goal, self.tr)
-            true_path, _ = path.sample_many(self.ss)
+            # if np.arctan2(goal[1]-self.cp[1],goal[0]-self.cp[0]) > 0:
+            ang = np.arctan2(goal[1]-self.cp[1],goal[0]-self.cp[0])
+            relative_angle = np.fabs(np.unwrap([ang])[0])
+            if relative_angle < np.pi/2 or relative_angle > 3*np.pi/2:
+                paths = dubins.shortest_path(self.cp, goal, self.tr)
+            else:
+                adjusted = np.unwrap([self.cp[2]-np.pi])[0]
+                cp = (self.cp[0],self.cp[1],adjusted)
+                paths = dubins.shortest_path(cp, goal, self.tr)
+            true_path, _ = paths.sample_many(self.ss)
             all_paths.append(true_path)
         return all_paths
 
@@ -89,9 +105,17 @@ class ROS_Path_Generator():
             idy = [int(round((x[0]-current_map.info.origin.position.x)/current_map.info.resolution)) for x in path]
             idx = [int(round((x[1]-current_map.info.origin.position.y)/current_map.info.resolution)) for x in path]
 
-            cost = np.sum(data[idx,idy])
-            print cost
-	    print data[idx,idy]
+            try:
+                cost = np.sum(data[idx,idy])
+            except:
+                cost = 0
+                for m, n in zip(idx, idy):
+                    try:
+                        cost += data[m,n]
+                    except:
+                        break
+
+
             if cost < self.safe_threshold and len(path) > 0:
                 clear_paths.append(self.make_rosmsg(path))
         
