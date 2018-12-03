@@ -11,7 +11,9 @@ Maintainers: Genevieve Flaspohler and Victoria Preston
 import numpy as np
 import math
 import os
+import copy
 import GPy as GPy
+from sets import Set
 from GPy.inference.latent_function_inference import exact_gaussian_inference
 from GPy.util.linalg import pdinv, dpotrs, dpotri, symmetrify, jitchol, dtrtrs, tdot
 from GPy.util import diag
@@ -495,3 +497,242 @@ class OnlineGPModel(GPModel):
             self._K_chol = jitchol(self.K)
         return self._K_chol
 
+class SpatialGPModel(GPModel):
+    ''' This class inherits from the GP model class
+        Implements a ``sparse'' GP using only nearest-neighbor points maintained using a KD tree
+        Modifies the Posteior class from the GPy Library 
+    '''
+    def __init__(self, ranges, lengthscale, variance, xvals = None, zvals = None, noise = 0.0001, dimension = 2, kernel = 'rbf'):
+
+        super(SpatialGPModel, self).__init__(ranges, lengthscale, variance, noise, dimension, kernel)
+
+        self.batch_size = 20
+        self.neighbor_radius = 1.5 #[meters]
+        # self.neighbor_radius = 100 #[meters]
+        self._prior_mean = 0.
+
+        if xvals is not None:
+            self.init_model(xvals, zvals)
+    
+    def init_model(self, xvals, zvals):
+        # The Gaussian dataset; start with inital values
+        self.xvals = xvals
+        self.zvals = zvals
+
+        # Create a KD tree
+        self.spatial_tree = sp.spatial.KDTree(self.xvals, leafsize = 10)
+        
+        # The data waiting to be batch added to the tree once batch_size is reached
+        self.xwait = None
+        self.zwait = None
+
+    def update_model(self, xvals, zvals, incremental = True):
+        assert(self.xvals is not None)
+        assert(self.zvals is not None)
+
+        # Add data to the waiting queue
+        if self.xwait is None:
+            self.xwait = xvals
+        else:
+            self.xwait = np.vstack([self.xwait, xvals])
+            
+        if self.zwait is None:
+            self.zwait = zvals
+        else:
+            self.zwait = np.vstack([self.zwait, zvals])
+
+        if self.xwait.shape[0] >= self.batch_size:
+            # Add data to the dataset queue
+            if self.xvals is None:
+                self.xvals = self.xwait.copy()
+            else:
+                self.xvals = np.vstack([self.xvals, self.xwait.copy()])
+                
+            if self.zvals is None:
+                self.zvals = self.zwait.copy() 
+            else:
+                self.zvals = np.vstack([self.zvals, self.zwait.copy()])
+
+            # Create a new KD tree
+            self.spatial_tree = sp.spatial.KDTree(self.xvals, leafsize = 10)
+            
+            # Reset the waiting data
+            self.xwait = None
+            self.zwait = None
+
+
+    def add_data(self, xvals, zvals):
+        ''' Public method that adds data to an the GP model.
+        Inputs:
+            xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2
+            zvals (float array): an nparray of floats representing sensor observations, with dimension NUM_PTS x 1 
+        ''' 
+        if self.xvals is None:
+            assert(self.zvals is None)
+            self.init_model(xvals, zvals)
+        else:
+            assert(self.zvals is not None)
+            self.update_model(xvals, zvals)
+
+        update_legacy = False 
+        if update_legacy:
+            # Include this code to update the GP model if you want to compare to lecacy predictor 
+            # If the model hasn't been created yet (can't be created until we have data), create GPy model
+            if self.model == None:
+                self.temp_xvals = xvals
+                self.temp_zvals = zvals
+                self.model = GPy.models.GPRegression(np.array(self.temp_xvals), np.array(self.temp_zvals), self.kern, noise_var = self.noise)
+            # Else add to the exisiting model
+            else:
+                self.temp_xvals = np.vstack([self.temp_xvals, xvals])
+                self.temp_zvals = np.vstack([self.temp_zvals, zvals])
+                self.model.set_XY(X = np.array(self.temp_xvals), Y = np.array(self.temp_zvals))
+
+    
+    def predict_value(self, xvals, include_noise = True, full_cov = False):
+        # Calculate for the test point
+        assert(xvals.shape[0] >= 1)            
+        assert(xvals.shape[1] == self.dim)    
+	n_points, input_dim = xvals.shape
+
+        # With no observations, predict 0 mean everywhere and prior variance
+        if self.xvals is None:
+            return np.zeros((n_points, 1)), np.ones((n_points, 1)) * self.variance
+
+        # Find neightbors within radius
+        point_group = self.spatial_tree.query_ball_point(xvals, self.neighbor_radius)
+
+        point_list = []
+        for points in point_group:
+            for index in points:
+                point_list.append(index)
+
+        point_set = Set(point_list)
+        xpoints = [self.xvals[index] for index in point_set]
+        zpoints = [self.zvals[index] for index in point_set]
+        # print "Size before:", len(xpoints)
+
+        # Brute force check the points in the waiting queue
+        if self.xwait is not None and self.xwait.shape[0] > 0:
+            wait_list = []
+            for i, u in enumerate(self.xwait):
+                for j, v in enumerate(xvals):
+                    # if xvals.shape[0] < 10:
+                    #     print "Comparing", i, j
+                    #     print "Points:", u, v
+                    dist = sp.spatial.distance.minkowski(u, v, p = 2.0)
+                    if dist <= self.neighbor_radius:
+                        wait_list.append(i)
+                        # if xvals.shape[0] < 10:
+                        #     print "Adding point", u
+
+            
+            # if xvals.shape[0] < 10:
+            #     print "The wait list:", wait_list
+
+            wait_set = Set(wait_list)
+        
+            xpoints = [self.xwait[index] for index in wait_set] + xpoints
+            zpoints = [self.zwait[index] for index in wait_set] + zpoints
+            # print "Size after:", len(xpoints)
+
+        xpoints = np.array(xpoints).reshape(-1, 2)
+        zpoints = np.array(zpoints).reshape(-1, 1)
+
+        if xpoints.shape[0] == 0:
+            "No nearby points!"
+            return np.zeros((n_points, 1)), np.ones((n_points, 1)) * self.variance
+
+        # if self.xvals is not None:
+        #     print "Size of kernel array:", self.xvals
+        # if self.xwait is not None:
+        #     print "Size of wait array:", self.xwait.shape
+        # if xpoints is not None:
+        #     print "Size of returned points:", xpoints.shape
+
+        Kx = self.kern.K(xpoints, xvals)
+        K = self.kern.K(xpoints, xpoints)
+        
+        # Adds some additional noise to ensure well-conditioned
+        Ky = K.copy()
+        diag.add(Ky, self.noise + 1e-8)
+
+        Wi, LW, LWi, W_logdet = pdinv(Ky)
+        woodbury_inv = Wi 
+        woodbury_vector =  np.dot(woodbury_inv, zpoints) 
+
+        mu = np.dot(Kx.T, woodbury_vector)
+        if len(mu.shape) == 1:
+            mu = mu.reshape(-1,1)
+        if full_cov:
+            Kxx = self.kern.K(xvals)
+            if self.woodbury_inv.ndim == 2:
+                var = Kxx - np.dot(Kx.T, np.dot(woodbury_inv, Kx))
+        else:
+            Kxx = self.kern.Kdiag(xvals)
+            var = (Kxx - np.sum(np.dot(woodbury_inv.T, Kx) * Kx, 0))[:,None]
+
+        # If model noise should be included in the prediction
+        if include_noise: 
+            var += self.noise
+
+        update_legacy = False
+        if update_legacy:
+            # With no observations, predict 0 mean everywhere and prior variance
+            if self.model == None:
+                mean, variance = np.zeros((n_points, 1)), np.ones((n_points, 1)) * self.variance
+            
+            # Else, return the predicted values
+            mean, variance = self.model.predict(xvals, full_cov = False, include_likelihood = include_noise)
+            if xvals.shape[0] < 10:
+                # print "-------- MEAN ------------"
+                # print "spatial method:"
+                # print mu
+                # print "default method:"
+                # print mean
+                # print "-------- VARIANCE ------------"
+                # print "spatial method:"
+                # print var
+                # print "default method:"
+                # print variance 
+                
+                print np.sum(mu - mean)
+                print np.sum(var - variance)
+
+        return mu, var
+    
+    ''' Sample from the Gaussian Process posterior '''
+    def posterior_samples(self, xvals, size=10, full_cov = True):
+        """
+        Samples the posterior GP at the points X.
+
+        :param X: The points at which to take the samples.
+        :type X: np.ndarray (Nnew x self.input_dim)
+        :param size: the number of a posteriori samples.
+        :type size: int.
+        :param full_cov: whether to return the full covariance matrix, or just the diagonal.
+        :type full_cov: bool.
+        :returns: fsim: set of simulations
+        :rtype: np.ndarray (D x N x samples) (if D==1 we flatten out the first dimension)
+        """
+        m, v = self.predict_value(xvals, include_noise = True, full_cov = full_cov)
+
+        def sim_one_dim(m, v):
+            if not full_cov:
+                return np.random.multivariate_normal(m.flatten(), np.diag(v.flatten()), size).T
+            else:
+                return np.random.multivariate_normal(m.flatten(), v, size).T
+
+        num_data, input_dim = self.xvals.shape
+        output_dim = self.zvals.shape[1]
+
+        if output_dim == 1:
+            return sim_one_dim(m, v)
+        else:
+            fsim = np.empty((output_dim, num_data, size))
+            for d in range(output_dim):
+                if (not full_cov) and v.ndim == 2:
+                    fsim[d] = sim_one_dim(m[:, d], v[:, d])
+                else:
+                    fsim[d] = sim_one_dim(m[:, d], v)
+        return fsim
