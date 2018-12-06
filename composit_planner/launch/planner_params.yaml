@@ -5,11 +5,11 @@ horizon_length: 1.5
 turning_radius: 1.0
 sample_step: 0.1
 rollout_length: 3
-obstacle_buffer_m: 0.5
+obstacle_buffer_m: 0.4
 cost_limit: 40.0
 unknown_limit: -5.0
-make_paths_behind: True
-trajectory_endpoint_precision: 0.2
-planner_type: 'myopic'
+make_paths_behind: False 
+trajectory_endpoint_precision: 0.25
+planner_type: 'nonmyopic'
 tree_type: 'dpw_tree'
 reward_func: 'mes'
