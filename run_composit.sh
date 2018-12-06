@@ -61,7 +61,7 @@ sleep 2
 
 source ~/rrg/devel/setup.bash
 echo "Starting Octomap"
-{ roslaunch octomap_metrics_msgs octomap_server_racecar.launch & } &> /dev/null
+{ roslaunch octomap_metrics_msgs octomap_server_composit.launch & } &> /dev/null
 sleep 2
 # { roslaunch composit_planner mapping.launch & } &> /dev/null
 # sleep 2

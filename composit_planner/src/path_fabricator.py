@@ -39,6 +39,8 @@ class ROS_Path_Generator():
         self.ss = rospy.get_param('sample_step',0.5)
 	self.ang = rospy.get_param('frontier_angle_range',np.pi/4)
         self.safe_threshold = rospy.get_param('cost_limit', 50.)
+        self.unknown_threshold = rospy.get_param('unknown_limit',-2.0)
+        self.make_paths_behind = rospy.get_param('make_paths_behind',False)
 
         # Global variables
         self.goals = [] #The frontier coordinates
@@ -64,11 +66,12 @@ class ROS_Path_Generator():
             p = self.cp[2]+a
             goals.append((x,y,p))
 
-            a = np.unwrap([a+np.pi])[0]
-            x = self.hl*np.cos(self.cp[2]+a)+self.cp[0]
-            y = self.hl*np.sin(self.cp[2]+a)+self.cp[1]
-            p = self.cp[2]+a
-            goals.append((x,y,p))
+            if self.make_paths_behind == True:
+                a = np.unwrap([a+np.pi])[0]
+                x = self.hl*np.cos(self.cp[2]+a)+self.cp[0]
+                y = self.hl*np.sin(self.cp[2]+a)+self.cp[1]
+                p = self.cp[2]+a
+                goals.append((x,y,p))
 
         #goals.append(self.cp)
         self.goals = goals
@@ -106,17 +109,24 @@ class ROS_Path_Generator():
             idx = [int(round((x[1]-current_map.info.origin.position.y)/current_map.info.resolution)) for x in path]
 
             try:
-                cost = np.sum(data[idx,idy])
+                cost_vals = data[idx,idy]
+                cost = np.sum([k for k in cost_vals if k>=0.])
+                unknown_cost = np.sum([k for k in cost_vals if k<0.])
             except:
                 cost = 0
+                unknown_cost = 0
                 for m, n in zip(idx, idy):
                     try:
-                        cost += data[m,n]
+                        if data[m,n] >= 0:
+                            cost += data[m,n]
+                        else:
+                            unknown_cost += data[m,n]
+
                     except:
                         break
 
 
-            if cost < self.safe_threshold and len(path) > 0:
+            if (cost < self.safe_threshold and unknown_cost > self.unknown_threshold) and len(path) > 0:
                 clear_paths.append(self.make_rosmsg(path))
         
         # Make a debugging message

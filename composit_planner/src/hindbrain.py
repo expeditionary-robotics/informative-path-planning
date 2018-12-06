@@ -38,20 +38,19 @@ class Hindbrain:
 
         # subscribe to costmap and trajectory
         # self.map_sub = rospy.Subscriber('/costmap',OccupancyGrid, self.handle_map)
-        self.traj_sub = rospy.Subscriber('/selected_trajectory', PolygonStamped, self.handle_trajectory)
+        self.traj_sub = rospy.Subscriber('/trajectory/current', PolygonStamped, self.handle_trajectory)
         self.cost_srv = rospy.ServiceProxy('obstacle_map', GetCostMap)
 
         # publish to generate new plan
         self.replan = rospy.ServiceProxy('replan', RequestReplan)
 
         #create polygon object to kill current trajectory
-        self.path_pub = rospy.Publisher('/trajectory/current', PolygonStamped,
+        self.path_pub = rospy.Publisher('/selected_trajectory', PolygonStamped,
                                         queue_size=1)
-
         self.data_lock = threading.Lock()
 
         #run the node at a certain rate to check things
-        r = rospy.Rate(10)
+        r = rospy.Rate(30)
         while not rospy.is_shutdown():
             # Pubish current belief map
             self.check_trajectory()
@@ -73,16 +72,19 @@ class Hindbrain:
         current_map = map_resp.map
         data = self.make_array(current_map.data, current_map.info.height, current_map.info.width)
 
-        if self.path is not None:
+        if self.path is not None and len(self.path) > 0:
             idx = [int(round((x[0]-current_map.info.origin.position.x)/current_map.info.resolution)) for x in self.path]
             idy = [int(round((x[1]-current_map.info.origin.position.y)/current_map.info.resolution)) for x in self.path]
             try:
-                cost = np.sum(self.map[idx,idy])
+                # print data[idy,idx]
+                cost_vals = [k for k in data[idy,idx] if k>=0.]
+                cost = np.sum(cost_vals)
             except:
                 cost = 0
                 for m, n in zip(idx, idy):
                     try:
-                        cost += data[m, n]
+                        if data[n,m] >= 0:
+                            cost += data[n,m]
                     except:
                         break
             if cost > self.safe_threshold:
@@ -90,9 +92,12 @@ class Hindbrain:
                 abort_mission = PolygonStamped()
                 abort_mission.header.frame_id = 'world'
                 abort_mission.header.stamp = rospy.Time(0)
+                abort_mission.polygon.points = []
+                # self.path_pub.publish(abort_mission)
                 self.path_pub.publish(abort_mission)
-                self.replan()
                 self.path = None
+                self.replan()
+                
 
     def make_array(self,data,height,width):
         return np.array(data).reshape((height,width),order='C')#self.make_array(msg.data, msg.info.height, msg.info.width)

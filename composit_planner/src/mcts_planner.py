@@ -56,12 +56,14 @@ class Planner:
         self.rollout_len = rospy.get_param('rollout_length', 5)
         self.tree_type = rospy.get_param('tree_type','dpw_tree')
         self.planner_type = rospy.get_param('planner_type', 'myopic')
+        self.allowed_error = rospy.get_param('trajectory_endpoint_precision', 0.1)
         
         # Initialize member variables
         self.current_max = -float("inf")
         self.data_queue = list()
         self.pose_queue = list()
         self.pose = Point32() 
+        self.last_viable = None
         
         # Initialize the robot's GP model with the initial kernel parameters
         self.GP = OnlineGPModel(ranges = [self.x1min, self.x1max, self.x2min, self.x2max], lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
@@ -84,8 +86,9 @@ class Planner:
         # Publications and service offering 
         self.srv_replan = rospy.Service('replan', RequestReplan, self.replan)
         self.pub = rospy.Publisher('/chem_map', PointCloud, queue_size = 100)
-        self.plan_pub = rospy.Publisher("/selected_trajectory", PolygonStamped, queue_size=1)
-        
+        # self.plan_pub = rospy.Publisher("/selected_trajectory", PolygonStamped, queue_size=1)
+        self.plan_pub = rospy.Publisher("/trajectory/current", PolygonStamped, queue_size=1)
+
         r = rospy.Rate(self.visualize_rate)
         while not rospy.is_shutdown():
             # Pubish current belief map
@@ -149,6 +152,12 @@ class Planner:
         q = odom_pose.orientation
         trans_pose.z = euler_from_quaternion((q.x, q.y, q.z, q.w))[2]
         self.pose = trans_pose
+
+        last = self.last_viable
+        if last is not None:
+            if (msg.pose.position.x-last.x)**2 + (msg.pose.position.y-last.y)**2 < self.allowed_error**2:
+                print 'here'
+                self.replan('Replan!')
 
     
     def get_sensordata(self, msg):
@@ -224,6 +233,7 @@ class Planner:
     def choose_myopic_trajectory(self, eval_value):
         # Generate paths (will be obstacle checked against current map)
         clear_paths = self.srv_paths(PathFromPoseRequest(self.pose))
+        print clear_paths
         clear_paths = clear_paths.safe_paths
         #Now, select the path with the highest potential reward
         path_selector = {}
@@ -251,8 +261,15 @@ class Planner:
                     best_path, value = self.choose_myopic_trajectory(eval_value)
                     controller_path = self.strip_angle(best_path)
                     self.plan_pub.publish(controller_path) #send the trajectory to move base
+                    self.last_viable = controller_path.polygon.points[-1]
                 except:
-                    print 'ATTENTION HUMAN! I AM STUCK. SAVE MEEEE'
+                    print 'ATTENTION HUMAN! I MAY NEED ASSISTANCE!'
+                    bad_path = PolygonStamped()
+                    bad_path.header.frame_id = 'world'
+                    bad_path.header.stamp = rospy.Time(0)
+                    bad_path.polygon.points = []
+                    self.plan_pub.publish(bad_path)
+                    self.last_viable = None
             else:
                 pass
         else:
@@ -265,7 +282,13 @@ class Planner:
                     controller_path = self.strip_angle(best_path)
                     self.plan_pub.publish(controller_path) #send the trajectory to move base
                 except:
-                    print 'PLANNER FAILED'
+                    print 'PLANNER FAILED! I MAY NEED ASSISTANCE!'
+                    bad_path = PolygonStamped()
+                    bad_path.header.frame_id = 'world'
+                    bad_path.header.stamp = rospy.Time(0)
+                    bad_path.polygon.points = []
+                    self.plan_pub.publish(bad_path)
+                    self.last_viable = None
             else:
                 pass
 
