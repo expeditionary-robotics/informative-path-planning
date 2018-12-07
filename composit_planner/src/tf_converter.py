@@ -10,8 +10,6 @@ class tfChanger(object):
 	rospy.init_node('pose_tf_listener')
 
 	self.br = tf.TransformBroadcaster()
-
-	# listener = tf.TransformListener()
 	pose_listener = rospy.Subscriber('/tf', tfMessage, self.pose_changer)
 	rospy.spin()
 	
@@ -22,17 +20,18 @@ class tfChanger(object):
 		transform.transform.rotation.x = 0.0
 		transform.transform.rotation.y = 0.0
 		transform.child_frame_id = 'body_flat'
-			
-            self.br.sendTransform((transform.transform.translation.x,
-                                   transform.transform.translation.y,
-                                   transform.transform.translation.z),
-                                  (transform.transform.rotation.x,
-                                   transform.transform.rotation.y,
-                                   transform.transform.rotation.z,
-                                   transform.transform.rotation.w),
-                                  transform.header.stamp,
-                                  'world',
-                                  'body_flat')
+
+                self.br.sendTransform((transform.transform.translation.x,
+                                    transform.transform.translation.y,
+                                    0.01),
+                                    (transform.transform.rotation.x,
+                                    transform.transform.rotation.y,
+                                    transform.transform.rotation.z,
+                                    transform.transform.rotation.w),
+                                    # transform.header.stamp,
+                                    rospy.Time.now(),
+                                    'body_flat',
+                                    'world')
 
 if __name__ == '__main__':
     #initialize node

@@ -57,7 +57,8 @@ class ObstacleCheck:
         # np.save('../cost_map', data)
         # get the most recent transforms
         self.tf.getLatestCommonTime("/world", "/map")
-        self.tf.getLatestCommonTime("/world", "/body")
+        # self.tf.getLatestCommonTime("/world", "/body")
+        self.tf.getLatestCommonTime("/world", "/body_flat")
         # walk through the paths to check
         for path in req.query_path:
             updated_trajectory = []

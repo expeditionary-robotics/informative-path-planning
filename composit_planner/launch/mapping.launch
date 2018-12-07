@@ -1,7 +1,8 @@
 <launch>
   <!-- SLAM mapping node -->
   <node pkg="gmapping" type="slam_gmapping" name="car_slam_gmapping">
-    <param name="base_frame" value="body"/>
+    <!-- <param name="base_frame" value="body"/> -->
+    <param name="base_frame" value="body_flat"/>
       <!-- How often (in seconds) to update the map -->
     <param name="map_update_interval" value="0.1"/> 
       <!-- Maximum useable range of the laser -->

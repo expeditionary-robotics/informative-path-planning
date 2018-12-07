@@ -4,7 +4,7 @@
 
     <!-- Args and static variables to set -->
     <node pkg="tf" type="static_transform_publisher" name="base_link_to_laser"
-    args="0.0 0.0 0.0 0.0 0.0 0.0 /body /laser 40" />
+    args="0.0 0.0 0.0 0.0 0.0 0.0 /body_flat /laser 40" />
 
     <rosparam command="load" file="$(find composit_planner)/launch/chem_params.yaml" />
     <rosparam command="load" file="$(find composit_planner)/launch/planner_params.yaml" />
@@ -17,6 +17,7 @@
     <node pkg="composit_planner" type="hindbrain.py" name="hindbrain" output="screen" />
 
     <!-- Trajectory Services -->
+    <node pkg="tf_converter" type="tf_converter.py" name="tf_converter" output="screen" />
 
     <!-- Make safe paths -->
     <node pkg="composit_planner" type="path_fabricator.py" name="path_fabricator" output="screen" />

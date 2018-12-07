@@ -9,7 +9,7 @@ obstacle_buffer_m: 0.4
 cost_limit: 40.0
 unknown_limit: -5.0
 make_paths_behind: False 
-trajectory_endpoint_precision: 0.25
-planner_type: 'nonmyopic'
+trajectory_endpoint_precision: 0.4
+planner_type: 'myopic'
 tree_type: 'dpw_tree'
 reward_func: 'mes'
