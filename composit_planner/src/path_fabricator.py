@@ -84,12 +84,15 @@ class ROS_Path_Generator():
             # if np.arctan2(goal[1]-self.cp[1],goal[0]-self.cp[0]) > 0:
             ang = np.arctan2(goal[1]-self.cp[1],goal[0]-self.cp[0])
             relative_angle = np.fabs(np.unwrap([ang])[0])
+            paths = dubins.shortest_path(self.cp, goal, self.tr)
+            '''
             if relative_angle < np.pi/2 or relative_angle > 3*np.pi/2:
                 paths = dubins.shortest_path(self.cp, goal, self.tr)
             else:
                 adjusted = np.unwrap([self.cp[2]-np.pi])[0]
                 cp = (self.cp[0],self.cp[1],adjusted)
                 paths = dubins.shortest_path(cp, goal, self.tr)
+            '''
             true_path, _ = paths.sample_many(self.ss)
             all_paths.append(true_path)
         return all_paths

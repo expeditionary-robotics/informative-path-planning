@@ -56,11 +56,6 @@ class Hindbrain:
             self.check_trajectory()
             r.sleep()
 
-    def handle_map(self, req):
-        pass
-        # self.map = self.make_array(req.data, req.info.height, req.info.width)
-        # self.map_data = req
-
     def handle_trajectory(self, msg):
         coordinates = []
         for coord in msg.polygon.points:
@@ -93,21 +88,13 @@ class Hindbrain:
                 abort_mission.header.frame_id = 'world'
                 abort_mission.header.stamp = rospy.Time(0)
                 abort_mission.polygon.points = []
-                # self.path_pub.publish(abort_mission)
                 self.path_pub.publish(abort_mission)
                 self.path = None
                 self.replan()
                 
 
     def make_array(self,data,height,width):
-        return np.array(data).reshape((height,width),order='C')#self.make_array(msg.data, msg.info.height, msg.info.width)
-
-        # output = np.zeros((height,width))
-        # for i in range(width):
-        #     for j in range(height):
-        #         output[i,j] = data[i+j*width]
-        # return output
-
+        return np.array(data).reshape((height,width),order='C')
 
 
 def main():

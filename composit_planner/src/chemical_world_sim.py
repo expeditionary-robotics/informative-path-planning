@@ -55,6 +55,21 @@ class Environment:
         self.pose = rospy.Subscriber("/pose", PoseStamped, self.update_pose)
 
         # Generate the world
+        self.make_world(None)
+
+        # Define ROS service
+        self.srv = rospy.Service('query_chemical', SimMeasurement, self.sample_value)
+        self.visualize_map = rospy.Service('vis_chemworld', RequestReplan, self.publish_gp)
+        self.regen_map = rospy.Service('regen_map', RequestRegen, self.make_world)
+        self.pub_vis = rospy.Publisher('vis_chemworld', PointCloud, queue_size = 100)
+        self.pub_max = rospy.Publisher('vis_maxima', PointCloud, queue_size = 100)
+        
+        rospy.spin()
+
+    def make_world(self, msg):
+        if msg is not None:
+            seed = msg.seed
+        # Generate the world
         # Generate a set of discrete grid points, uniformly spread across the environment
         x1 = np.linspace(self.x1min, self.x1max, self.num_pts)
         x2 = np.linspace(self.x2min, self.x2max, self.num_pts)
@@ -82,9 +97,13 @@ class Environment:
             # Take an initial sample in the GP prior, conditioned on no other data
             xsamples = np.reshape(np.array(data[0, :]), (1, 2)) # dimension: 1 x 2        
             mean, var = self.GP.predict_value(xsamples, include_noise = False)   
-            if self.seed is not None:
+            if msg is not None:
+                np.random.seed(seed)
+                seed += 1
+            elif self.seed is not None:
                 np.random.seed(self.seed)
                 self.seed += 1
+
             zsamples = np.random.normal(loc = 0, scale = np.sqrt(var))
             zsamples = np.reshape(zsamples, (1,1)) # dimension: 1 x 1 
                                 
@@ -102,13 +121,9 @@ class Environment:
         # np.save('../world_map_zvals', self.GP.zvals.reshape(x1vals.shape))
         np.savez('../world_map', x1=x1vals, x2=x2vals, z=self.GP.zvals.reshape(x1vals.shape))
 
-        # Define ROS service
-        self.srv = rospy.Service('query_chemical', SimMeasurement, self.sample_value)
-        self.visualize_map = rospy.Service('vis_chemworld', RequestReplan, self.publish_gp)
-        self.pub_vis = rospy.Publisher('vis_chemworld', PointCloud, queue_size = 100)
-        self.pub_max = rospy.Publisher('vis_maxima', PointCloud, queue_size = 100)
+        # self.publish_gp(None)
         
-        rospy.spin()
+        return RequestRegenResponse(True)
 
     def publish_gp(self, _):
         # Generate a set of observations from robot model with which to make contour plots

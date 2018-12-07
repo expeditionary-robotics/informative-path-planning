@@ -63,6 +63,7 @@ add_service_files(
   FILES
   SimMeasurement.srv
   RequestReplan.srv
+  RequestRegen.srv
   GetValue.srv
   GetCostMap.srv
   TrajectoryCheck.srv

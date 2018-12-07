@@ -145,6 +145,7 @@ class Planner:
         ''' Update the current pose of the robot.
         Input: msg (geometry_msgs/PoseStamped)
         Output: None ''' 
+        #print 'Updating Pose'
         odom_pose = msg.pose # of type odometry messages
         trans_pose = Point32()
         trans_pose.x = odom_pose.position.x
@@ -153,13 +154,6 @@ class Planner:
         trans_pose.z = euler_from_quaternion((q.x, q.y, q.z, q.w))[2]
         self.pose = trans_pose
 
-        last = self.last_viable
-        if last is not None:
-            if (msg.pose.position.x-last.x)**2 + (msg.pose.position.y-last.y)**2 < self.allowed_error**2:
-                print 'here'
-                self.replan('Replan!')
-
-    
     def get_sensordata(self, msg):
         ''' Creates a queue of incoming sample points on the /chem_data topic 
         Input: msg (flat64) checmical data at current pose
@@ -275,12 +269,11 @@ class Planner:
         else:
             if self.pose is not None:
                 try:
-                    # TODO: set time
                     mcts = mcts_lib.cMCTS(self.GP, self.pose, self.replan_budget, self.rollout_len, self.srv_paths, eval_value, time = 0, tree_type = self.tree_type)
-                    # TODO: set time
                     best_path, value = mcts.choose_trajectory(t = 0)
                     controller_path = self.strip_angle(best_path)
                     self.plan_pub.publish(controller_path) #send the trajectory to move base
+                    self.last_viable = controller_path.polygon.points[-1]
                 except:
                     print 'PLANNER FAILED! I MAY NEED ASSISTANCE!'
                     bad_path = PolygonStamped()
