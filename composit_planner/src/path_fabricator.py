@@ -96,7 +96,7 @@ class ROS_Path_Generator():
             all_paths.append(true_path)
 
         if self.make_stay_path == True:
-            all_paths.append([self.cp for i in range(round(self.hl/self.ss))])
+            all_paths.append([self.cp for i in range(0,int(self.hl/self.ss))])
 
         return all_paths
 

@@ -66,13 +66,14 @@ class Node(object):
         print self.name
 
 class DPWTree(object):
-    def __init__(self, eval_value, belief, pose, path_service, time, depth, c):
+    def __init__(self, eval_value, belief, pose, path_service, time, depth, c, UPDATE_FLAG = True):
         self.path_service = path_service
         self.eval_value = eval_value 
 
         self.max_depth = depth
         self.t = time
         self.c = c
+        self.UPDATE_FLAG = UPDATE_FLAG
 
         self.root = Node(pose, parent = None, name = 'root', action = None, zvals = None)  
         #self.build_action_children(self.root) 
@@ -148,21 +149,25 @@ class DPWTree(object):
                     child = random.choice(current_node.children)
                     nqueries = [node.nqueries for node in current_node.children]
                     child = random.choice([node for node in current_node.children if node.nqueries == min(nqueries)])
-                    belief.add_data(xobs, child.zvals)
+                    if self.UPDATE_FLAG:
+                        belief.add_data(xobs, child.zvals)
                     #print "Selcted child:", child.nqueries
                     return self.leaf_helper(child, reward + r, belief)
 
-            if belief.model is None:
-                n_points, input_dim = xobs.shape
-                zmean, zvar = np.zeros((n_points, )), np.eye(n_points) * belief.variance
-                zobs = np.random.multivariate_normal(mean = zmean, cov = zvar)
-                zobs = np.reshape(zobs, (n_points, 1))
-            else:
-                zobs = belief.posterior_samples(xobs, full_cov = False, size = 1)
+            if self.UPDATE_FLAG:
+                if belief.model is None:
+                    n_points, input_dim = xobs.shape
+                    zmean, zvar = np.zeros((n_points, )), np.eye(n_points) * belief.variance
+                    zobs = np.random.multivariate_normal(mean = zmean, cov = zvar)
+                    zobs = np.reshape(zobs, (n_points, 1))
+                else:
+                    zobs = belief.posterior_samples(xobs, full_cov = False, size = 1)
 
-            belief.add_data(xobs, zobs)
-            # TODO: figure out if this should be dense path to get accurate end point
-            #pose_new = current_node.dense_path[-1]
+                belief.add_data(xobs, zobs)
+            else:
+                zobs = None
+
+            # Set new pose as the endpoint of the action
             pose_new = current_node.action.polygon.points[-1]
 
             child = Node(pose = pose_new, 
@@ -223,8 +228,8 @@ class DPWTree(object):
 
 ''' Inherit class, that implements more standard MCTS, and assumes MLE observation to deal with continuous spaces '''
 class MLETree(DPWTree):
-    def __init__(self, eval_value, belief, pose, path_service, time, depth, c):
-        super(MLETree, self).__init__(eval_value,  belief, pose, path_service, time, depth, c)
+    def __init__(self, eval_value, belief, pose, path_service, time, depth, c, UPDATE_FLAG):
+        super(MLETree, self).__init__(eval_value,  belief, pose, path_service, time, depth, c, UPDATE_FLAG)
 
     def random_rollouts(self, current_node, reward, belief):
         cur_depth = current_node.depth
@@ -242,35 +247,21 @@ class MLETree(DPWTree):
             r = self.eval_value.predict_value(belief, actions[a].polygon.points, time = self.t)
             xobs = np.array([[msg.x, msg.y] for msg in actions[a].polygon.points]).reshape(len(actions[a].polygon.points), 2)
 
-            '''
-            obs = np.array(actions[keys[a]])
-            xobs = np.vstack([obs[:,0], obs[:,1]]).T
-
-            if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
-                r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief, param = self.param)
-            elif self.f_rew == 'exp_improve':
-                r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief, param = self.param)
-            else:
-                r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief)
-            '''
-
             # ''Simulate'' the maximum likelihood observation
-            if belief.model is None:
-                n_points, input_dim = xobs.shape
-                zobs = np.zeros((n_points, ))
-                zobs = np.reshape(zobs, (n_points, 1))
+            if self.UPDATE_FLAG:
+                if belief.model is None:
+                    n_points, input_dim = xobs.shape
+                    zobs = np.zeros((n_points, ))
+                    zobs = np.reshape(zobs, (n_points, 1))
+                else:
+                    zobs, _= belief.predict_value(xobs)
+
+                belief.add_data(xobs, zobs)
             else:
-                zobs, _= belief.predict_value(xobs)
+                zobs = None
 
-            belief.add_data(xobs, zobs)
-            # pose = dense_paths[keys[a]][-1] # TODO should this be dense
-            # p = actions[a].poygon.points[-1]
-            # pose = Pose()
-            # pose.position.x = p.x
-            # pose.position.y = p.y
-            # pose.orientation = quaternion_from_euler(0,0,p[2])
+            # Set new pose as the endpoint of the action
             pose = actions[a].polygon.points[-1]
-
 
             reward += r
             cur_depth += 1
@@ -324,16 +315,22 @@ class MLETree(DPWTree):
                 r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief)
             '''
 
+            if self.UPDATE_FLAG:
             # ''Simulate'' the maximum likelihood observation
-            if belief.model is None:
-                n_points, input_dim = xobs.shape
-                zobs = np.zeros((n_points, ))
-                zobs = np.reshape(zobs, (n_points, 1))
-            else:
-                zobs, _= belief.predict_value(xobs)
+                if belief.model is None:
+                    n_points, input_dim = xobs.shape
+                    zobs = np.zeros((n_points, ))
+                    zobs = np.reshape(zobs, (n_points, 1))
+                else:
+                    zobs, _= belief.predict_value(xobs)
 
-            belief.add_data(xobs, zobs)
+                belief.add_data(xobs, zobs)
+            else:
+                zobs = None
+
+            # Set new pose as the endpoint of the action
             pose_new = current_node.action.polygon.points[-1]
+
             child = Node(pose = pose_new, 
                          parent = current_node, 
                          name = current_node.name + '_belief' + str(current_node.depth + 1), 
@@ -363,7 +360,7 @@ class MLETree(DPWTree):
 
 class cMCTS():
     '''Class that establishes a continuous MCTS for nonmyopic planning'''
-    def __init__(self, belief, initial_pose, computation_budget, rollout_length, path_service, eval_value, time, tree_type = None):
+    def __init__(self, belief, initial_pose, computation_budget, rollout_length, path_service, eval_value, time, tree_type = None, belief_updates = True):
         '''
         Initialize with constraints for the planning, including whether there is a budget or planning horizon
         Inputs:
@@ -391,6 +388,7 @@ class cMCTS():
         # The tree
         self.tree = None
         self.tree_type = tree_type
+        self.belief_updates = belief_updates
 
         # The different constants for logarithmic vs polynomial exploration
         # TODO: fix this; currently the tree doesn't know it's reward type
@@ -432,9 +430,9 @@ class cMCTS():
 
         # initialize tree
         if self.tree_type == 'dpw_tree':
-            self.tree = DPWTree(self.eval_value, self.GP, self.pose, self.path_service, time = t, depth = self.rollout_len, c = self.c)
+            self.tree = DPWTree(self.eval_value, self.GP, self.pose, self.path_service, time = t, depth = self.rollout_len, c = self.c, UPDATE_FLAG = self.belief_updates)
         elif self.tree_type == 'mle_tree':
-            self.tree = MLETree(self.eval_value, self.GP, self.pose, self.path_service, time = t, depth = self.rollout_len, c = self.c)
+            self.tree = MLETree(self.eval_value, self.GP, self.pose, self.path_service, time = t, depth = self.rollout_len, c = self.c, UPDATE_FLAG = self.belief_updates)
         else:
             raise ValueError('Tree type must be one of either \'dpw_tree\' or \'mle_tree\'')
 

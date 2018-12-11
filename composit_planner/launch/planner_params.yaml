@@ -17,3 +17,4 @@ tree_type: 'dpw_tree'
 reward_func: 'mes'
 replan_budget: 100
 rollout_length: 5
+belief_updates: False 

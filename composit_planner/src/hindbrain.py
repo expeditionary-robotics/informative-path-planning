@@ -31,6 +31,8 @@ class Hindbrain:
         '''
 
         self.safe_threshold = rospy.get_param('cost_limit', 50.)
+        self.allow_backup = rospy.get_param('allow_to_backup', True)
+
 
         self.map = None
         self.map_data = None
@@ -47,7 +49,7 @@ class Hindbrain:
         #create polygon object to kill current trajectory
         self.path_pub = rospy.Publisher('/selected_trajectory', PolygonStamped,
                                         queue_size=1)
-        self.data_lock = threading.Lock()
+        self.backup_pub = rospy.Publisher('/call_backup', Bool, queue_size=1)
 
         #run the node at a certain rate to check things
         r = rospy.Rate(30)
@@ -84,13 +86,16 @@ class Hindbrain:
                         break
             if cost > self.safe_threshold:
                 print 'Replanning!'
-                abort_mission = PolygonStamped()
-                abort_mission.header.frame_id = 'world'
-                abort_mission.header.stamp = rospy.Time(0)
-                abort_mission.polygon.points = []
-                self.path_pub.publish(abort_mission)
+                # abort_mission = PolygonStamped()
+                # abort_mission.header.frame_id = 'world'
+                # abort_mission.header.stamp = rospy.Time(0)
+                # abort_mission.polygon.points = []
+                # self.path_pub.publish(abort_mission)
                 self.path = None
-                self.replan()
+                if self.allow_backup == True:
+                        call_backup = Bool()
+                        call_backup.data = True
+                        self.backup_pub.publish(call_backup)
                 
 
     def make_array(self,data,height,width):

@@ -15,6 +15,7 @@
 
     <!-- Obstacle Avoidance Hindbrain -->
     <node pkg="composit_planner" type="hindbrain.py" name="hindbrain" output="screen" />
+    <node pkg="composit_planner" type="backup_controller.py" name="backup_controller" output="screen" />
 
     <!-- Trajectory Services -->
     <node pkg="composit_planner" type="tf_converter.py" name="tf_converter" output="screen" />

@@ -35,9 +35,9 @@ class TrajMonitor():
         '''
         The trajectory comes in as a series of poses. It is assumed that the desired angle has already been determined
         '''
-        print 'Getting planning point'
+        # print 'Getting planning point'
         self.new_goals = traj.polygon.points
-        if len(self.new_goals) != 0:
+        if len(self.new_goals) > 1:
             self.last_viable = self.new_goals[-1]
 
 
