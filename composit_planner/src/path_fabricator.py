@@ -37,11 +37,11 @@ class ROS_Path_Generator():
         self.hl = rospy.get_param('horizon_length',1.5)
         self.tr = rospy.get_param('turning_radius',0.05)
         self.ss = rospy.get_param('sample_step',0.5)
-	self.ang = rospy.get_param('frontier_angle_range',np.pi/4)
+        self.ang = rospy.get_param('frontier_angle_range',np.pi/4)
         self.safe_threshold = rospy.get_param('cost_limit', 50.)
         self.unknown_threshold = rospy.get_param('unknown_limit',-2.0)
         self.make_paths_behind = rospy.get_param('make_paths_behind',False)
-
+        self.make_stay_path = rospy.get_param('allow_to_stay', True)
         # Global variables
         self.goals = [] #The frontier coordinates
         self.samples = {} #The sample points which form the paths
@@ -73,7 +73,6 @@ class ROS_Path_Generator():
                 p = self.cp[2]+a
                 goals.append((x,y,p))
 
-        #goals.append(self.cp)
         self.goals = goals
         return self.goals
 
@@ -95,6 +94,10 @@ class ROS_Path_Generator():
             '''
             true_path, _ = paths.sample_many(self.ss)
             all_paths.append(true_path)
+
+        if self.make_stay_path == True:
+            all_paths.append([self.cp for i in range(round(self.hl/self.ss))])
+
         return all_paths
 
     def rosify_safe_path(self, paths):

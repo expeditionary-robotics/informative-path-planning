@@ -1,15 +1,19 @@
-replan_budget: 100
 frontier_size: 10
 frontier_angle_range: 1.0
 horizon_length: 1.5
 turning_radius: 0.65
 sample_step: 0.1
-rollout_length: 5
+make_paths_behind: False 
+allow_to_stay: True
+allow_to_backup: True
+
 obstacle_buffer_m: 0.3
 cost_limit: 40.0
 unknown_limit: -5.0
-make_paths_behind: False 
 trajectory_endpoint_precision: 0.4
+
 planner_type: 'nonmyopic'
 tree_type: 'dpw_tree'
 reward_func: 'mes'
+replan_budget: 100
+rollout_length: 5

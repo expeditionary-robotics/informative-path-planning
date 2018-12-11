@@ -56,7 +56,10 @@ class Planner:
         self.rollout_len = rospy.get_param('rollout_length', 5)
         self.tree_type = rospy.get_param('tree_type','dpw_tree')
         self.planner_type = rospy.get_param('planner_type', 'myopic')
+
+        # Get navigation params
         self.allowed_error = rospy.get_param('trajectory_endpoint_precision', 0.1)
+        self.allow_backup = rospy.get_param('allow_to_backup', True)
         
         # Initialize member variables
         self.current_max = -float("inf")
@@ -258,11 +261,16 @@ class Planner:
                     self.last_viable = controller_path.polygon.points[-1]
                 except:
                     print 'ATTENTION HUMAN! I MAY NEED ASSISTANCE!'
-                    bad_path = PolygonStamped()
-                    bad_path.header.frame_id = 'world'
-                    bad_path.header.stamp = rospy.Time(0)
-                    bad_path.polygon.points = []
-                    self.plan_pub.publish(bad_path)
+                    # Publish a message to a backup controller to activate
+                    if self.allow_backup == True:
+                        call_backup = Bool()
+                        call_backup.data = True
+                        self.backup_pub.publish(call_backup)
+                    # bad_path = PolygonStamped()
+                    # bad_path.header.frame_id = 'world'
+                    # bad_path.header.stamp = rospy.Time(0)
+                    # bad_path.polygon.points = []
+                    # self.plan_pub.publish(bad_path)
                     self.last_viable = None
             else:
                 pass
