@@ -36,8 +36,11 @@ class GetValue():
         Input: (geometry_msgs/Pose []) list of points for value evaluation
         Output: (float) value at point
         ''' 
-        xvals = [[loc.x, loc.y] for loc in path]
-        xvals = np.array(xvals).reshape(len(path), 2)
+        if type(path) is np.ndarray and path.shape[1] == 2:
+            xvals = path
+        else:
+            xvals = [[loc.x, loc.y] for loc in path]
+            xvals = np.array(xvals).reshape(len(path), 2)
 
         self.GP = GP
 
@@ -46,7 +49,7 @@ class GetValue():
         elif self.reward == 'ucb':
             self.value = mean_ucb(time = time, xvals = xvals, robot_model = self.GP, param = None)
         elif self.reward == 'mes':
-            value = mves(time = time, xvals = xvals, robot_model = self.GP, param = self.maxima)
+            value = mves(time = time, xvals = xvals, robot_model = self.GP, param = self.maxima, FVECTOR = True)
         elif self.reward == 'ig':
             value = info_gain(time = time, xvals = xvals, robot_model = self.GP, param = None)
         else:
@@ -73,7 +76,7 @@ class GetValue():
             self._max_val = -float("inf")
         return self._max_val
 
-def mves(time, xvals, robot_model, param):
+def mves(time, xvals, robot_model, param, FVECTOR = False):
     ''' Define the Acquisition Function and the Gradient of MES'''
     # Compute the aquisition function value f and garident g at the queried point x using MES, given samples
     # function maxes and a previous set of functino maxes
@@ -88,7 +91,11 @@ def mves(time, xvals, robot_model, param):
     queries = np.vstack([x1, x2]).T        
     
     # Initialize f, g
-    f = 0
+    if FVECTOR:
+        f = np.zeros((data.shape[0], 1))
+    else:
+        f = 0
+
     for i in xrange(maxes.shape[0]):
         # Compute the posterior mean/variance predictions and gradients.
         mean, var = robot_model.predict_value(queries)
@@ -99,11 +106,17 @@ def mves(time, xvals, robot_model, param):
         cdfgamma = sp.stats.norm.cdf(gamma)
         utility = gamma * pdfgamma / (2.0 * cdfgamma) - np.log(cdfgamma)
 
-        f += sum(utility)
+        if FVECTOR:
+            f += utility
+        else:
+            f += sum(utility)
     # Average f
     f = f / maxes.shape[0]
-    # f is an np array; return scalar value
-    return f[0]
+    if FVECTOR:
+        return f
+    else:
+        # f is an np array; return scalar value
+        return f[0]
  
 def info_gain(time, xvals, robot_model, param = None):
     ''' Compute the information gain of a set of potential sample locations with respect to the underlying function conditioned or previous samples xobs'''        

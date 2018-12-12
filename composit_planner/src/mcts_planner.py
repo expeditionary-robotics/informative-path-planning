@@ -182,10 +182,16 @@ class Planner:
         # Generate a set of observations from robot model with which to make contour plots
         grid_size = 8.0 # grid size in meters
         num_pts = 100 # number of points to visaulzie in grid (num_pts x num_pts)
+        '''
         x1max = self.pose.x + grid_size / 2.0
         x1min = self.pose.x - grid_size / 2.0
         x2max = self.pose.y + grid_size / 2.0
         x2min = self.pose.y - grid_size / 2.0
+        '''
+        x1min = self.x1min
+        x1max = self.x1max
+        x2min = self.x2min
+        x2max = self.x2max
 
         x1 = np.linspace(x1min, x1max, num_pts)
         x2 = np.linspace(x2min, x2max, num_pts)
@@ -194,8 +200,9 @@ class Planner:
 
         # Get GP predictions across grid
         if self.GP.xvals is not None:
+            # Get GP predictions
             observations, var = self.GP.predict_value(data)
-
+            
             # Scale obesrvations between the 10th and 90th percentile value
             max_val = norm.ppf(q = 0.90, loc = 0.0, scale = np.sqrt(self.GP.variance))
             min_val = norm.ppf(q = 0.10, loc = 0.0, scale = np.sqrt(self.GP.variance))
@@ -205,12 +212,30 @@ class Planner:
                 topixel = lambda val: 0.0
             else:
                 topixel = lambda val: int((val - min_val) / (max_val - min_val) * 255.0)
+            
+            # Get reward
+            eval_value = aq_lib.GetValue(self.reward)
+            reward = eval_value.predict_value(self.GP, data)
+            
+            # Scale obesrvations between the 10th and 90th percentile value
+            max_rew = np.max(reward)
+            min_rew = np.min(reward)
+            print "Min reward:", min_rew
+            print "Max reward:", max_rew
+
+            # Define lambda for transforming from observation to 0-255 range
+            if max_rew == min_rew and max_rew == 0.00: 
+                topixel_rew = lambda val: 0.0
+            else:
+                # topixel_rew = lambda val: int((val - min_rew) / (max_rew - min_rew) * 255.0)
+                topixel_rew = lambda val: float(val)
 
         # Create the point cloud message
         msg = PointCloud()
-        msg.header.frame_id = 'map' # Global frame
+        msg.header.frame_id = 'world' # Global frame
+
         val = ChannelFloat32()
-        val.name = 'intensity'
+        val.name = 'chemical_value'
         for i, d in enumerate(data):
             pt = geometry_msgs.msg.Point32()
             pt.x = data[i, 0]
@@ -224,11 +249,51 @@ class Planner:
             else:
                 val.values.append(topixel(observations[i, :]))
         msg.channels.append(val)
+
+        rew = ChannelFloat32()
+        rew.name = 'reward'
+        for i, d in enumerate(data):
+            # If no data, just publish the average value
+            if self.GP.xvals is None:
+                rew.values.append(255./2.)
+            else:
+                try:
+                    rew.values.append(topixel_rew(reward[i, :]))
+                except:
+                    print reward
+                    print reward[i, :]
+                    exit(0)
+        
+        print "Publishing!"
+        print rew.values
+
+
+        msg.channels.append(rew)
+
         self.pub.publish(msg)
 
         # Release the data lock
         self.data_lock.release()
     
+    def choose_myopic_trajectory(self, eval_value):
+        # Generate paths (will be obstacle checked against current map)
+        clear_paths = self.srv_paths(PathFromPoseRequest(self.pose))
+        clear_paths = clear_paths.safe_paths
+        if len(clear_paths) > 1 or self.allow_backup == False:
+            #Now, select the path with the highest potential reward
+            path_selector = {}
+            for i, path in enumerate(clear_paths):
+                if len(path.polygon.points) != 0:
+                    # TODO: need to keep an updated discrete time for the UCB reward
+                    path_selector[i] = eval_value.predict_value(self.GP, path.polygon.points)
+                else:
+                    path_selector[i] = -float("inf")
+
+            best_key = np.random.choice([key for key in path_selector.keys() if path_selector[key] == max(path_selector.values())])
+            return clear_paths[best_key], path_selector[best_key]
+        else:
+            return
+
     def choose_myopic_trajectory(self, eval_value):
         # Generate paths (will be obstacle checked against current map)
         clear_paths = self.srv_paths(PathFromPoseRequest(self.pose))
