@@ -1,0 +1,35 @@
+<launch>
+
+    <!-- This launch file is used to launch autonomy stack nodes on a car vehicle -->
+
+    <!-- Args and static variables to set -->
+    <!-- <node pkg="tf" type="static_transform_publisher" name="base_link_to_laser"
+    args="0.0 0.0 0.0 0.0 0.0 0.0 /body_flat /laser 40" /> -->
+
+    <rosparam command="load" file="$(find composit_planner)/launch/chem_params.yaml" />
+    <rosparam command="load" file="$(find composit_planner)/launch/planner_params.yaml" />
+
+    <!-- Temporary Simulated Input -->
+    <node pkg="composit_planner" type="chemical_sensor.py" name="chemical_sensor" output="screen"/>
+    <node pkg="composit_planner" type="chemical_world_sim.py" name="chemical_world_sim" output="screen"/>
+
+    <!-- Obstacle Avoidance Hindbrain -->
+    <node pkg="composit_planner" type="hindbrain.py" name="hindbrain" output="screen" />
+    <node pkg="composit_planner" type="backup_controller.py" name="backup_controller" output="screen" />
+
+    <!-- Trajectory Services -->
+    <node pkg="composit_planner" type="tf_converter.py" name="tf_converter" output="screen" />
+
+    <!-- Make safe paths -->
+    <node pkg="composit_planner" type="path_fabricator.py" name="path_fabricator" output="screen" />
+
+    <!-- Tools for inferring safety -->
+    <node pkg="composit_planner" type="sl_costmap.py" name="sl_costmap" output="screen" />
+    <!-- <node pkg="composit_planner" type="obstacle_check_server.py" name="obstacle_check_server" output="screen" /> -->
+
+    <node pkg="composit_planner" type="traj_serv.py" name="traj_serv" output="screen"/>
+
+    <!-- The planner node -->
+    <node pkg="composit_planner" type="mcts_planner.py" name="mcts_planner" output="screen"/>
+
+</launch>

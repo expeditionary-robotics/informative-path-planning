@@ -8,6 +8,9 @@ allow_to_stay: True
 allow_to_backup: True
 
 obstacle_buffer_m: 0.3
+map_resolution: 0.1
+bounding_box: [0,10,0,10]
+origin: [0,0,0]
 cost_limit: 40.0
 unknown_limit: -5.0
 trajectory_endpoint_precision: 0.4
