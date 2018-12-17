@@ -74,7 +74,9 @@ class MCTS(object):
         elif self.f_rew == 'mes':
             self.c = 1.0 / np.sqrt(2.0)
         else:
-            self.c = 1.0
+            # self.c = 1.0
+            self.c = 1.0 / np.sqrt(2.0)
+            # self.c =  0.0
 
     def choose_trajectory(self, t):
         ''' 
@@ -385,6 +387,9 @@ class Tree(object):
             else:
                 r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief)
 
+            # if current_node.children is not None:
+            #     print "Number of children in current node:", len(current_node.children)
+
             if current_node.children is not None:
                 alpha = 3.0 / (10.0 * (self.max_depth - current_node.depth) - 3.0)
                 nchild = len(current_node.children)
@@ -398,19 +403,25 @@ class Tree(object):
                     child = random.choice(current_node.children)
                     nqueries = [node.nqueries for node in current_node.children]
                     child = random.choice([node for node in current_node.children if node.nqueries == min(nqueries)])
-                    belief.add_data(xobs, child.zvals)
+
+                    if False:
+                        belief.add_data(xobs, child.zvals)
                     #print "Selcted child:", child.nqueries
                     return self.leaf_helper(child, reward + r, belief)
 
-            if belief.model is None:
-                n_points, input_dim = xobs.shape
-                zmean, zvar = np.zeros((n_points, )), np.eye(n_points) * belief.variance
-                zobs = np.random.multivariate_normal(mean = zmean, cov = zvar)
-                zobs = np.reshape(zobs, (n_points, 1))
-            else:
-                zobs = belief.posterior_samples(xobs, full_cov = False, size = 1)
+            if False:
+                if belief.model is None:
+                    n_points, input_dim = xobs.shape
+                    zmean, zvar = np.zeros((n_points, )), np.eye(n_points) * belief.variance
+                    zobs = np.random.multivariate_normal(mean = zmean, cov = zvar)
+                    zobs = np.reshape(zobs, (n_points, 1))
+                else:
+                    zobs = belief.posterior_samples(xobs, full_cov = False, size = 1)
 
-            belief.add_data(xobs, zobs)
+                belief.add_data(xobs, zobs)
+            else:
+                zobs = None
+
             pose_new = current_node.dense_path[-1]
             child = Node(pose = pose_new, 
                          parent = current_node, 
@@ -501,15 +512,18 @@ class BeliefTree(Tree):
             else:
                 r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief)
 
-            # ''Simulate'' the maximum likelihood observation
-            if belief.model is None:
-                n_points, input_dim = xobs.shape
-                zobs = np.zeros((n_points, ))
-                zobs = np.reshape(zobs, (n_points, 1))
-            else:
-                zobs, _= belief.predict_value(xobs)
+            if False:
+                # ''Simulate'' the maximum likelihood observation
+                if belief.model is None:
+                    n_points, input_dim = xobs.shape
+                    zobs = np.zeros((n_points, ))
+                    zobs = np.reshape(zobs, (n_points, 1))
+                else:
+                    zobs, _= belief.predict_value(xobs)
 
-            belief.add_data(xobs, zobs)
+                belief.add_data(xobs, zobs)
+            else:
+                zobs = None
             pose = dense_paths[keys[a]][-1]
             reward += r
             cur_depth += 1
@@ -563,15 +577,18 @@ class BeliefTree(Tree):
             else:
                 r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief)
 
-            # ''Simulate'' the maximum likelihood observation
-            if belief.model is None:
-                n_points, input_dim = xobs.shape
-                zobs = np.zeros((n_points, ))
-                zobs = np.reshape(zobs, (n_points, 1))
-            else:
-                zobs, _= belief.predict_value(xobs)
+            if False:
+                # ''Simulate'' the maximum likelihood observation
+                if belief.model is None:
+                    n_points, input_dim = xobs.shape
+                    zobs = np.zeros((n_points, ))
+                    zobs = np.reshape(zobs, (n_points, 1))
+                else:
+                    zobs, _= belief.predict_value(xobs)
 
-            belief.add_data(xobs, zobs)
+                belief.add_data(xobs, zobs)
+            else:
+                zobs = None
             pose_new = current_node.dense_path[-1]
             child = Node(pose = pose_new, 
                          parent = current_node, 
@@ -617,9 +634,10 @@ class cMCTS(MCTS):
             if self.tree_type == 'belief':
                 self.c = 1.0 / np.sqrt(2.0)
             elif self.tree_type == 'dpw':
-                # self.c = 1.0 / np.sqrt(2.0)
-                self.c = 1.0
+                self.c = 1.0 / np.sqrt(2.0)
+                # self.c = 1.0
                 # self.c = 5.0
+                # self.c = 0.0
         else:
             self.c = 1.0
         print "Setting c to :", self.c
@@ -650,10 +668,12 @@ class cMCTS(MCTS):
         time_start = time.time()            
         # while we still have time to compute, generate the tree
         i = 0
+        gp = copy.deepcopy(self.GP)
         while i < self.comp_budget:#time.time() - time_start < self.comp_budget:
             i += 1
-            gp = copy.copy(self.GP)
             self.tree.get_next_leaf(gp)
+            if False:
+                gp = copy.deepcopy(self.GP)
         time_end = time.time()
         print "Rollouts completed in", str(time_end - time_start) +  "s"
         print "Number of rollouts:", i

@@ -62,10 +62,18 @@ world = envlib.Environment(ranges = ranges,
                            MIN_COLOR=MIN_COLOR, 
                            MAX_COLOR=MAX_COLOR, 
                            obstacle_world = ow,
-                           noise=10.0)
+                           noise = 0.5)
+                           # noise= 5.0)
 
 # Create the evaluation class used to quantify the simulation metrics
 evaluation = evalib.Evaluation(world = world, reward_function = REWARD_FUNCTION)
+
+# Generate a prior dataset
+x1observe = np.linspace(ranges[0], ranges[1], 20)
+x2observe = np.linspace(ranges[2], ranges[3], 20)
+x1observe, x2observe = np.meshgrid(x1observe, x2observe, sparse = False, indexing = 'xy')  
+data = np.vstack([x1observe.ravel(), x2observe.ravel()]).T
+observations = world.sample_value(data)
 
 # Create the point robot
 robot = roblib.Robot(sample_world = world.sample_value, #function handle for collecting observations
@@ -73,12 +81,12 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      extent = ranges, #extent of the explorable environment
                      kernel_file = None,
                      kernel_dataset = None,
-                     #prior_dataset =  (data, observations), 
+                     # prior_dataset =  (data, observations), 
                      prior_dataset = None,
                      init_lengthscale = 1.0, 
                      init_variance = 100.0, 
-                     noise = 10.0001,
-                     #noise = 0.5000,
+                     # noise = 5.0,
+                     noise = 0.5000,
                      path_generator = PATHSET, #options: default, dubins, equal_dubins, fully_reachable_goal, fully_reachable_step
                      goal_only = GOAL_ONLY, #select only if using fully reachable step and you want the reward of the step to only be the goal
                      frontier_size = 15,
@@ -94,8 +102,8 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      use_cost = USE_COST, #select if you want to use a cost heuristic
                      MIN_COLOR = MIN_COLOR,
                      MAX_COLOR = MAX_COLOR,
-                     computation_budget = 250.0,
-                     rollout_length = 5,
+                     computation_budget = 200,
+                     rollout_length = 7,
                      obstacle_world = ow, 
                      tree_type = TREE_TYPE) 
 
