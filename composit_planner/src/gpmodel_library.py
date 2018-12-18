@@ -55,6 +55,7 @@ class GPModel(object):
 
         if kernel == 'rbf':
             self.kern = GPy.kern.RBF(input_dim = self.dim, lengthscale = lengthscale, variance = variance) 
+            # self.kern = GPy.kern.RBF(input_dim = self.dim, lengthscale = lengthscale, variance = variance, useGPU = True) 
         else:
             raise ValueError('Kernel type must by \'rbf\'')
             
@@ -181,7 +182,7 @@ class OnlineGPModel(GPModel):
         Woodbury-Morrison formula by modifying the Posteior class from the GPy Library 
     '''
 
-    def __init__(self, ranges, lengthscale, variance, noise = 0.0001, dimension = 2, kernel = 'rbf',  update_legacy = False):
+    def __init__(self, ranges, lengthscale, variance, noise = 0.0001, dimension = 2, kernel = 'rbf'):
         super(OnlineGPModel, self).__init__(ranges, lengthscale, variance, noise, dimension, kernel)
         
         self._K_chol = None
@@ -195,7 +196,6 @@ class OnlineGPModel(GPModel):
         self._mean =  None
         self._covariance = None
         self._prior_mean = 0.
-        self.update_legacy = update_legacy
     
     def init_model(self, xvals, zvals):
         # Update internal data
@@ -283,15 +283,6 @@ class OnlineGPModel(GPModel):
             assert(self.zvals is not None)
             self.update_model(xvals, zvals)
 
-        if self.update_legacy:
-            # Include this code to update the GP model if you want to compare to lecacy predictor 
-            # If the model hasn't been created yet (can't be created until we have data), create GPy model
-            if self.model == None:
-                self.model = GPy.models.GPRegression(np.array(self.xvals), np.array(self.zvals), self.kern)
-            # Else add to the exisiting model
-            else:
-                self.model.set_XY(X = np.array(self.xvals), Y = np.array(self.zvals))
-    
     def predict_value(self, xvals, include_noise = True, full_cov = False):
         # Calculate for the test point
         assert(xvals.shape[0] >= 1)            
@@ -335,29 +326,6 @@ class OnlineGPModel(GPModel):
             var += self.noise
         return mu, var
     
-    def predict_value_legacy(self, xvals, include_noise = True, full_cov = False):
-        ''' Public method returns the mean and variance predictions at a set of input locations.
-        Inputs:
-            xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2
-        
-        Returns: 
-            mean (float array): an nparray of floats representing predictive mean, with dimension NUM_PTS x 1         
-            var (float array): an nparray of floats representing predictive variance, with dimension NUM_PTS x 1 
-        '''        
-
-        assert(xvals.shape[0] >= 1)            
-        assert(xvals.shape[1] == self.dim)    
-        assert(self.update_legacy == True) # Can only call this if the legacy model has been updated
-        
-        n_points, input_dim = xvals.shape
-
-        # With no observations, predict 0 mean everywhere and prior variance
-        if self.model == None:
-            return np.zeros((n_points, 1)), np.ones((n_points, 1)) * self.variance
-        
-        # Else, return the predicted values
-        mean, var = self.model.predict(xvals, full_cov = False, include_likelihood = include_noise)
-        return mean, var        
    
     ''' Sample from the Gaussian Process posterior '''
     def posterior_samples(self, xvals, size=10, full_cov = True):
@@ -574,21 +542,6 @@ class SpatialGPModel(GPModel):
             assert(self.zvals is not None)
             self.update_model(xvals, zvals)
 
-        update_legacy = False 
-        if update_legacy:
-            # Include this code to update the GP model if you want to compare to lecacy predictor 
-            # If the model hasn't been created yet (can't be created until we have data), create GPy model
-            if self.model == None:
-                self.temp_xvals = xvals
-                self.temp_zvals = zvals
-                self.model = GPy.models.GPRegression(np.array(self.temp_xvals), np.array(self.temp_zvals), self.kern, noise_var = self.noise)
-            # Else add to the exisiting model
-            else:
-                self.temp_xvals = np.vstack([self.temp_xvals, xvals])
-                self.temp_zvals = np.vstack([self.temp_zvals, zvals])
-                self.model.set_XY(X = np.array(self.temp_xvals), Y = np.array(self.temp_zvals))
-
-    
     def predict_value(self, xvals, include_noise = True, full_cov = False):
         # Calculate for the test point
         assert(xvals.shape[0] >= 1)            
@@ -675,29 +628,6 @@ class SpatialGPModel(GPModel):
         # If model noise should be included in the prediction
         if include_noise: 
             var += self.noise
-
-        update_legacy = False
-        if update_legacy:
-            # With no observations, predict 0 mean everywhere and prior variance
-            if self.model == None:
-                mean, variance = np.zeros((n_points, 1)), np.ones((n_points, 1)) * self.variance
-            
-            # Else, return the predicted values
-            mean, variance = self.model.predict(xvals, full_cov = False, include_likelihood = include_noise)
-            if xvals.shape[0] < 10:
-                # print "-------- MEAN ------------"
-                # print "spatial method:"
-                # print mu
-                # print "default method:"
-                # print mean
-                # print "-------- VARIANCE ------------"
-                # print "spatial method:"
-                # print var
-                # print "default method:"
-                # print variance 
-                
-                print np.sum(mu - mean)
-                print np.sum(var - variance)
 
         return mu, var
     
