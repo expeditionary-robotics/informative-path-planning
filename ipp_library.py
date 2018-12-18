@@ -655,7 +655,7 @@ class MCTS:
 
         sequence = [node] #include the child node
         #TODO use the cost metric to signal action termination, for now using horizon
-        for i in xrange(self.rl):
+        for i in range(self.rl):
             actions = self.path_generator.get_path_set(self.tree[node][0][-1]) #plan from the last point in the sample
             if len(actions) == 0:
                 print 'No actions were viably generated'
@@ -731,7 +731,7 @@ class MCTS:
         best = -float('inf')
         best_child = None
         value = {}
-        for i in xrange(self.fs):
+        for i in range(self.fs):
             try:
                 r = self.tree['child '+ str(i)][2]
                 value[i] = r
@@ -898,7 +898,7 @@ class Robot(object):
             T (int > 0): the length of the planning horization (number of planning iterations)'''
         self.trajectory = []
         
-        for t in xrange(T):
+        for t in range(T):
             # Select the best trajectory according to the robot's aquisition function
             print "[", t, "] Current Location:  ", self.loc
             logger.info("[{}] Current Location: {}".format(t, self.loc))
@@ -1081,7 +1081,7 @@ class Nonmyopic_Robot(Robot):
         '''
         self.trajectory = []
                  
-        for t in xrange(T):
+        for t in range(T):
             print "[", t, "] Current Location:  ", self.loc            
             logger.info("[{}] Current Location: {}".format(t, self.loc))
 
@@ -1577,7 +1577,7 @@ def sample_max_vals(robot_model, t, nK = 3, nFeatures = 300, visualize = True):
     funcs = []
     delete_locs = []
 
-    for i in xrange(nK):
+    for i in range(nK):
         print "Starting global optimization", i, "of", nK
         logger.info("Starting global optimization {} of {}".format(i, nK))
         # Draw the weights for the random features
@@ -1693,7 +1693,7 @@ def mves_maximal_set(time, xvals, robot_model, param):
 
     # Initialize f, g
     f = 0
-    for i in xrange(max_vals.shape[0]):
+    for i in range(max_vals.shape[0]):
         # Compute the posterior mean/variance predictions and gradients.
         #mean, var = robot_model.predict_value(queries)
      
@@ -1757,7 +1757,7 @@ def mves_maximal_set2(time, xvals, robot_model, param):
 
     # Initialize f, g
     f = 0
-    for i in xrange(max_vals.shape[0]):
+    for i in range(max_vals.shape[0]):
         # Compute the posterior mean/variance predictions and gradients.
         #mean, var = robot_model.predict_value(queries)
         mean, var = robot_model.predict_value(queries)
@@ -1801,7 +1801,7 @@ def mves(time, xvals, robot_model, param):
 
     # Initialize f, g
     f = 0
-    for i in xrange(maxes.shape[0]):
+    for i in range(maxes.shape[0]):
         # Compute the posterior mean/variance predictions and gradients.
         #[meanVector, varVector, meangrad, vargrad] = mean_var(x, xx, ...
         #    yy, KernelMatrixInv{i}, l(i,:), sigma(i), sigma0(i));

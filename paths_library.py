@@ -119,7 +119,7 @@ class Path_Generator:
         dist = 0
         if loc is None:
             # cost will be path length
-            for i in xrange(len(path)-1):
+            for i in range(len(path)-1):
                 dist += np.sqrt((path[i][0]-path[i+1][0])**2 + (path[i][1]-path[i+1][1])**2)
             return dist
         else:
@@ -179,11 +179,10 @@ class Dubins_Path_Generator(Path_Generator):
 
         
         if len(coords) == 0:
-            print 'no viable path'
+            # print 'no viable path'
             #pdb.set_trace()
             #coords, true_coords = self.buffered_paths()
-            
-        self.samples = coords
+            self.samples = coords
         return coords, true_coords
 
 class Dubins_EqualPath_Generator(Path_Generator):
@@ -289,7 +288,7 @@ class Reachable_Frontier_Generator():
         dist = 0
         if loc is None:
             # cost will be path length
-            for i in xrange(len(path)-1):
+            for i in range(len(path)-1):
                 dist += np.sqrt((path[i][0]-path[i+1][0])**2 + (path[i][1]-path[i+1][1])**2)
             return dist
         else:
@@ -369,7 +368,7 @@ if __name__ == '__main__':
     coord = (5.2,5.2,0)
     for m in range(1):
         paths, true_paths = gen.get_path_set(coord)
-        print len(paths)
+        # print len(paths)
         action = np.random.choice(paths.keys())
         for i, path in paths.items():
             f = np.array(path)
@@ -380,7 +379,7 @@ if __name__ == '__main__':
         # samples.append(paths[action])
         # trajectory.append(true_paths[action])
         coord = paths[action][-1]
-        print m
+        # print m
 
     # for e, k in zip(samples, trajectory):
     #     f = np.array(e)

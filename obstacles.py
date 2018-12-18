@@ -202,7 +202,7 @@ if __name__ == '__main__':
 
 	bt = BugTrap([0., 10., 0., 10.], (3,3), 2., 0.5, 2., 'left')
 	bt.draw_obstacles()
-	print bt.in_obstacle((3,2.4))
+	# print bt.in_obstacle((3,2.4))
 
 	# cw = ChannelWorld([0., 10., 0., 10.], (3,3), 3, 2)
 	# cw.draw_obstacles()

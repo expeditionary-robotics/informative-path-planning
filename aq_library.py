@@ -39,11 +39,12 @@ def info_gain(time, xvals, robot_model, param=None):
 
     # If the robot hasn't taken any observations yet, simply return the entropy of the potential set
     if xobs is None:
-        Sigma_after = robot_model.kern.K(queries)
-        entropy_after, sign_after = np.linalg.slogdet(np.eye(Sigma_after.shape[0], Sigma_after.shape[1]) \
-                                    + robot_model.variance * Sigma_after)
+        # Sigma_after = robot_model.kern.K(queries)
+        # entropy_after, sign_after = np.linalg.slogdet(np.eye(Sigma_after.shape[0], Sigma_after.shape[1]) \
+        #                             + robot_model.variance * Sigma_after)
         #print "Entropy with no obs: ", entropy_after
-        return 0.5 * sign_after * entropy_after
+        # return 0.5 * sign_after * entropy_after
+        return 0.5
 
     all_data = np.vstack([xobs, queries])
     
@@ -128,8 +129,8 @@ def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = True, o
     funcs = []
     delete_locs = []
 
-    for i in xrange(nK):
-        print "Starting global optimization", i, "of", nK
+    for i in range(nK):
+        # print "Starting global optimization", i, "of", nK
         logger.info("Starting global optimization {} of {}".format(i, nK))
         # Draw the weights for the random features
         # TODO: make sure this formula is correct
@@ -156,7 +157,7 @@ def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = True, o
                 theta = noise - np.dot(Z, np.dot(U, R*(np.dot(U.T, np.dot(Z.T, noise))))) + mu
             except:
                 # If Sigma is not positive definite, ignore this simulation
-                print "[ERROR]: Sigma is not positive definite, ignoring simulation", i
+                # print "[ERROR]: Sigma is not positive definite, ignoring simulation", i
                 logger.warning("[ERROR]: Sigma is not positive definite, ignoring simulation {}".format(i))
                 delete_locs.append(i)
                 continue
@@ -169,7 +170,7 @@ def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = True, o
                 theta = mu + np.dot(np.linalg.cholesky(Sigma), noise)            
             except:
                 # If Sigma is not positive definite, ignore this simulation
-                print "[ERROR]: Sigma is not positive definite, ignoring simulation", i
+                # print "[ERROR]: Sigma is not positive definite, ignoring simulation", i
                 logger.warning("[ERROR]: Sigma is not positive definite, ignoring simulation {}".format(i))
                 delete_locs.append(i)
                 continue
@@ -203,7 +204,7 @@ def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = True, o
         
         samples[i] = max_val
         funcs.append(target)
-        print "Max Value in Optimization \t \t", samples[i]
+        # print "Max Value in Optimization \t \t", samples[i]
         logger.info("Max Value in Optimization \t {}".format(samples[i]))
         locs[i, :] = maxima
         
@@ -248,7 +249,7 @@ def mves(time, xvals, robot_model, param):
 
     # Initialize f, g
     f = 0
-    for i in xrange(maxes.shape[0]):
+    for i in range(maxes.shape[0]):
         # Compute the posterior mean/variance predictions and gradients.
         #[meanVector, varVector, meangrad, vargrad] = mean_var(x, xx, ...
         #    yy, KernelMatrixInv{i}, l(i,:), sigma(i), sigma0(i));
@@ -291,7 +292,7 @@ def mves_maximal_set(time, xvals, robot_model, param):
 
     # Initialize f, g
     f = 0
-    for i in xrange(max_vals.shape[0]):
+    for i in range(max_vals.shape[0]):
         # Compute the posterior mean/variance predictions and gradients.
         mean_before, var_before = robot_model.predict_value(queries)
      
@@ -413,7 +414,7 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
             jac = target_vector_gradient_n, bounds = ((ranges[0], ranges[1]), (ranges[2], ranges[3])))
 
     if res['success'] == False:
-        print "Failed to converge!"
+        # print "Failed to converge!"
         #print res
 
         logger.warning("Failed to converge! \n")

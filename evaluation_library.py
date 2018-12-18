@@ -38,12 +38,12 @@ class Evaluation:
         self.reward_function = reward_function
         self.num_stars = num_stars
 
-        print "World max value", self.max_val, "at location", self.max_loc
+        # print "World max value", self.max_val, "at location", self.max_loc
         logger.info("World max value {} at location {}".format(self.max_val, self.max_loc))
         
         self.metrics = {'aquisition_function': {},
                         'mean_reward': {}, 
-                        'info_gain_reward': {},                         
+                        # 'info_gain_reward': {},                         
                         'hotspot_info_reward': {}, 
                         'MSE': {},                         
                         'hotspot_error': {},                         
@@ -78,9 +78,9 @@ class Evaluation:
         elif reward_function == 'mean':
             self.f_rew = self.mean_reward
             self.f_aqu = aqlib.mean_UCB      
-        elif reward_function == 'info_gain':
-            self.f_rew = self.info_gain_reward
-            self.f_aqu = aqlib.info_gain   
+        # elif reward_function == 'info_gain':
+        #     self.f_rew = self.info_gain_reward
+        #     self.f_aqu = aqlib.info_gain   
         elif reward_function == 'mes':
             self.f_aqu = aqlib.mves
             self.f_rew = self.mean_reward 
@@ -236,7 +236,7 @@ class Evaluation:
                 self.metrics['star_obs_loc_x_'+str(i)][t] = params[3][i][0]
                 self.metrics['star_obs_loc_y_'+str(i)][t] = params[3][i][1]
 
-        self.metrics['info_gain_reward'][t] = self.info_gain_reward(t, selected_path, robot_model)
+        # self.metrics['info_gain_reward'][t] = self.info_gain_reward(t, selected_path, robot_model)
         self.metrics['MSE'][t] = self.MSE(robot_model, NTEST = 200)
         self.metrics['hotspot_error'][t] = self.hotspot_error(robot_model, NTEST = 200, NHS = 100)
 
@@ -255,7 +255,7 @@ class Evaluation:
         time = np.array(self.metrics['MSE'].keys())
         
         ''' Metrics that require a ground truth global model to compute'''        
-        info_gain = np.cumsum(np.array(self.metrics['info_gain_reward'].values()))        
+        # info_gain = np.cumsum(np.array(self.metrics['info_gain_reward'].values()))        
         aqu_fun = np.cumsum(np.array(self.metrics['aquisition_function'].values()))
         MSE = np.array(self.metrics['MSE'].values())
         hotspot_error = np.array(self.metrics['hotspot_error'].values())
@@ -299,7 +299,7 @@ class Evaluation:
             os.makedirs('./figures/' + str(self.reward_function))
         ''' Save the relevent metrics as csv files '''
         np.savetxt('./figures/' + self.reward_function + '/metrics.csv', \
-            (time.T, info_gain.T, aqu_fun.T, MSE.T, hotspot_error.T, max_loc_error.T, \
+            (time.T, aqu_fun.T, MSE.T, hotspot_error.T, max_loc_error.T, \
             max_val_error.T, simple_regret.T,  sample_regret_loc.T, sample_regret_val.T, \
             regret.T, info_regret.T, current_highest_obs.T, current_highest_obs_loc_x.T,current_highest_obs_loc_y.T, \
             robot_location_x.T, robot_location_y.T, robot_location_a.T, \
@@ -335,10 +335,10 @@ class Evaluation:
         plt.plot(time, info_regret/time, 'b')
         fig.savefig('./figures/' + self.reward_function + '/snapping_info_regret.png')
 
-        fig, ax = plt.subplots(figsize=(8, 6))
-        ax.set_title('Accumulated Information Gain')                             
-        plt.plot(time, info_gain, 'k')        
-        fig.savefig('./figures/' + self.reward_function + '/information_gain.png')
+        # fig, ax = plt.subplots(figsize=(8, 6))
+        # ax.set_title('Accumulated Information Gain')                             
+        # plt.plot(time, info_gain, 'k')        
+        # fig.savefig('./figures/' + self.reward_function + '/information_gain.png')
         
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.set_title('Accumulated Aquisition Function')             

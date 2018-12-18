@@ -23,7 +23,7 @@ import envmodel_library as envlib
 import robot_library as roblib
 import obstacles as obslib
 
-print "User specified options: SEED, REWARD_FUNCTION, PATHSET, USE_COST, NONMYOPIC, GOAL_ONLY"
+# print "User specified options: SEED, REWARD_FUNCTION, PATHSET, USE_COST, NONMYOPIC, GOAL_ONLY"
 # Allow selection of seed world to be consistent, and to run through reward functions
 SEED =  int(sys.argv[1])
 REWARD_FUNCTION = sys.argv[2]
@@ -81,8 +81,8 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      extent = ranges, #extent of the explorable environment
                      kernel_file = None,
                      kernel_dataset = None,
-                     # prior_dataset =  (data, observations), 
-                     prior_dataset = None,
+                     prior_dataset =  (data, observations), 
+                     # prior_dataset = None,
                      init_lengthscale = 1.0, 
                      init_variance = 100.0, 
                      # noise = 5.0,

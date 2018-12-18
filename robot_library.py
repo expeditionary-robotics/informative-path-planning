@@ -100,9 +100,9 @@ class Robot(object):
             raise ValueError('Only \'hotspot_info\' and \'mean\' and \'info_gain\' and \'mes\' and \'exp_improve\' reward fucntions supported.')
 
         # Initialize the robot's GP model with the initial kernel parameters
-        # self.GP = gplib.OnlineGPModel(ranges = extent, lengthscale = init_lengthscale, variance = init_variance, noise = self.noise)
+        self.GP = gplib.OnlineGPModel(ranges = extent, lengthscale = init_lengthscale, variance = init_variance, noise = self.noise)
         # self.GP = gplib.SpatialGPModel(ranges = extent, lengthscale = init_lengthscale, variance = init_variance, noise = self.noise)
-        self.GP = gplib.SubsampledGPModel(ranges = extent, lengthscale = init_lengthscale, variance = init_variance, noise = self.noise)
+        # self.GP = gplib.SubsampledGPModel(ranges = extent, lengthscale = init_lengthscale, variance = init_variance, noise = self.noise)
         # self.GP = gplib.GPModel(ranges = extent, lengthscale = init_lengthscale, variance = init_variance, noise = self.noise)
                 
         # If both a kernel training dataset and a prior dataset are provided, train the kernel using both
@@ -241,14 +241,14 @@ class Robot(object):
         self.trajectory = []
         self.dist = 0
         
-        for t in xrange(T):
+        for t in range(T):
             # Select the best trajectory according to the robot's aquisition function
-            print "[", t, "] Current Location:  ", self.loc
+            # print "[", t, "] Current Location:  ", self.loc
             logger.info("[{}] Current Location: {}".format(t, self.loc))
 
             # Let's figure out where the best point is in our world
             pred_loc, pred_val = self.predict_max()
-            print "Current predicted max and value: \t", pred_loc, "\t", pred_val
+            # print "Current predicted max and value: \t", pred_loc, "\t", pred_val
             logger.info("Current predicted max and value: {} \t {}".format(pred_loc, pred_val))
 
 
@@ -340,7 +340,7 @@ class Robot(object):
             
             for index in path_order:
                 c = next(path_color)                
-                points = all_paths[all_paths.keys()[index]]
+                points = all_paths[list(all_paths.keys())[index]]
                 f = np.array(points)
                 plt.plot(f[:,0], f[:,1], c = c)
                
