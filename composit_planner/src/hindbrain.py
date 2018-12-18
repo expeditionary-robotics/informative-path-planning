@@ -41,6 +41,7 @@ class Hindbrain:
         # subscribe to costmap and trajectory
         # self.map_sub = rospy.Subscriber('/costmap',OccupancyGrid, self.handle_map)
         self.traj_sub = rospy.Subscriber('/trajectory/current', PolygonStamped, self.handle_trajectory)
+        rospy.wait_for_service('obstacle_map')
         self.cost_srv = rospy.ServiceProxy('obstacle_map', GetCostMap)
 
         # publish to generate new plan

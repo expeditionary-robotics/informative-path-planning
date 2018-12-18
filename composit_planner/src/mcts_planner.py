@@ -66,7 +66,12 @@ class Planner:
         self.current_max = -float("inf")
         self.data_queue = list()
         self.pose_queue = list()
-        self.pose = Point32() 
+        self.pose = Point32()
+        pose_start = rospy.get_param('robot_origin', None)
+        if pose_start is not None:
+            self.pose.x = pose_start[0]
+            self.pose.y = pose_start[1]
+            self.pose.z = pose_start[2]
         self.last_viable = None
         
         # Initialize the robot's GP model with the initial kernel parameters
@@ -81,6 +86,7 @@ class Planner:
         # Subscriptions to topics and services 
         # rospy.wait_for_service('query_obstacles')
         rospy.wait_for_service('query_chemical')
+        rospy.wait_for_service('obstacle_map')
         # self.srv_traj = rospy.ServiceProxy('query_obstacles', TrajectoryCheck)
         self.srv_paths = rospy.ServiceProxy('get_paths', PathFromPose)
         self.srv_chem = rospy.ServiceProxy('query_chemical', SimMeasurement)
@@ -264,8 +270,8 @@ class Planner:
                     print reward[i, :]
                     exit(0)
         
-        print "Publishing!"
-        print rew.values
+        # print "Publishing!"
+        # print rew.values
 
 
         msg.channels.append(rew)

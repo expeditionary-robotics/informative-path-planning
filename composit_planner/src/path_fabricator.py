@@ -20,7 +20,6 @@ from composit_planner.srv import *
 from composit_planner.msg import *
 from tf import TransformListener
 
-
 class ROS_Path_Generator(object):
     '''
     ROS class to handle a service which asks for pathsets to apply reward-seeking algorithm
@@ -42,6 +41,7 @@ class ROS_Path_Generator(object):
         self.unknown_threshold = rospy.get_param('unknown_limit', -2.0)
         self.make_paths_behind = rospy.get_param('make_paths_behind', False)
         self.make_stay_path = rospy.get_param('allow_to_stay', True)
+        self.use_dubins = rospy.get_param('use_dubins', True)
 
         # Global variables
         self.goals = [] #The frontier coordinates
@@ -52,6 +52,7 @@ class ROS_Path_Generator(object):
         self.srv_path = rospy.Service('get_paths', PathFromPose, self.get_path_set)
 
         # Data of interest for generating paths
+        rospy.wait_for_service('obstacle_map')
         self.cost_srv = rospy.ServiceProxy('obstacle_map', GetCostMap)
         self.path_pub = rospy.Publisher('/path_options', PointCloud, queue_size=1)
         self.tf_listener = TransformListener()
@@ -82,8 +83,17 @@ class ROS_Path_Generator(object):
         '''Connect the current_pose to the goal places'''
         all_paths = []
         for goal in self.goals:
-            paths = dubins.shortest_path(self.cp, goal, self.tr)
-            true_path, _ = paths.sample_many(self.ss)
+            if self.make_paths_behind is True:
+                if np.fabs(self.cp[2] - goal[2]) <= np.pi/2:
+                    paths = dubins.shortest_path(self.cp, goal, self.tr)
+                    true_path, _ = paths.sample_many(self.ss)
+                else:
+                    paths = dubins.shortest_path((self.cp[0], self.cp[1], self.cp[2]+3.14), goal, self.tr)
+                    true_path, _ = paths.sample_many(self.ss)
+            else:
+                paths = dubins.shortest_path(self.cp, goal, self.tr)
+                true_path, _ = paths.sample_many(self.ss)
+
             all_paths.append(true_path)
 
         if self.make_stay_path is True:
@@ -113,8 +123,8 @@ class ROS_Path_Generator(object):
                 cost = np.sum([k for k in cost_vals if k >= 0.])
                 unknown_cost = np.sum([k for k in cost_vals if k < 0.])
             except:
-                cost = 0
-                unknown_cost = 0
+                cost = 0.
+                unknown_cost = 0.
                 for m, n in zip(idx, idy):
                     try:
                         if data[m, n] >= 0:
@@ -124,7 +134,6 @@ class ROS_Path_Generator(object):
 
                     except:
                         break
-
 
             if (cost < self.safe_threshold and unknown_cost > self.unknown_threshold) and len(path) > 0:
                 clear_paths.append(self.make_rosmsg(path))

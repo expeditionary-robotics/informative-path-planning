@@ -1,52 +1,67 @@
 #!/usr/bin/env python
 
-# Copyright 2018 Massachusetts Institute of Technology
+'''Copyright 2018 Massachusetts Institute of Technology'''
 
 import rospy
-import actionlib
 from composit_planner.srv import *
 from composit_planner.msg import *
-from nav_msgs.msg import Path
+from mavros_msgs.msg import *
 from geometry_msgs.msg import *
-from tf.transformations import quaternion_from_euler
+from std_msgs.msg import *
 
-#TODO this node can be used to trigger replanning in the midst of executing a trajectory already
+# TODO this node can be used to trigger replanning in the midst of executing a trajectory already
 
-class TrajMonitor():
+
+class TrajMonitor(object):
+    '''
+    Node that arbitrates replanning system by parsing polygon object into mavros waypoint
+    and listening for controller callback.
+    '''
+
     def __init__(self):
-        #initialize node and callback
+        '''initialize node and callback'''
         rospy.init_node('execute_dubin')
 
-        self.allowed_error = rospy.get_param('trajectory_endpoint_precision',0.2)
-        self.replan_distance = None #TODO use this to trigger replan
-        self.last_viable = None
+        # subscribers
+        rospy.Subscriber("/trajectory/current", PolygonStamped, self.handle_trajectory, queue_size=1)
+        goal_reached_topic = rospy.get_param('goal_reached_topic', 'mavros/rc/goal_reached')
+        rospy.Subscriber(goal_reached_topic, Bool, self.handle_reached, queue_size=1)
 
-        #subscribe to trajectory topic
-        self.sub = rospy.Subscriber("/trajectory/current", PolygonStamped, self.handle_trajectory, queue_size=1)
-        self.pose_sub = rospy.Subscriber("/pose", PoseStamped, self.handle_pose, queue_size=1)
-        #access replan service to trigger when finished a trajectory
+        # publishers
+        lcl_waypt_topic = rospy.get_param('lcl_waypt_topic', 'mavros/setpoint_raw/local')
+        self.waypt_pub = rospy.Publisher(lcl_waypt_topic, PositionTarget, queue_size=1)
+
+        # access replan service to trigger when finished a trajectory
         self.replan = rospy.ServiceProxy('replan', RequestReplan)
+        self.can_replan = False
 
-        #spin until shutdown
+        # spin until shutdown
         while not rospy.is_shutdown():
             rospy.spin()
 
     def handle_trajectory(self, traj):
         '''
-        The trajectory comes in as a series of poses. It is assumed that the desired angle has already been determined
+        The trajectory comes in as a series of poses. It is assumed that the desired angle
+        has already been determined
         '''
-        # print 'Getting planning point'
-        self.new_goals = traj.polygon.points
-        if len(self.new_goals) > 1:
-            self.last_viable = self.new_goals[-1]
+        goal = traj.polygon.points[-1]
+        g = PositionTarget()
+        g.header.frame_id = ''
+        g.header.stamp = rospy.Time(0)
+        g.coordinate_frame = g.FRAME_LOCAL_OFFSET_NED
+        # g.type_mask = g.IGNORE_PZ
+        g.position.x = goal[0]
+        g.position.y = goal[1]
+        g.position.z = 0.
+        self.waypt_pub.publish(g)
+        self.can_replan = True
 
 
-    def handle_pose(self, msg):
-        self.pose = msg
-        last = self.last_viable
-        if last is not None:
-            if (msg.pose.position.x-last.x)**2 + (msg.pose.position.y-last.y)**2 < self.allowed_error**2:
-                self.replan()
+    def handle_reached(self, msg):
+        '''Sends replanning message when we reach goal'''
+        if msg.data is True and self.can_replan is True:
+            self.replan()
+            self.can_replan = False
 
 
 if __name__ == '__main__':
