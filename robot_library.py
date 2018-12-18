@@ -100,10 +100,11 @@ class Robot(object):
             raise ValueError('Only \'hotspot_info\' and \'mean\' and \'info_gain\' and \'mes\' and \'exp_improve\' reward fucntions supported.')
 
         # Initialize the robot's GP model with the initial kernel parameters
-        self.GP = gplib.OnlineGPModel(ranges = extent, lengthscale = init_lengthscale, variance = init_variance, noise = self.noise)
+        # self.GP = gplib.OnlineGPModel(ranges = extent, lengthscale = init_lengthscale, variance = init_variance, noise = self.noise)
         # self.GP = gplib.SpatialGPModel(ranges = extent, lengthscale = init_lengthscale, variance = init_variance, noise = self.noise)
         # self.GP = gplib.SubsampledGPModel(ranges = extent, lengthscale = init_lengthscale, variance = init_variance, noise = self.noise)
         # self.GP = gplib.GPModel(ranges = extent, lengthscale = init_lengthscale, variance = init_variance, noise = self.noise)
+        self.GP = gplib.FlowGPModel(ranges = extent, lengthscale = init_lengthscale, variance = init_variance, noise = self.noise)
                 
         # If both a kernel training dataset and a prior dataset are provided, train the kernel using both
         if  kernel_dataset is not None and prior_dataset is not None:

@@ -18,8 +18,7 @@ import os
 import GPy as GPy
 import logging
 logger = logging.getLogger('robot')
-from gpmodel_library import GPModel
-from gpmodel_library import OnlineGPModel
+from gpmodel_library import GPModel, OnlineGPModel, FlowGPModel
 import obstacles as obslib
 
 
@@ -110,7 +109,8 @@ class Environment:
 
                 # Intialize a GP model of the environment
                 # self.GP = OnlineGPModel(ranges = ranges, lengthscale = lengthscale, variance = variance)         
-                self.GP = GPModel(ranges = ranges, lengthscale = lengthscale, variance = variance)         
+                # self.GP = GPModel(ranges = ranges, lengthscale = lengthscale, variance = variance)         
+                self.GP = FlowGPModel(ranges = ranges, lengthscale = lengthscale, variance = variance)         
                 data = np.vstack([x1vals.ravel(), x2vals.ravel()]).T 
 
                 # Take an initial sample in the GP prior, conditioned on no other data
