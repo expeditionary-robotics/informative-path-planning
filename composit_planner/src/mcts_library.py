@@ -429,7 +429,7 @@ class cMCTS():
         # While we still have time to compute, generate the tree
         i = 0
 
-        gp = copy.deepcopy(self.GP)
+        gp = copy.copy(self.GP)
         while i < self.comp_budget: #time.time() - time_start < self.comp_budget:
             i += 1
             print "On iteration", i, "of", self.comp_budget
@@ -437,7 +437,7 @@ class cMCTS():
 
             # If doing belief updates, start with a fresh belief
             if self.belief_updates:
-                gp = copy.deepcopy(self.GP)
+                gp = copy.copy(self.GP)
 
         time_end = time.time()
         print "Rollouts completed in", str(time_end - time_start) +  "s"

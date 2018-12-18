@@ -31,7 +31,7 @@ class GetValue():
         self._maxima = None
         self._max_val = None
 
-    def predict_value(self, GP, path, time = 0):
+    def predict_value(self, GP, path, time = 0, FVECTOR = False):
         ''' Gets the value of a list of points in the request  
         Input: (geometry_msgs/Pose []) list of points for value evaluation
         Output: (float) value at point
@@ -49,7 +49,7 @@ class GetValue():
         elif self.reward == 'ucb':
             self.value = mean_ucb(time = time, xvals = xvals, robot_model = self.GP, param = None)
         elif self.reward == 'mes':
-            value = mves(time = time, xvals = xvals, robot_model = self.GP, param = self.maxima, FVECTOR = True)
+            value = mves(time = time, xvals = xvals, robot_model = self.GP, param = self.maxima, FVECTOR = FVECTOR)
         elif self.reward == 'ig':
             value = info_gain(time = time, xvals = xvals, robot_model = self.GP, param = None)
         else:

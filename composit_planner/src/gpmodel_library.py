@@ -111,7 +111,7 @@ class GPModel(object):
             self.model.set_XY(X = np.array(self.xvals), Y = np.array(self.zvals))
 
     def posterior_samples(self, xvals, size=10, full_cov = True):
-        fsim = self.model.posterior_samples_f(xvals, size, full_cov=full_cov)
+        fsim = self.model.posterior_samples_f(xvals, size, full_cov=full_cov).reshape((xvals.shape[0], -1))
         return fsim
 
     def load_kernel(self, kernel_file = 'kernel_model.npy'):

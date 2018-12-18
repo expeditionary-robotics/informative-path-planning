@@ -72,9 +72,9 @@ sleep 2
 # { roslaunch composit_planner mapping.launch & } &> /dev/null
 # sleep 2
 
-source ~/rrg/devel/setup.bash
-echo "Starting the COMPOSIT Planner"
-{ roslaunch composit_planner car.launch real_sensor:=1 & }
+# source ~/rrg/devel/setup.bash
+# echo "Starting the COMPOSIT Planner"
+# { roslaunch composit_planner car.launch real_sensor:=0 & }
 
 
 # Start the vehicle

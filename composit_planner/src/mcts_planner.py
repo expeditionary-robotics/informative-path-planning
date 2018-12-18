@@ -334,19 +334,19 @@ class Planner:
                 clear_paths = self.srv_paths(PathFromPoseRequest(self.pose))
                 clear_paths = clear_paths.safe_paths
                 if len(clear_paths) > 1:
-                    try:
-                        mcts = mcts_lib.cMCTS(self.GP, self.pose, self.replan_budget, self.rollout_len, self.srv_paths, eval_value, time = 0, tree_type = self.tree_type, belief_updates = self.belief_updates)
-                        best_path, value = mcts.choose_trajectory(t = 0)
-                        controller_path = self.strip_angle(best_path)
-                        self.plan_pub.publish(controller_path) #send the trajectory to move base
-                        self.last_viable = controller_path.polygon.points[-1]
-                    except:
+                    mcts = mcts_lib.cMCTS(self.GP, self.pose, self.replan_budget, self.rollout_len, self.srv_paths, eval_value, time = 0, tree_type = self.tree_type, belief_updates = self.belief_updates)
+                    best_path, value = mcts.choose_trajectory(t = 0)
+                    controller_path = self.strip_angle(best_path)
+                    self.plan_pub.publish(controller_path) #send the trajectory to move base
+                    self.last_viable = controller_path.polygon.points[-1]
+                    '''except Exception as e:
+                        print e 
                         print 'PLANNER FAILED! I MAY NEED ASSISTANCE!'
                         if self.allow_backup == True:
                             call_backup = Bool()
                             call_backup.data = True
                             self.backup_pub.publish(call_backup)
-                        self.last_viable = None
+                        self.last_viable = None '''
                 else:
                     print 'Only option is to stay! Backing Up!'
                     if self.allow_backup == True:
