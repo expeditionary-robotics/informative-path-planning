@@ -21,7 +21,7 @@ This node runs at a fixed rate, queries noisy sensor measurements from the world
 def get_measurements():
     # configure the serial connections (the parameters differs on the device you are connecting to)
     ser = serial.Serial(
-	port='/dev/ttyACM2',
+	port='/dev/ttyACM1',
 	baudrate=9600,
 	parity=serial.PARITY_ODD,
 	stopbits=serial.STOPBITS_TWO,
@@ -45,12 +45,24 @@ def get_measurements():
 	loc = -1
 	while loc == -1:
 	    resp = ser.readline()
-	    loc = resp.find('TVOC: ')
+	    #loc = resp.find('TVOC: ')
+	    loc = resp.find('CO2: ')
+            if loc == -1:
+                continue
 
-	fin = resp.find('p', loc)
-	val = resp[loc + 6: fin]
-	
+            fin = resp.find('p', loc)
+            val = float(resp[loc + 4: fin])
+            #val = float(resp[loc + 6: fin]) - 400.0
+           
+            # Ignore CO2 values that are too low
+            if val < 150.0:
+                loc = -1
+                continue
+
+
+        # Subtract out to get close to zero mean
         # Publish data
+        val = val - 400.0
         pub.publish(data = float(val))
 
 	print resp,

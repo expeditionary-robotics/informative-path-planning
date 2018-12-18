@@ -3,7 +3,7 @@
 # Configurations
 DO_PLAYBACK_DATA=false
 BAG_FILE=
-DO_BAG_DATA=false
+DO_BAG_DATA=true
 DO_START_RVIZ=false
 
 while [ "$1" != "" ]; do
@@ -48,6 +48,12 @@ if [ "$DO_START_RVIZ" = true ]; then
     sleep 5
 fi
 
+
+# Give all devices the correct R/W permissions 
+#echo "Granting permissions to devices"
+#sudo chmod 777 /dev/ttyACM*
+#sudo chmod 777 /dev/vesc
+
 # Start LCM + scan matcher
 source ~/rrg/dependencies/setup.sh
 echo "Starting LCM & scan matcher"
@@ -68,7 +74,7 @@ sleep 2
 
 source ~/rrg/devel/setup.bash
 echo "Starting the COMPOSIT Planner"
-{ roslaunch composit_planner car.launch & }
+{ roslaunch composit_planner car.launch real_sensor:=1 & }
 
 
 # Start the vehicle
@@ -85,7 +91,7 @@ fi
 if [ "$DO_BAG_DATA" = true ]; then
     echo "Bagging Data"
     pushd ~/Desktop
-    rosbag record /pose_body /tf /tf_static /scan /odom /imu/data /trajectory/current /projected_map
+    rosbag record /pose_body /pose /tf /tf_static /imu/data /trajectory/current /projected_map /costmap /chem_data /chem_map /path_options /vis_chemworld
     popd
 elif [ "$DO_PLAYBACK_DATA" = true ]; then
     echo "Playing back data"

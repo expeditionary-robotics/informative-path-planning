@@ -1,15 +1,15 @@
 num_pts: 40
 
-variance: 100
-lengthscale: 1.5
-noise: 0.1
+variance: 500
+lengthscale: 2.0
+noise: 5.0
 seed: 100
 
-model_variance: 100
-model_lengthscale: 1.5
-model_noise: 0.1
+model_variance: 500
+model_lengthscale: 2.0
+model_noise: 5.0
 
-sensor_rate: 0.5
+sensor_rate: 1.0
 visualize_rate: 0.25
 
 xmin: -5.0

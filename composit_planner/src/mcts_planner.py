@@ -220,8 +220,6 @@ class Planner:
             # Scale obesrvations between the 10th and 90th percentile value
             max_rew = np.max(reward)
             min_rew = np.min(reward)
-            print "Min reward:", min_rew
-            print "Max reward:", max_rew
 
             # Define lambda for transforming from observation to 0-255 range
             if max_rew == min_rew and max_rew == 0.00: 
@@ -247,7 +245,7 @@ class Planner:
             if self.GP.xvals is None:
                 val.values.append(255./2.)
             else:
-                val.values.append(topixel(observations[i, :]))
+                val.values.append(topixel_rew(observations[i, :]))
         msg.channels.append(val)
 
         rew = ChannelFloat32()
@@ -257,16 +255,8 @@ class Planner:
             if self.GP.xvals is None:
                 rew.values.append(255./2.)
             else:
-                try:
-                    rew.values.append(topixel_rew(reward[i, :]))
-                except:
-                    print reward
-                    print reward[i, :]
-                    exit(0)
+                rew.values.append(topixel_rew(reward[i, :]))
         
-        print "Publishing!"
-        print rew.values
-
 
         msg.channels.append(rew)
 

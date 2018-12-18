@@ -119,14 +119,7 @@ class DPWTree(object):
 
         # At random node, after selected action from a specific node
         elif current_node.node_type == 'BA':
-            # Copy old belief
-            #gp_new = copy.copy(current_node.belief) 
-            #gp_new = current_node.belief
-
             # Sample a new set of observations and form a new belief
-            # xobs = current_node.action.poses
-            #obs = np.array(current_node.action.poses)
-            #xobs = np.vstack([obs[:,0], obs[:,1]]).T
             xobs = np.array([[msg.x, msg.y] for msg in current_node.action.polygon.points]).reshape(len(current_node.action.polygon.points), 2)
             r = self.eval_value.predict_value(belief, current_node.action.polygon.points, time = self.t)
 
@@ -295,10 +288,6 @@ class MLETree(DPWTree):
 
         # At random node, after selected action from a specific node
         elif current_node.node_type == 'BA':
-            # Copy old belief
-            #gp_new = copy.copy(current_node.belief) 
-            #gp_new = current_node.belief
-
             r = self.eval_value.predict_value(belief, current_node.action.polygon.points, time = self.t)
             xobs = np.array([[msg.x, msg.y] for msg in current_node.action.polygon.points]).reshape(len(current_node.action.polygon.points), 2)
 
@@ -439,11 +428,17 @@ class cMCTS():
         time_start = time.time()            
         # While we still have time to compute, generate the tree
         i = 0
+
+        gp = copy.deepcopy(self.GP)
         while i < self.comp_budget: #time.time() - time_start < self.comp_budget:
             i += 1
             print "On iteration", i, "of", self.comp_budget
-            gp = copy.copy(self.GP)
             self.tree.get_next_leaf(gp)
+
+            # If doing belief updates, start with a fresh belief
+            if self.belief_updates:
+                gp = copy.deepcopy(self.GP)
+
         time_end = time.time()
         print "Rollouts completed in", str(time_end - time_start) +  "s"
         print "Number of rollouts:", i
