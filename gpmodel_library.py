@@ -61,7 +61,7 @@ class GPModel(object):
         # Intitally, before any data is created, 
         self.model = None
 
-    def predict_value(self, xvals, include_noise = False):
+    def predict_value(self, xvals, include_noise = True):
         ''' Public method returns the mean and variance predictions at a set of input locations.
         Inputs:
             xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2

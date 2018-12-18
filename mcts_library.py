@@ -668,12 +668,12 @@ class cMCTS(MCTS):
         time_start = time.time()            
         # while we still have time to compute, generate the tree
         i = 0
-        gp = copy.deepcopy(self.GP)
+        gp = copy.copy(self.GP)
         while i < self.comp_budget:#time.time() - time_start < self.comp_budget:
             i += 1
             self.tree.get_next_leaf(gp)
             if False:
-                gp = copy.deepcopy(self.GP)
+                gp = copy.copy(self.GP)
         time_end = time.time()
         print "Rollouts completed in", str(time_end - time_start) +  "s"
         print "Number of rollouts:", i
