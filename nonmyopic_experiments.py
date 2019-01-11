@@ -81,8 +81,8 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      extent = ranges, #extent of the explorable environment
                      kernel_file = None,
                      # kernel_dataset = None,
-                     prior_dataset =  (data, observations), 
-                     # prior_dataset = None,
+                     # prior_dataset =  (data, observations), 
+                     prior_dataset = None,
                      init_lengthscale = 1.0, 
                      init_variance = 100.0, 
                      # noise = 5.0,

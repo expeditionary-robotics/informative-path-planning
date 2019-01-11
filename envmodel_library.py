@@ -109,7 +109,8 @@ class Environment:
                 logger.warning("Current environment in violation of boundary constraint. Regenerating!")
 
                 # Intialize a GP model of the environment
-                self.GP = OnlineGPModel(ranges = ranges, lengthscale = lengthscale, variance = variance)         
+                # self.GP = OnlineGPModel(ranges = ranges, lengthscale = lengthscale, variance = variance)         
+                self.GP = GPModel(ranges = ranges, lengthscale = lengthscale, variance = variance)         
                 data = np.vstack([x1vals.ravel(), x2vals.ravel()]).T 
 
                 # Take an initial sample in the GP prior, conditioned on no other data

@@ -54,7 +54,7 @@ class GPModel(object):
             raise ValueError('Environment must have dimension 2 \'rbf\'')
 
         if kernel == 'rbf':
-            self.kern = GPy.kern.RBF(input_dim = self.dim, lengthscale = lengthscale, variance = variance) 
+            self.kern = GPy.kern.RBF(input_dim = self.dim, lengthscale = lengthscale, variance = variance, useGPU = True) 
         else:
             raise ValueError('Kernel type must by \'rbf\'')
             
@@ -708,7 +708,6 @@ class SubsampledGPModel(OnlineGPModel):
                 if d == float("inf") or np.abs(self.zvals[i, :] - m[j, :]) > self.val_eps:
                     print "Udating model with point:", d, self.xvals[i], "and values:", self.zvals[i, :], m[j, :]
                     self.update_model(xvals, zvals)
-                    self._spatial_tree = None
                     return
             print "---------- Skiped Update! -------------------"
 
