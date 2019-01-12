@@ -66,7 +66,7 @@ class Node(object):
         print self.name
 
 class DPWTree(object):
-    def __init__(self, eval_value, belief, pose, path_service, time, depth, c, UPDATE_FLAG = True):
+    def __init__(self, eval_value, belief, pose, path_service, time, depth, c, UPDATE_FLAG = False):
         self.path_service = path_service
         self.eval_value = eval_value 
 
@@ -143,11 +143,13 @@ class DPWTree(object):
                     nqueries = [node.nqueries for node in current_node.children]
                     child = random.choice([node for node in current_node.children if node.nqueries == min(nqueries)])
                     if self.UPDATE_FLAG:
+                        print "Adding kids!"
                         belief.add_data(xobs, child.zvals)
                     #print "Selcted child:", child.nqueries
                     return self.leaf_helper(child, reward + r, belief)
 
             if self.UPDATE_FLAG:
+                print "Adding kids!"
                 if belief.model is None:
                     n_points, input_dim = xobs.shape
                     zmean, zvar = np.zeros((n_points, )), np.eye(n_points) * belief.variance
@@ -349,7 +351,7 @@ class MLETree(DPWTree):
 
 class cMCTS():
     '''Class that establishes a continuous MCTS for nonmyopic planning'''
-    def __init__(self, belief, initial_pose, computation_budget, rollout_length, path_service, eval_value, time, tree_type = None, belief_updates = True):
+    def __init__(self, belief, initial_pose, computation_budget, rollout_length, path_service, eval_value, time, tree_type = None, belief_updates = False):
         '''
         Initialize with constraints for the planning, including whether there is a budget or planning horizon
         Inputs:
