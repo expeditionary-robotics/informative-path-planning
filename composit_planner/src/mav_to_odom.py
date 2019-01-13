@@ -30,19 +30,22 @@ class Converter(object):
         '''
         Initialize the conversion scheme
         '''
-
         # get the lat, lon origin coordinate
         self.origin = rospy.get_param('origin', None)
+       
+        # Subscribed topics
+        global_pos_topic = rospy.get_param('global_position_topic', 'mavros/global_position/global')
+        hdg_topic = rospy.get_param('heading_topic', 'mavros/global_position/compass_hdg')
+        altimeter_topic = rospy.get_param('altimeter_topic', 'sensors/micron_echo/data')
+        goal_reached_topic = rospy.get_param('goal_reached_topic', 'mavros/rc/goal_reached') # custom
 
         # subscribe to the mavros state message
-        global_pos_topic = rospy.get_param('global_position_topic', 'mavros/global_position/global')
         rospy.Subscriber(global_pos_topic, NavSatFix, self.pos_glbl_cb)
-
-        hdg_topic = rospy.get_param('heading_topic', 'mavros/global_position/compass_hdg')
         rospy.Subscriber(hdg_topic, Float64, self.hdg_cb)
 
         # publish to the odom topic
         self.odom_pub = rospy.Publisher('/pose', PoseStamped, queue_size=1)
+        self.data_pub = rospy.Publisher('/chem_data', ChemicalSample, queue_size = 1)
 
         # initialize the variables of interest
         self.glbl_pose = [0, 0, 0]
@@ -65,6 +68,18 @@ class Converter(object):
     def hdg_cb(self, msg):
         '''Gets our compass heading'''
         self.hdg = msg.data
+    
+    def altitude_cb(self, range_msg):
+        ''' Listen for the altitude topic, potentially smooth, and republish
+            to the chem_data topic '''
+        alt = range_msg.range
+        is_valid = range_msg.min_range < alt < range_msg.max_range
+
+        if not is_valid:
+            rospy.logerr('Altitude measurement is out of range. Ignoring.')
+            return
+
+        self.data_pub.publish(data = float(alt))
 
     def send_odom(self):
         ''' Publishes a ROS Odom topic message for use in the planning system'''
@@ -83,7 +98,6 @@ class Converter(object):
         p.pose.orientation.z = q[2]
 
         self.odom_pub.publish(p)
-
 
 if __name__ == '__main__':
         # initialize node

@@ -138,8 +138,6 @@ def inflate(operation_grid, inflation_radius):
         operation_grid, size=(inflation_radius, inflation_radius), cval=-1, mode='constant')
     return inflated_mask
 
-
-
 if __name__ == '__main__':
 	#initialize node
     rospy.init_node('costmap_server')

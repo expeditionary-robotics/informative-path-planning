@@ -32,16 +32,16 @@ class ROS_Path_Generator(object):
         rospy.init_node("path_generator")
 
         # the parameters for the dubin trajectory
-        self.fs = rospy.get_param('frontier_size', 15)
-        self.hl = rospy.get_param('horizon_length', 1.5)
-        self.tr = rospy.get_param('turning_radius', 0.05)
-        self.ss = rospy.get_param('sample_step', 0.5)
-        self.ang = rospy.get_param('frontier_angle_range', np.pi/4)
-        self.safe_threshold = rospy.get_param('cost_limit', 50.)
-        self.unknown_threshold = rospy.get_param('unknown_limit', -2.0)
-        self.make_paths_behind = rospy.get_param('make_paths_behind', False)
-        self.make_stay_path = rospy.get_param('allow_to_stay', True)
-        self.use_dubins = rospy.get_param('use_dubins', True)
+        self.fs = rospy.get_param('~frontier_size', 15)
+        self.hl = rospy.get_param('~horizon_length', 1.5)
+        self.tr = rospy.get_param('~turning_radius', 0.05)
+        self.ss = rospy.get_param('~sample_step', 0.5)
+        self.ang = rospy.get_param('~frontier_angle_range', np.pi/4)
+        self.safe_threshold = rospy.get_param(~'cost_limit', 50.)
+        self.unknown_threshold = rospy.get_param('~unknown_limit', -2.0)
+        self.make_paths_behind = rospy.get_param('~make_paths_behind', False)
+        self.make_stay_path = rospy.get_param('~allow_to_stay', True)
+        self.use_dubins = rospy.get_param('~use_dubins', True)
 
         # Global variables
         self.goals = [] #The frontier coordinates
@@ -54,7 +54,7 @@ class ROS_Path_Generator(object):
         # Data of interest for generating paths
         rospy.wait_for_service('obstacle_map')
         self.cost_srv = rospy.ServiceProxy('obstacle_map', GetCostMap)
-        self.path_pub = rospy.Publisher('/path_options', PointCloud, queue_size=1)
+        self.path_pub = rospy.Publisher('path_options', PointCloud, queue_size=1)
         self.tf_listener = TransformListener()
 
         while not rospy.is_shutdown():
@@ -195,8 +195,6 @@ def make_array(data, height, width):
     Parses the costmap into matrix
     '''
     return np.array(data).reshape((height, width), order='C')
-
-
 
 if __name__ == '__main__':
     try:

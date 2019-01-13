@@ -9,15 +9,15 @@
     <rosparam command="load" file="$(find composit_planner)/launch/planner_params.yaml" />
 
     <!-- Temporary Simulated Input -->
-    <node pkg="composit_planner" type="chemical_sensor.py" name="chemical_sensor" output="screen"/>
-    <node pkg="composit_planner" type="chemical_world_sim.py" name="chemical_world_sim" output="screen"/>
-
-    <!-- Odometry Services -->
-    <node pkg="composit_planner" type="mav_to_odom.py" name="converter" output="screen" />
-
+    <!-- <node pkg="composit_planner" type="chemical_sensor.py" name="chemical_sensor" output="screen"/> -->
+    <!-- <node pkg="composit_planner" type="chemical_world_sim.py" name="chemical_world_sim" output="screen"/> -->
+    
     <!-- Obstacle Avoidance Hindbrain -->
     <!-- <node pkg="composit_planner" type="hindbrain.py" name="hindbrain" output="screen" /> -->
     <!-- <node pkg="composit_planner" type="backup_controller.py" name="backup_controller" output="screen" /> -->
+
+    <!-- Odometry and Data Services -->
+    <node pkg="composit_planner" type="mav_to_odom.py" name="converter" output="screen" />
 
     <!-- Trajectory Services -->
     <node pkg="composit_planner" type="traj_serv.py" name="traj_serv" output="screen"/>

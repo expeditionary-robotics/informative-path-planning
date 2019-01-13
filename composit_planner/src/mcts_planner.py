@@ -40,6 +40,8 @@ class Planner:
         self.variance = float(rospy.get_param('model_variance','100'))
         self.lengthscale = float(rospy.get_param('model_lengthscale','0.1'))
         self.noise = float(rospy.get_param('model_noise', '0.0001'))
+
+        # These parameters are only used for visualizing the GP
         self.x1min = float(rospy.get_param('xmin', '0'))
         self.x1max = float(rospy.get_param('xmax', '10'))
         self.x2min = float(rospy.get_param('ymin', '0'))
@@ -60,13 +62,15 @@ class Planner:
 
         # Get navigation params
         self.allowed_error = rospy.get_param('trajectory_endpoint_precision', 0.1)
-        self.allow_backup = rospy.get_param('allow_to_backup', True)
+        self.allow_backup = rospy.get_param('allow_to_backup', False)
         
         # Initialize member variables
         self.current_max = -float("inf")
         self.data_queue = list()
         self.pose_queue = list()
         self.pose = Point32()
+
+        # TODO: why are we doing this? The robot's pose should just be the
         pose_start = rospy.get_param('robot_origin', None)
         if pose_start is not None:
             self.pose.x = pose_start[0]
@@ -75,7 +79,7 @@ class Planner:
         self.last_viable = None
         
         # Initialize the robot's GP model with the initial kernel parameters
-        self.GP = OnlineGPModel(ranges = [self.x1min, self.x1max, self.x2min, self.x2max], lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
+        self.GP = GPModel(ranges = [self.x1min, self.x1max, self.x2min, self.x2max], lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
        
         # Initialize path generator
         # self.path_generator = paths_lib.ROS_Path_Generator(self.fs, self.hl, self.tr, self.ss)
@@ -85,11 +89,13 @@ class Planner:
 
         # Subscriptions to topics and services 
         # rospy.wait_for_service('query_obstacles')
-        rospy.wait_for_service('query_chemical')
+        # rospy.wait_for_service('query_chemical')
         rospy.wait_for_service('obstacle_map')
+
         # self.srv_traj = rospy.ServiceProxy('query_obstacles', TrajectoryCheck)
         self.srv_paths = rospy.ServiceProxy('get_paths', PathFromPose)
-        self.srv_chem = rospy.ServiceProxy('query_chemical', SimMeasurement)
+        # self.srv_chem = rospy.ServiceProxy('query_chemical', SimMeasurement)
+
         self.pose_sub = rospy.Subscriber("/pose", PoseStamped, self.update_pose)
         self.data = rospy.Subscriber("/chem_data", ChemicalSample, self.get_sensordata)
         

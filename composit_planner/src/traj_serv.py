@@ -44,25 +44,24 @@ class TrajMonitor(object):
         The trajectory comes in as a series of poses. It is assumed that the desired angle
         has already been determined
         '''
+        start = traj.polygon.points[0]
         goal = traj.polygon.points[-1]
+
         g = PositionTarget()
         g.header.frame_id = ''
         g.header.stamp = rospy.Time(0)
         g.coordinate_frame = g.FRAME_LOCAL_OFFSET_NED
-        # g.type_mask = g.IGNORE_PZ
-        g.position.x = goal[0]
-        g.position.y = goal[1]
+        g.position.x = goal[0] - start[0] # need the realtive offset
+        g.position.y = goal[1] - start[1]
         g.position.z = 0.
         self.waypt_pub.publish(g)
         self.can_replan = True
-
 
     def handle_reached(self, msg):
         '''Sends replanning message when we reach goal'''
         if msg.data is True and self.can_replan is True:
             self.replan()
             self.can_replan = False
-
 
 if __name__ == '__main__':
     try:
