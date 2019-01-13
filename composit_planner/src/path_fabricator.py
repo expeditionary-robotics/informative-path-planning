@@ -32,21 +32,23 @@ class ROS_Path_Generator(object):
         rospy.init_node("path_generator")
 
         # the parameters for the dubin trajectory
-        self.fs = rospy.get_param('~frontier_size', 15)
-        self.hl = rospy.get_param('~horizon_length', 1.5)
-        self.tr = rospy.get_param('~turning_radius', 0.05)
-        self.ss = rospy.get_param('~sample_step', 0.5)
-        self.ang = rospy.get_param('~frontier_angle_range', np.pi/4)
-        self.safe_threshold = rospy.get_param(~'cost_limit', 50.)
-        self.unknown_threshold = rospy.get_param('~unknown_limit', -2.0)
-        self.make_paths_behind = rospy.get_param('~make_paths_behind', False)
-        self.make_stay_path = rospy.get_param('~allow_to_stay', True)
-        self.use_dubins = rospy.get_param('~use_dubins', True)
+        self.fs = rospy.get_param('frontier_size', 15)
+        self.hl = rospy.get_param('horizon_length', 1.5)
+        self.tr = rospy.get_param('turning_radius', 0.05)
+        self.ss = rospy.get_param('sample_step', 0.5)
+        self.ang = rospy.get_param('frontier_angle_range', np.pi/4)
+        self.safe_threshold = rospy.get_param('cost_limit', 50.)
+        self.unknown_threshold = rospy.get_param('unknown_limit', -2.0)
+        self.make_paths_behind = rospy.get_param('make_paths_behind', False)
+        self.make_stay_path = rospy.get_param('allow_to_stay', True)
+        self.use_dubins = rospy.get_param('use_dubins', True)
 
         # Global variables
         self.goals = [] #The frontier coordinates
         self.samples = {} #The sample points which form the paths
         self.cp = (0, 0, 0) #The current pose of the vehicle
+        self.bounding_box = rospy.get_param('bounding_box', None) #in NED (m) coordinates
+        self.origin = rospy.get_param('origin', None) #in lat lon coords
 
         # Establish the service
         self.srv_path = rospy.Service('get_paths', PathFromPose, self.get_path_set)
@@ -100,7 +102,7 @@ class ROS_Path_Generator(object):
             all_paths.append([self.cp for i in range(0,int(self.hl/self.ss))])
 
         return all_paths
-
+    
     def rosify_safe_path(self, paths):
         '''
         Check that the paths generate fit in the costmap and then transform to ROS message
@@ -148,6 +150,7 @@ class ROS_Path_Generator(object):
         val.values = np.ones(np.size(self.viz))
         m.channels.append(val)
         self.path_pub.publish(m)
+        print "Length of clear paths:", len(clear_paths)
         # Return all of the polygons to assess, includes header information
         return clear_paths
 

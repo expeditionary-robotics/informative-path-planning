@@ -1,18 +1,18 @@
-frontier_size: 30
+frontier_size: 10
 frontier_angle_range: 1.57
-horizon_length: 1.5
+horizon_length: 8.0
 turning_radius: 0.01
-sample_step: 0.1
+sample_step: 0.2
 make_paths_behind: True
 allow_to_stay: True
 allow_to_backup: False
 
-obstacle_buffer_m: 0.3
+obstacle_buffer_m: 0.1
 map_resolution: 0.1 #in meters
-# bounding_box: [[42.356340, -71.090323], [42.353985, -71.089487], [42.356942, -71.084166]] #[(lat, lon), (lat, lon)...]
-bounding_box: [[42.356340, -71.090323], [42.353985, -71.089487], [42.356942, -71.084166], [42.357942, -71.086166] ] #[(lat, lon), (lat, lon)...]
-origin: [42.353985, -71.090323, 0] # lat, lon, depth
-cost_limit: 40.0
+bounding_box: [[0.0, 0.0], [0, 50.0], [70.0, 50.0], [70.0, 0.0] ] #[(north, east), (north, east)...]
+origin: [13.1916628, -59.6414378, 0.000000] # lat, lon, depth of the center white buoy
+
+cost_limit: 10.0
 unknown_limit: -5.0
 trajectory_endpoint_precision: 0.4
 
@@ -20,5 +20,5 @@ planner_type: 'myopic'
 tree_type: 'dpw_tree'
 reward_func: 'mes'
 replan_budget: 100
-rollout_length: 5
-belief_updates: False 
+rollout_length: 3
+belief_updates: True 

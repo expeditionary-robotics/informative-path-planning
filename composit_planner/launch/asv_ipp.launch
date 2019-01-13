@@ -1,0 +1,7 @@
+<launch>
+  <group ns="slicklizard">
+    <group ns="gnc">
+      <include file="$(find composit_planner)/launch/sl.launch" />
+    </group>
+  </group>
+</launch>

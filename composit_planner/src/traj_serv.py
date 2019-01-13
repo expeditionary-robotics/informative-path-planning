@@ -51,8 +51,8 @@ class TrajMonitor(object):
         g.header.frame_id = ''
         g.header.stamp = rospy.Time(0)
         g.coordinate_frame = g.FRAME_LOCAL_OFFSET_NED
-        g.position.x = goal[0] - start[0] # need the realtive offset
-        g.position.y = goal[1] - start[1]
+        g.position.x = goal.x- start.x # need the realtive offset
+        g.position.y = goal.y - start.y
         g.position.z = 0.
         self.waypt_pub.publish(g)
         self.can_replan = True

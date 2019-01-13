@@ -51,15 +51,15 @@ class ChemicalBelief:
 
         ''' Get ROS parameters '''
         # The kernel hyperparmeters for the robot's GP model 
-        self.variance = float(rospy.get_param('model_variance','100'))
-        self.lengthscale = float(rospy.get_param('model_lengthscale','0.1'))
-        self.noise = float(rospy.get_param('model_noise', '0.0001'))
+        self.variance = float(rospy.get_param('~model_variance','100'))
+        self.lengthscale = float(rospy.get_param('~model_lengthscale','0.1'))
+        self.noise = float(rospy.get_param('~model_noise', '0.0001'))
         
         # This range parameter will be shared by both the world and the robot
-        self.x1min = float(rospy.get_param('xmin', '0'))
-        self.x1max = float(rospy.get_param('xmax', '10'))
-        self.x2min = float(rospy.get_param('ymin', '0'))
-        self.x2max = float(rospy.get_param('ymax', '10'))
+        self.x1min = float(rospy.get_param('~xmin', '0'))
+        self.x1max = float(rospy.get_param('~xmax', '10'))
+        self.x2min = float(rospy.get_param('~ymin', '0'))
+        self.x2max = float(rospy.get_param('~ymax', '10'))
         
         # Initialize the robot's GP model with the initial kernel parameters
         self.GP = OnlineGPModel(ranges = [self.x1min, self.x1max, self.x2min, self.x2max], lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
@@ -69,7 +69,7 @@ class ChemicalBelief:
         self.srv_maxima= rospy.Service('pred_value', GetValue, self.predict_value)
        
         #  Subscriptions and publiscations
-        self.data = rospy.Subscriber("chem_data", ChemicalSample, self.get_sensordata)
+        self.data = rospy.Subscriber("/chem_data", ChemicalSample, self.get_sensordata)
         self.odom = rospy.Subscriber("/pose", PoseStamped, self.update_pose)
 
         self.pub = rospy.Publisher('chem_map', PointCloud, queue_size = 100)

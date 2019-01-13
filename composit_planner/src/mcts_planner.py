@@ -185,9 +185,7 @@ class Planner:
         Input: None
         Output: msg (sensor_msgs/PointCloud) point cloud centered at current pose '''
 
-    	rospy.loginfo("Publishing GP belief with pose:")
-    	print self.pose.x
-    	print self.pose.y
+    	rospy.loginfo("Publishing GP belief with pose (%f, %f)"%(self.pose.x, self.pose.y))
         # Aquire the data lock
         self.data_lock.acquire()
 

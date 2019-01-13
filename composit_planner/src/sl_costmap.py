@@ -40,7 +40,8 @@ class CostMap(object):
         self.map_resolution = rospy.get_param('map_resolution', 0.1)
         self.inflation_radius = np.round(inflation_radius_m/self.map_resolution)
 
-        self.bounding_box = rospy.get_param('bounding_box', None) #in lat lon coords
+        # self.bounding_box = rospy.get_param('bounding_box', None) #in lat lon coords
+        self.bounding_box = rospy.get_param('bounding_box', None) #in NED (m) coordinates
         origin = rospy.get_param('origin', None) #in lat lon coords
         if self.bounding_box and origin is not None:
             # go through the points and convert to meters
@@ -49,13 +50,14 @@ class CostMap(object):
             loc_points = []
             loc_north = []
             loc_east = []
-            print self.bounding_box
             for point in self.bounding_box:
-                print point[0], lat_ref
-                rel_point = navpy.lla2ned(point[0], point[1], 0.0, lat_ref, lon_ref, 0.0)
-                loc_points.append(rel_point)
-                loc_north.append(rel_point[0])
-                loc_east.append(rel_point[1])
+                # rel_point = navpy.lla2ned(point[0], point[1], 0.0, lat_ref, lon_ref, 0.0)
+                # loc_points.append(rel_point)
+                # loc_north.append(rel_point[0])
+                # loc_east.append(rel_point[1])
+                loc_points.append(point)
+                loc_north.append(point[0])
+                loc_east.append(point[1])
 
             self.origin = Pose()
             self.origin.position.x = 0.0
@@ -67,7 +69,11 @@ class CostMap(object):
             self.origin.orientation.w = 1.
             self.height = int(np.fabs((np.nanmax(loc_north))/self.map_resolution)) #in cells
             self.width = int(np.fabs((np.nanmax(loc_east))/self.map_resolution)) #in cells
+            rospy.loginfo('Costmap height and width (in cells) [%f x %f]'%(self.height, self.width))
+            
             self.points = loc_points #in meters
+        else: 
+            rospy.logerr('No origin and geofence provided')
 
         # create a service that responds to queries about the current costmap
         self.srv = rospy.Service('obstacle_map', GetCostMap, self.return_map)
@@ -125,7 +131,7 @@ class CostMap(object):
             indices.append([int(project_y), int(project_x)])
         indices = np.array(indices)
         indices = indices.reshape((-1, 1, 2))
-        base_map = cv2.polylines(base_map, [np.array(indices)], True, 100, 100)
+        base_map = cv2.polylines(base_map, [np.array(indices)], True, color = 100, thickness = 100)
         #connection the points
         #return the matrix
         return base_map

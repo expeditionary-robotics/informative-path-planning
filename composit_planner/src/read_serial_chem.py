@@ -32,7 +32,7 @@ def get_measurements():
 	ser.open()
     
     # Initialize ros publisher, set queue size to be 1 so only the freshest chem measurement is processed 
-    pub = rospy.Publisher('chem_data', ChemicalSample, queue_size = 1)
+    pub = rospy.Publisher('/chem_data', ChemicalSample, queue_size = 1)
 
     # Set sampling rate
     rate = float(rospy.get_param('sensor_rate','2'))

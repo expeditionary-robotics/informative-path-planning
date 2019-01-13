@@ -13,6 +13,7 @@ import rospy
 from tf.transformations import quaternion_from_euler
 from std_msgs.msg import *
 from composit_planner.srv import *
+from composit_planner.msg import *
 from geometry_msgs.msg import *
 from trajectory_msgs.msg import *
 from nav_msgs.msg import *
