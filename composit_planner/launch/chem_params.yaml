@@ -1,19 +1,19 @@
 num_pts: 40
 
-variance: 1.27
+variance: 0.9211169794136274 
 lengthscale: 2.0
-noise: 0.03
+noise: 0.08489866702156079
 seed: 100
 
-model_variance: 1.27
+model_variance: 0.9211169794136274 
 model_lengthscale: 2.0
-model_noise: 0.03
+model_noise: 0.08489866702156079
 
 sensor_rate: 0.5
-visualize_rate: 0.25
+visualize_rate: 0.01
 
 xmin: 0.0
 xmax: 50.0
 ymin: 0.0
-ymax: 50.0
+ymax: 70.0
 num_pts: 40

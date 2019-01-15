@@ -150,7 +150,7 @@ class ROS_Path_Generator(object):
         val.values = np.ones(np.size(self.viz))
         m.channels.append(val)
         self.path_pub.publish(m)
-        print "Length of clear paths:", len(clear_paths)
+        # print "Length of clear paths:", len(clear_paths)
         # Return all of the polygons to assess, includes header information
         return clear_paths
 

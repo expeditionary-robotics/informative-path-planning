@@ -131,7 +131,7 @@ class CostMap(object):
             indices.append([int(project_y), int(project_x)])
         indices = np.array(indices)
         indices = indices.reshape((-1, 1, 2))
-        base_map = cv2.polylines(base_map, [np.array(indices)], True, color = 100, thickness = 100)
+        base_map = cv2.polylines(base_map, [np.array(indices)], True, color = 100, thickness = min(1, int(1.0/self.map_resolution)))
         #connection the points
         #return the matrix
         return base_map

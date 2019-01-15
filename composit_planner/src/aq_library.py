@@ -26,10 +26,11 @@ import rospy
 from geometry_msgs.msg import Pose
    
 class GetValue():
-    def __init__(self, reward):
+    def __init__(self, reward, t):
         self.reward = reward
         self._maxima = None
         self._max_val = None
+        self.t = t
 
     def predict_value(self, GP, path, time = 0):
         ''' Gets the value of a list of points in the request  
@@ -45,13 +46,13 @@ class GetValue():
         self.GP = GP
 
         if self.reward == 'ei':
-            self.value = exp_improvement(time = time, xvals = xvals, robot_model = self.GP, param = self.max_val)
+            self.value = exp_improvement(time = self.t, xvals = xvals, robot_model = self.GP, param = self.max_val)
         elif self.reward == 'ucb':
-            self.value = mean_ucb(time = time, xvals = xvals, robot_model = self.GP, param = None)
+            self.value = mean_ucb(time = self.t, xvals = xvals, robot_model = self.GP, param = None)
         elif self.reward == 'mes':
-            value = mves(time = time, xvals = xvals, robot_model = self.GP, param = self.maxima, FVECTOR = True)
+            value = mves(time = self.t, xvals = xvals, robot_model = self.GP, param = self.maxima, FVECTOR = False)
         elif self.reward == 'ig':
-            value = info_gain(time = time, xvals = xvals, robot_model = self.GP, param = None)
+            value = info_gain(time = self.t, xvals = xvals, robot_model = self.GP, param = None)
         else:
             print self.reward 
             raise ValueError('Aqusition function must be one of ei, ucb, ig, or mes')

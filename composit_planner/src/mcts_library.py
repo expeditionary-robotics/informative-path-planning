@@ -392,7 +392,8 @@ class cMCTS():
 
         # The different constants for logarithmic vs polynomial exploration
         # TODO: fix this; currently the tree doesn't know it's reward type
-        self.c = 1.0
+        # self.c = 1.0
+        self.c = 1.0 / np.sqrt(2.0)
         '''
         if self.f_rew == 'mean':
             if self.tree_type == 'mle_tree':

@@ -37,12 +37,13 @@ class Converter(object):
         # Subscribed topics
         global_pos_topic = rospy.get_param('global_position_topic', 'mavros/global_position/global')
         hdg_topic = rospy.get_param('heading_topic', 'mavros/global_position/compass_hdg')
-        altimeter_topic = rospy.get_param('altimeter_topic', 'sensors/micron_echo/data')
+        altimeter_topic = rospy.get_param('altimeter_topic', '/slicklizard/sensors/micron_echo/data')
         goal_reached_topic = rospy.get_param('goal_reached_topic', 'mavros/rc/goal_reached') # custom
 
         # subscribe to the mavros state message
         rospy.Subscriber(global_pos_topic, NavSatFix, self.pos_glbl_cb)
         rospy.Subscriber(hdg_topic, Float64, self.hdg_cb)
+        rospy.Subscriber(altimeter_topic, Range, self.altitude_cb)
 
         # publish to the odom topic
         self.odom_pub = rospy.Publisher('/pose', PoseStamped, queue_size=1)
@@ -73,11 +74,12 @@ class Converter(object):
     def altitude_cb(self, range_msg):
         ''' Listen for the altitude topic, potentially smooth, and republish
             to the chem_data topic '''
+
         alt = range_msg.range
         is_valid = range_msg.min_range < alt < range_msg.max_range
 
         if not is_valid:
-            rospy.logerr('Altitude measurement is out of range. Ignoring.')
+            # rospy.logerr('Altitude measurement is out of range. Ignoring.')
             return
 
         self.data_pub.publish(data = float(alt))

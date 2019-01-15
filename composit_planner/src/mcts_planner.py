@@ -80,6 +80,7 @@ class Planner:
         
         # Initialize the robot's GP model with the initial kernel parameters
         self.GP = GPModel(ranges = [self.x1min, self.x1max, self.x2min, self.x2max], lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
+        self.t = 0
        
         # Initialize path generator
         # self.path_generator = paths_lib.ROS_Path_Generator(self.fs, self.hl, self.tr, self.ss)
@@ -104,7 +105,6 @@ class Planner:
         self.pub = rospy.Publisher('/chem_map', PointCloud, queue_size = 100)
         # self.plan_pub = rospy.Publisher("/selected_trajectory", PolygonStamped, queue_size=1)
         self.plan_pub = rospy.Publisher("/trajectory/current", PolygonStamped, queue_size=1)
-        self.backup_pub = rospy.Publisher("call_backup", Bool, queue_size=1)
 
         r = rospy.Rate(self.visualize_rate)
         while not rospy.is_shutdown():
@@ -142,7 +142,7 @@ class Planner:
             return True
 
         except ValueError as e:
-            print e 
+            rospy.logerr('Error updating model {}'.format(e))
             return False
 
     def replan(self, _):
@@ -150,7 +150,11 @@ class Planner:
         Input: None
         Output: Boolean success service response. ''' 
         status = self.update_model()
-        print "Update model status:", status
+        if status:
+            rospy.loginfo("Updated GP belief of size (%f) with pose (%f, %f)"%(self.GP.xval.shape[0], self.pose.x, self.pose.y))
+        else:
+            rospy.logerr("Failed to update GP")
+        self.t += 1
         # Publish the best plan
         if status is True:
             self.get_plan()
@@ -162,7 +166,6 @@ class Planner:
         ''' Update the current pose of the robot.
         Input: msg (geometry_msgs/PoseStamped)
         Output: None ''' 
-        #print 'Updating Pose'
         odom_pose = msg.pose # of type odometry messages
         trans_pose = Point32()
         trans_pose.x = odom_pose.position.x
@@ -223,6 +226,7 @@ class Planner:
             else:
                 topixel = lambda val: int((val - min_val) / (max_val - min_val) * 255.0)
             
+            '''
             # Get reward
             eval_value = aq_lib.GetValue(self.reward)
             reward = eval_value.predict_value(self.GP, data)
@@ -230,8 +234,6 @@ class Planner:
             # Scale obesrvations between the 10th and 90th percentile value
             max_rew = np.max(reward)
             min_rew = np.min(reward)
-            print "Min reward:", min_rew
-            print "Max reward:", max_rew
 
             # Define lambda for transforming from observation to 0-255 range
             if max_rew == min_rew and max_rew == 0.00: 
@@ -239,6 +241,7 @@ class Planner:
             else:
                 # topixel_rew = lambda val: int((val - min_rew) / (max_rew - min_rew) * 255.0)
                 topixel_rew = lambda val: float(val)
+            '''
 
         # Create the point cloud message
         msg = PointCloud()
@@ -260,6 +263,7 @@ class Planner:
                 val.values.append(topixel(observations[i, :]))
         msg.channels.append(val)
 
+        '''
         rew = ChannelFloat32()
         rew.name = 'reward'
         for i, d in enumerate(data):
@@ -270,15 +274,10 @@ class Planner:
                 try:
                     rew.values.append(topixel_rew(reward[i, :]))
                 except:
-                    print reward
-                    print reward[i, :]
                     exit(0)
         
-        # print "Publishing!"
-        # print rew.values
-
-
         msg.channels.append(rew)
+        '''
 
         self.pub.publish(msg)
 
@@ -304,32 +303,13 @@ class Planner:
         else:
             return
 
-    def choose_myopic_trajectory(self, eval_value):
-        # Generate paths (will be obstacle checked against current map)
-        clear_paths = self.srv_paths(PathFromPoseRequest(self.pose))
-        clear_paths = clear_paths.safe_paths
-        if len(clear_paths) > 1 or self.allow_backup == False:
-            #Now, select the path with the highest potential reward
-            path_selector = {}
-            for i, path in enumerate(clear_paths):
-                if len(path.polygon.points) != 0:
-                    # TODO: need to keep an updated discrete time for the UCB reward
-                    path_selector[i] = eval_value.predict_value(self.GP, path.polygon.points)
-                else:
-                    path_selector[i] = -float("inf")
-
-            best_key = np.random.choice([key for key in path_selector.keys() if path_selector[key] == max(path_selector.values())])
-            return clear_paths[best_key], path_selector[best_key]
-        else:
-            return
-
 
     def get_plan(self):
         # Aquire the data lock (no new data can be added to the GP model during planning)
         self.data_lock.acquire()
 
         # Generate object to calculate reward from list of geometry_msgs/Pose
-        eval_value = aq_lib.GetValue(self.reward)
+        eval_value = aq_lib.GetValue(self.reward, self.t)
 
         if self.planner_type == 'myopic':
             if self.pose is not None:
@@ -338,8 +318,10 @@ class Planner:
                     controller_path = self.strip_angle(best_path)
                     self.plan_pub.publish(controller_path) #send the trajectory to move base
                     self.last_viable = controller_path.polygon.points[-1]
-                except:
-                    print 'ATTENTION HUMAN! I MAY NEED ASSISTANCE!'
+
+                except Exception as e:
+                    rospy.logerr('Attention, I may need assistance {}'.format(e))
+
                     # Publish a message to a backup controller to activate
                     if self.allow_backup == True:
                         call_backup = Bool()
@@ -359,15 +341,15 @@ class Planner:
                         controller_path = self.strip_angle(best_path)
                         self.plan_pub.publish(controller_path) #send the trajectory to move base
                         self.last_viable = controller_path.polygon.points[-1]
-                    except:
-                        print 'PLANNER FAILED! I MAY NEED ASSISTANCE!'
+                    except Exception as e:
+                        rospy.logerr('Planner failed, I may need assistance {}'.format(e))
                         if self.allow_backup == True:
                             call_backup = Bool()
                             call_backup.data = True
                             self.backup_pub.publish(call_backup)
                         self.last_viable = None
                 else:
-                    print 'Only option is to stay! Backing Up!'
+                    rospy.loginfo('Only option is to stay!')
                     if self.allow_backup == True:
                         call_backup = Bool()
                         call_backup.data = True
@@ -394,8 +376,6 @@ class Planner:
             clear.append(elem)
         l.polygon.points = clear
         return l
-
-
 
 if __name__ == '__main__':
     rospy.init_node('mcts_planner')
