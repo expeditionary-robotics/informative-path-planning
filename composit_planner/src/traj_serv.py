@@ -33,7 +33,7 @@ class TrajMonitor(object):
 
         # access replan service to trigger when finished a trajectory
         self.replan = rospy.ServiceProxy('replan', RequestReplan)
-        self.can_replan = False
+        # self.can_replan = False
 
         # spin until shutdown
         while not rospy.is_shutdown():
@@ -51,17 +51,24 @@ class TrajMonitor(object):
         g.header.frame_id = ''
         g.header.stamp = rospy.Time(0)
         g.coordinate_frame = g.FRAME_LOCAL_OFFSET_NED
-        g.position.x = goal.x- start.x # need the realtive offset
-        g.position.y = goal.y - start.y
+        g.position.x = goal.y- start.y # need the realtive offset
+        g.position.y = goal.x - start.x
         g.position.z = 0.
         self.waypt_pub.publish(g)
-        self.can_replan = True
+        # self.can_replan = True
 
     def handle_reached(self, msg):
         '''Sends replanning message when we reach goal'''
-        if msg.data is True and self.can_replan is True:
-            self.replan()
-            self.can_replan = False
+        if msg.data is True:# and self.can_replan is True:
+            print "Calling replan!"
+            value = self.replan()
+            print "Return:!", value
+            '''
+            if value == False:
+                self.can_replan = True
+            else:
+                self.can_replan = False
+            '''
 
 if __name__ == '__main__':
     try:

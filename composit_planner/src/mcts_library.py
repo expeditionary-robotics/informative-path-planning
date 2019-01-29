@@ -393,7 +393,10 @@ class cMCTS():
         # The different constants for logarithmic vs polynomial exploration
         # TODO: fix this; currently the tree doesn't know it's reward type
         # self.c = 1.0
-        self.c = 1.0 / np.sqrt(2.0)
+        # self.c = 1.0 / np.sqrt(2.0) / 5.0
+        self.c = 1.0 / np.sqrt(2.0) / 100.0
+
+        # self.c = 1000
         '''
         if self.f_rew == 'mean':
             if self.tree_type == 'mle_tree':
@@ -462,6 +465,8 @@ class cMCTS():
             else:
                 all_vals[i] = -float("inf")
 
+
+        print "Reward of the best child:", best_child.reward/float(best_child.nqueries)
         return best_child.action, best_child.reward/float(best_child.nqueries)
 
         #Document the information

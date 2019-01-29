@@ -69,6 +69,7 @@ class Converter(object):
 
     def hdg_cb(self, msg):
         '''Gets our compass heading'''
+        # print "Compass heading:", self.hdg
         self.hdg = msg.data
     
     def altitude_cb(self, range_msg):
@@ -82,7 +83,7 @@ class Converter(object):
             # rospy.logerr('Altitude measurement is out of range. Ignoring.')
             return
 
-        self.data_pub.publish(data = float(alt))
+        self.data_pub.publish(data = -10.0*(float(alt) - 3.007621677259172))
 
     def send_odom(self):
         ''' Publishes a ROS Odom topic message for use in the planning system'''
@@ -95,6 +96,8 @@ class Converter(object):
         p.pose.position.z = self.lcl_pose[2]
 
         q = quaternion_from_euler(0., 0., self.hdg)
+        # print q
+
         p.pose.orientation.w = q[3]
         p.pose.orientation.x = q[0]
         p.pose.orientation.y = q[1]

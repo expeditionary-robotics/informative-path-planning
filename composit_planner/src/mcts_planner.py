@@ -10,6 +10,8 @@ import threading
 
 # ROS includes
 import rospy
+import rosbag
+import navpy
 from geometry_msgs.msg import *
 from nav_msgs.msg import * 
 from sensor_msgs.msg import *
@@ -60,6 +62,8 @@ class Planner:
         self.planner_type = rospy.get_param('planner_type', 'myopic')
         self.belief_updates = rospy.get_param('belief_updates', 'True')
 
+        self.seed_bag = rospy.get_param('seed_bag', None)
+
         # Get navigation params
         self.allowed_error = rospy.get_param('trajectory_endpoint_precision', 0.1)
         self.allow_backup = rospy.get_param('allow_to_backup', False)
@@ -71,15 +75,21 @@ class Planner:
         self.pose = Point32()
 
         # TODO: why are we doing this? The robot's pose should just be the
-        pose_start = rospy.get_param('robot_origin', None)
-        if pose_start is not None:
-            self.pose.x = pose_start[0]
-            self.pose.y = pose_start[1]
-            self.pose.z = pose_start[2]
+        self.origin = rospy.get_param('origin', None)
+        # if self.origin is not None:
+        #     self.pose.x = self.origin[0]
+        #     self.pose.y = self.origin[1]
+        #     self.pose.z = self.origin[2]
         self.last_viable = None
         
         # Initialize the robot's GP model with the initial kernel parameters
         self.GP = GPModel(ranges = [self.x1min, self.x1max, self.x2min, self.x2max], lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
+	
+	# Add subsampled data from a previous bagifle
+        if self.seed_bag is not None:
+	    xobs, zobs = self.read_bagfile()
+            self.GP.add_data(xobs.reshape((-1, 2)), zobs.reshape((-1, 1)))
+
         self.t = 0
        
         # Initialize path generator
@@ -110,8 +120,50 @@ class Planner:
         while not rospy.is_shutdown():
             # Pubish current belief map
             status = self.update_model()  #Updating the model this frequently is costly, but helps visualization 
-            self.publish_gpbelief()
+            if self.GP.xvals is not None:
+                self.publish_gpbelief()
             r.sleep()
+
+    def read_bagfile(self):
+        # Hard coded bag file and topic names
+        bag = rosbag.Bag(self.seed_bag)
+        position_topic = '/slicklizard/gnc/mavros/global_position/global'
+        data_topic = '/slicklizard/sensors/micron_echo/data'
+
+        altitude = []
+        locations = []
+        latitude = []
+        longitude = []
+        times = []
+        prev_loc = current_loc = current_alt = None
+        home = self.origin # The starting lcoation of the robot
+
+	for topic, msg, t in bag.read_messages(topics = [data_topic, position_topic]):
+	    if topic == position_topic:
+		# If a more recent altitude data point has been recieved, save the following lat-long coordinate
+		if current_alt is not None:
+		    # Only take data points in the correct quadrant
+		    if msg.latitude > home[0] and msg.longitude > home[1]:
+			altitude.append(-10.0*(current_alt.range - 3.007621677259172)) # "depth" should be netagive
+			loc = navpy.lla2ned(msg.latitude, msg.longitude, 0.0, home[0], home[1], 0.0)
+			locations.append([loc[1], loc[0]])
+			times.append(current_alt.header.stamp.secs)
+			current_alt = None
+
+	    elif topic == '/slicklizard/sensors/micron_echo/data':
+		current_alt = msg       
+				    
+	# Convert lists to ndarrays
+	locations = np.array(locations).reshape((-1, 2)); 
+	altitude = np.array(altitude-np.mean(altitude))
+	times = np.array(times).reshape((-1, 1))
+
+	# Reject outliers (more then 2 standard deviations from the mean) and subsamples the data
+	outlier_index = (abs(altitude - np.mean(altitude)) < 2.0 * np.std(altitude)).reshape(-1, )
+	locations = locations[outlier_index, :][::20]
+	altitude = altitude[outlier_index][::20]
+	times = times[outlier_index][::20]
+	return locations, altitude
 
     def update_model(self):
         ''' Adds all data currently in the data queue into the GP model and clears the data queue. Threadsafe. 
@@ -151,13 +203,15 @@ class Planner:
         Output: Boolean success service response. ''' 
         status = self.update_model()
         if status:
-            rospy.loginfo("Updated GP belief of size (%f) with pose (%f, %f)"%(self.GP.xval.shape[0], self.pose.x, self.pose.y))
+            rospy.loginfo("Updated GP belief of size (%f) with pose (%f, %f)"%(self.GP.xvals.shape[0], self.pose.x, self.pose.y))
         else:
             rospy.logerr("Failed to update GP")
         self.t += 1
         # Publish the best plan
         if status is True:
             self.get_plan()
+            if self.GP is not None and self.GP.xvals is not None:
+                self.publish_gpbelief()
             return RequestReplanResponse(True)
         else:
             return RequestReplanResponse(False)
@@ -178,6 +232,11 @@ class Planner:
         ''' Creates a queue of incoming sample points on the /chem_data topic 
         Input: msg (flat64) checmical data at current pose
         '''
+        # Don't allow the size of the GP to grow above 1500
+        if self.GP.xvals is not None and self.GP.xvals.shape[0] > 1500:
+            rospy.logerr("GP now contains (%f) points; ignoring new data!"%(self.GP.xvals.shape[0]))
+            return
+
         self.data_lock.acquire()
         self.data_queue.append(msg)
         self.pose_queue.append(self.pose)
@@ -188,7 +247,7 @@ class Planner:
         Input: None
         Output: msg (sensor_msgs/PointCloud) point cloud centered at current pose '''
 
-    	rospy.loginfo("Publishing GP belief with pose (%f, %f)"%(self.pose.x, self.pose.y))
+    	rospy.loginfo("Publishing GP belief of size %f with pose (%f, %f)"%(self.GP.xvals.shape[0], self.pose.x, self.pose.y))
         # Aquire the data lock
         self.data_lock.acquire()
 
@@ -299,6 +358,7 @@ class Planner:
                     path_selector[i] = -float("inf")
 
             best_key = np.random.choice([key for key in path_selector.keys() if path_selector[key] == max(path_selector.values())])
+            print "Reward of the best child:", path_selector[best_key]
             return clear_paths[best_key], path_selector[best_key]
         else:
             return

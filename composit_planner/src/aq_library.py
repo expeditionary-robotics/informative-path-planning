@@ -46,9 +46,9 @@ class GetValue():
         self.GP = GP
 
         if self.reward == 'ei':
-            self.value = exp_improvement(time = self.t, xvals = xvals, robot_model = self.GP, param = self.max_val)
+            value = exp_improvement(time = self.t, xvals = xvals, robot_model = self.GP, param = self.max_val)
         elif self.reward == 'ucb':
-            self.value = mean_ucb(time = self.t, xvals = xvals, robot_model = self.GP, param = None)
+            value = mean_ucb(time = self.t, xvals = xvals, robot_model = self.GP, param = None)
         elif self.reward == 'mes':
             value = mves(time = self.t, xvals = xvals, robot_model = self.GP, param = self.maxima, FVECTOR = False)
         elif self.reward == 'ig':

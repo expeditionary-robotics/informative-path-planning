@@ -1,6 +1,6 @@
 frontier_size: 10
 frontier_angle_range: 1.57
-horizon_length: 8.5
+horizon_length: 10.0
 turning_radius: 0.01
 sample_step: 2.0
 make_paths_behind: True
@@ -10,14 +10,20 @@ allow_to_backup: False
 obstacle_buffer_m: 0.1
 map_resolution: 0.5 #in meters
 bounding_box: [[0.0, 0.0], [0, 50.0], [50.0, 50.0], [50.0, 0.0] ] #[(north, east), (north, east)...]
-origin: [13.192105, -59.639504, 0.000000] # lat, lon, depth of the center white buoy
+# origin: [13.192105, -59.639504, 0.000000] # lat, lon, depth of the center white buoy
+# origin: [13.191662799850548, -59.64171455046076, 0.00000]
+# origin: [13.1918202, -59.6423150, 0.00000] #good
+#
+# origin: [13.1916628, -59.6414678, 0.00000] # buoy
+origin: [13.1916987, -59.6419202, 0.00000] # used in experiments
 cost_limit: 10.0
 unknown_limit: -5.0
 trajectory_endpoint_precision: 0.4
+seed_bag: '/home/genevieve/mit-whoi/barbados/rosbag_15Jan_slicklizard/slicklizard_2019-01-15-20-22-16.bag'
 
-planner_type: 'nonmyopic'
+planner_type: 'myopic'
 tree_type: 'dpw_tree'
-reward_func: 'mes'
-replan_budget: 100
-rollout_length: 3
-belief_updates: True 
+reward_func: 'ucb'
+replan_budget: 75
+rollout_length: 4
+belief_updates: False 
