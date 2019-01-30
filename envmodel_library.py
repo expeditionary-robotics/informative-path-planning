@@ -28,7 +28,7 @@ class Environment:
     '''The Environment class, which represents a retangular Gaussian world.
     ''' 
     def __init__(self, ranges, NUM_PTS, variance, lengthscale, noise = 0.0001, 
-            visualize = True, seed = None, dim = 2, model = None, MIN_COLOR=-25.0, MAX_COLOR=25.0, 
+            visualize = True, seed = None, dim = 2, model = None, MIN_COLOR = None, MAX_COLOR = None, 
             obstacle_world = obslib.FreeWorld()):
         ''' Initialize a random Gaussian environment using the input kernel, 
             assuming zero mean function.
@@ -76,13 +76,19 @@ class Environment:
                 ax2.set_xlim(ranges[0:2])
                 ax2.set_ylim(ranges[2:])        
                 ax2.set_title('Countour Plot of the True World Model')     
-                plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR, levels=np.linspace(MIN_COLOR, MAX_COLOR, 15))
+                if MAX_COLOR is not None and MIN_COLOR is not None:
+                    plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR, levels=np.linspace(MIN_COLOR, MAX_COLOR, 25))
+                else:
+                    plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), 25, cmap = 'viridis')
 
                 scatter = ax2.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c = self.GP.zvals.ravel(), s = 4.0, cmap = 'viridis')
                 maxind = np.argmax(self.GP.zvals)
+                print "Maxima at:", self.GP.xvals[maxind, 0], self.GP.xvals[maxind,1]
                 ax2.scatter(self.GP.xvals[maxind, 0], self.GP.xvals[maxind,1], color = 'k', marker = '*', s = 500)
                 fig2.colorbar(plot, ax=ax2)
 
+                if not os.path.exists('./figures'):
+                    os.makedirs('./figures')
                 fig2.savefig('./figures/world_model_countour.png')
                 #plt.show()           
                 plt.close()
@@ -157,8 +163,8 @@ class Environment:
                     # the 3D surface
                     fig = plt.figure(figsize=(8, 6))
                     ax = fig.add_subplot(111, projection = '3d')
-                    ax.set_title('Surface of the Simulated Environment')
-                    surf = ax.plot_surface(x1vals, x2vals, self.GP.zvals.reshape(x1vals.shape), cmap = cm.coolwarm, linewidth = 1)
+                    ax.set_title('Surface of the Chemical Environment')
+                    surf = ax.plot_surface(x1vals, x2vals, self.GP.zvals.reshape(x1vals.shape), cmap = cm.viridis, linewidth = 1)
                     if not os.path.exists('./figures'):
                         os.makedirs('./figures')
                     fig.savefig('./figures/world_model_surface.png')
@@ -166,8 +172,12 @@ class Environment:
                     # the contour map            
                     fig2 = plt.figure(figsize=(8, 6))
                     ax2 = fig2.add_subplot(111)
-                    ax2.set_title('Countour Plot of the Simulated Environment')     
-                    plot = ax2.contourf(x1vals, x2vals, self.GP.zvals.reshape(x1vals.shape), cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR, levels=np.linspace(MIN_COLOR, MAX_COLOR, 15))
+                    ax2.set_title('Countour Plot of the Chemical Environment')     
+                    if MAX_COLOR is not None and MIN_COLOR is not None:
+                        plot = ax2.contourf(x1vals, x2vals, self.GP.zvals.reshape(x1vals.shape), cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR, levels=np.linspace(MIN_COLOR, MAX_COLOR, 25))
+                    else: 
+                        plot = ax2.contourf(x1vals, x2vals, self.GP.zvals.reshape(x1vals.shape), 25, cmap = 'viridis')
+
                     scatter = ax2.scatter(data[:, 0], data[:, 1], c = self.GP.zvals.ravel(), s = 4.0, cmap = 'viridis')
                     maxind = np.argmax(self.GP.zvals)
                     ax2.scatter(self.GP.xvals[maxind, 0], self.GP.xvals[maxind,1], color = 'k', marker = '*', s = 500)
@@ -179,6 +189,8 @@ class Environment:
                             x,y = o.exterior.xy
                             ax2.plot(x,y,'r',linewidth=3)
 
+                    if not os.path.exists('./figures'):
+                        os.makedirs('./figures')
                     fig2.savefig('./figures/world_model_countour.png')
                     #plt.show()           
                     plt.close()

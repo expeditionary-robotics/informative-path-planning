@@ -40,7 +40,7 @@ class Robot(object):
             horizon_length = 5, turning_radius = 1, sample_step = 0.5, evaluation = None, 
             f_rew = 'mean', create_animation = False, learn_params = False, nonmyopic=False, 
             computation_budget = 10, rollout_length = 5, discretization=(10,10), use_cost=False,
-            MIN_COLOR=-25., MAX_COLOR=25., goal_only = False, obstacle_world = obslib.FreeWorld(), tree_type = 'dpw'):
+            MIN_COLOR=None, MAX_COLOR=None, goal_only = False, obstacle_world = obslib.FreeWorld(), tree_type = 'dpw'):
         ''' Initialize the robot class with a GP model, initial location, path sets, and prior dataset
         Inputs:
             sample_world (method) a function handle that takes a set of locations as input and returns a set of observations
@@ -100,10 +100,10 @@ class Robot(object):
             raise ValueError('Only \'hotspot_info\' and \'mean\' and \'info_gain\' and \'mes\' and \'exp_improve\' reward fucntions supported.')
 
         # Initialize the robot's GP model with the initial kernel parameters
-        # self.GP = gplib.OnlineGPModel(ranges = extent, lengthscale = init_lengthscale, variance = init_variance, noise = self.noise)
+        self.GP = gplib.OnlineGPModel(ranges = extent, lengthscale = init_lengthscale, variance = init_variance, noise = self.noise)
         # self.GP = gplib.SpatialGPModel(ranges = extent, lengthscale = init_lengthscale, variance = init_variance, noise = self.noise)
         # self.GP = gplib.SubsampledGPModel(ranges = extent, lengthscale = init_lengthscale, variance = init_variance, noise = self.noise)
-        self.GP = gplib.GPModel(ranges = extent, lengthscale = init_lengthscale, variance = init_variance, noise = self.noise)
+        # self.GP = gplib.GPModel(ranges = extent, lengthscale = init_lengthscale, variance = init_variance, noise = self.noise)
                 
         # If both a kernel training dataset and a prior dataset are provided, train the kernel using both
         if  kernel_dataset is not None and prior_dataset is not None:
@@ -237,7 +237,7 @@ class Robot(object):
     def planner(self, T):
         ''' Gather noisy samples of the environment and updates the robot's GP model  
         Input: 
-            T (int > 0): the length of the planning horization (number of planning iterations)'''
+            T (int > 0): the length of the planning horizon (number of planning iterations)'''
         self.trajectory = []
         self.dist = 0
         
@@ -251,7 +251,7 @@ class Robot(object):
             print "Current predicted max and value: \t", pred_loc, "\t", pred_val
             logger.info("Current predicted max and value: {} \t {}".format(pred_loc, pred_val))
 
-
+            # If myopic planner
             if self.nonmyopic == False:
                 sampling_path, best_path, best_val, all_paths, all_values, max_locs = self.choose_trajectory(t = t)
             else:
@@ -264,26 +264,41 @@ class Robot(object):
                 mcts = mctslib.cMCTS(self.comp_budget, self.GP, self.loc, self.roll_length, self.path_generator, self.aquisition_function, self.f_rew, t, aq_param = param, use_cost = self.use_cost, tree_type = self.tree_type)
                 sampling_path, best_path, best_val, all_paths, all_values, self.max_locs, self.max_val = mcts.choose_trajectory(t = t)
             
-            # Update eval metrics
+            ''' Update eval metrics '''
+            # Compute distance traveled
             start = self.loc
             for m in best_path:
                 self.dist += np.sqrt((start[0]-m[0])**2 + (start[1]-m[1])**2)
                 start = m
-            self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, sampling_path, \
-            value = best_val, max_loc = pred_loc, max_val = pred_val, params = [self.current_max, self.current_max_loc, self.max_val, self.max_locs], dist = self.dist) 
+
+            # Update planner evaluation metrics
+            self.eval.update_metrics(
+                    t = len(self.trajectory), 
+                    robot_model = self.GP, 
+                    all_paths = all_paths, 
+                    selected_path = sampling_path,
+                    value = best_val, 
+                    max_loc = pred_loc, 
+                    max_val = pred_val, 
+                    params = [self.current_max, self.current_max_loc, self.max_val, self.max_locs], 
+                    dist = self.dist) 
 
             if best_path == None:
                 break
+
+            # Gather data along the selected path and update GP
             data = np.array(sampling_path)
             x1 = data[:,0]
             x2 = data[:,1]
             xlocs = np.vstack([x1, x2]).T           
-            
             self.collect_observations(xlocs)
+
+            # If set, learn the kernel parameters from the new data
             if t < T/3 and self.learn_params == True:
                 self.GP.train_kernel()
             self.trajectory.append(best_path)
-            
+           
+            # If set, update the visualization 
             if self.create_animation:
                 self.visualize_trajectory(screen = False, filename = t, best_path = sampling_path, 
                         maxes = self.max_locs, all_paths = all_paths, all_vals = all_values)            
@@ -291,10 +306,11 @@ class Robot(object):
             #if t > 50:
             #    self.visualize_reward(screen = True, filename = 'REWARD_' + str(t), t = t)
 
+            # Update the robot's current location
             self.loc = sampling_path[-1]
+
         np.savetxt('./figures/' + self.f_rew+ '/robot_model.csv', (self.GP.xvals[:, 0], self.GP.xvals[:, 1], self.GP.zvals[:, 0]))
 
-    
     def visualize_trajectory(self, screen = True, filename = 'SUMMARY', best_path = None, 
         maxes = None, all_paths = None, all_vals = None):      
         ''' Visualize the set of paths chosen by the robot 
@@ -317,10 +333,14 @@ class Robot(object):
         
        
         # Plot the current robot model of the world
-        fig, ax = plt.subplots(figsize=(8, 6))
+        fig, ax = plt.subplots(figsize=(8, 8))
         ax.set_xlim(self.ranges[0:2])
         ax.set_ylim(self.ranges[2:])
-        plot = ax.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = self.MIN_COLOR, vmax = self.MAX_COLOR, levels=np.linspace(self.MIN_COLOR, self.MAX_COLOR, 15))
+        if self.MAX_COLOR is not None and self.MIN_COLOR is not None:
+            plot = ax.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = self.MIN_COLOR, vmax = self.MAX_COLOR, levels=np.linspace(self.MIN_COLOR, self.MAX_COLOR, 25))
+        else: 
+            plot = ax.contourf(x1, x2, observations.reshape(x1.shape), 25, cmap = 'viridis')
+
         if self.GP.xvals is not None:
             scatter = ax.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c='k', s = 20.0, cmap = 'viridis')                
         color = iter(plt.cm.cool(np.linspace(0,1,len(self.trajectory))))
@@ -402,12 +422,14 @@ class Robot(object):
             reward.append(r)
         reward = np.array(reward)
         
-        fig2, ax2 = plt.subplots(figsize=(8, 6))
+        fig2, ax2 = plt.subplots(figsize=(8, 8))
         ax2.set_xlim(self.ranges[0:2])
         ax2.set_ylim(self.ranges[2:])        
         ax2.set_title('Reward Plot of the Robot\'s World Model')     
-        #plot = ax2.contourf(x1, x2, reward.reshape(x1.shape), cmap = 'viridis', vmin = self.MIN_COLOR, vmax = self.MAX_COLOR, levels=np.linspace(self.MIN_COLOR, self.MAX_COLOR, 15))
-        plot = ax2.contourf(x1, x2, reward.reshape(x1.shape), cmap = 'viridis')
+        if self.MAX_COLOR is not None and self.MIN_COLOR is not None:
+            plot = ax2.contourf(x1, x2, reward.reshape(x1.shape), cmap = 'viridis', vmin = self.MIN_COLOR, vmax = self.MAX_COLOR, levels=np.linspace(self.MIN_COLOR, self.MAX_COLOR, 25))
+        else:
+            plot = ax2.contourf(x1, x2, reward.reshape(x1.shape), 25, cmap = 'viridis')
 
         # Plot the samples taken by the robot
         if self.GP.xvals is not None:
@@ -435,11 +457,14 @@ class Robot(object):
         data = np.vstack([x1.ravel(), x2.ravel()]).T
         observations, var = self.GP.predict_value(data)        
         
-        fig2, ax2 = plt.subplots(figsize=(8, 6))
+        fig2, ax2 = plt.subplots(figsize=(8, 8))
         ax2.set_xlim(self.ranges[0:2])
         ax2.set_ylim(self.ranges[2:])        
         ax2.set_title('Countour Plot of the Robot\'s World Model')     
-        plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = self.MIN_COLOR, vmax = self.MAX_COLOR, levels=np.linspace(self.MIN_COLOR, self.MAX_COLOR, 15))
+        if self.MAX_COLOR is not None and self.MIN_COLOR is not None:
+            plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = self.MIN_COLOR, vmax = self.MAX_COLOR, levels=np.linspace(self.MIN_COLOR, self.MAX_COLOR, 25))
+        else:
+            plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), 25, cmap = 'viridis')
 
         # Plot the samples taken by the robot
         if self.GP.xvals is not None:

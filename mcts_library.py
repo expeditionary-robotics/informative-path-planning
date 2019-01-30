@@ -74,9 +74,10 @@ class MCTS(object):
         elif self.f_rew == 'mes':
             self.c = 1.0 / np.sqrt(2.0)
         else:
-            # self.c = 1.0
+            #self.c = 1.0
             self.c = 1.0 / np.sqrt(2.0)
-            # self.c =  0.0
+            # self.c = 0.0 
+            # elf.c =  0.0
 
     def choose_trajectory(self, t):
         ''' 
@@ -145,7 +146,7 @@ class MCTS(object):
                 return node
             else:
                 leaf_eval[node] = self.tree[node][3] + self.c*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][4])
-        return random.choice([key for key in leaf_eval.keys() if leaf_eval[key] == max(leaf_eval.values())])
+        return random.choice([key for key in leaf_eval.keys() if leaf_eval[key] == np.nanmax(leaf_eval.values())])
 
     def rollout_policy(self, node):
         '''
@@ -404,12 +405,12 @@ class Tree(object):
                     nqueries = [node.nqueries for node in current_node.children]
                     child = random.choice([node for node in current_node.children if node.nqueries == min(nqueries)])
 
-                    if False:
+                    if True:
                         belief.add_data(xobs, child.zvals)
                     #print "Selcted child:", child.nqueries
                     return self.leaf_helper(child, reward + r, belief)
 
-            if False:
+            if True:
                 if belief.model is None:
                     n_points, input_dim = xobs.shape
                     zmean, zvar = np.zeros((n_points, )), np.eye(n_points) * belief.variance
@@ -446,7 +447,10 @@ class Tree(object):
             vals[child] = child.reward/float(child.nqueries) + self.c * np.sqrt((float(current_node.nqueries) ** e_d)/float(child.nqueries)) 
             #vals[child] = child.reward/float(child.nqueries) + self.c * np.sqrt(np.log(float(current_node.nqueries))/float(child.nqueries)) 
         # Return the max node, or a random node if the value is equal
-        return random.choice([key for key in vals.keys() if vals[key] == max(vals.values())])
+
+        # print vals
+        # print np.nanmax(vals.values())
+        return random.choice([key for key in vals.keys() if vals[key] == np.nanmax(vals.values())])
         
     def build_action_children(self, parent):
         actions, dense_paths = self.path_generator.get_path_set(parent.pose)
@@ -512,7 +516,7 @@ class BeliefTree(Tree):
             else:
                 r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief)
 
-            if False:
+            if True:
                 # ''Simulate'' the maximum likelihood observation
                 if belief.model is None:
                     n_points, input_dim = xobs.shape
@@ -577,7 +581,7 @@ class BeliefTree(Tree):
             else:
                 r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief)
 
-            if False:
+            if True:
                 # ''Simulate'' the maximum likelihood observation
                 if belief.model is None:
                     n_points, input_dim = xobs.shape
@@ -611,7 +615,7 @@ class BeliefTree(Tree):
                 return child, False
             vals[child] = child.reward/float(child.nqueries) + self.c * np.sqrt(2.0*np.log(float(current_node.nqueries))/float(child.nqueries)) 
         # Return the max node, or a random node if the value is equal
-        return random.choice([key for key in vals.keys() if vals[key] == max(vals.values())]), True
+        return random.choice([key for key in vals.keys() if vals[key] == np.nanmax(vals.values())]), True
         
 
 
@@ -634,13 +638,15 @@ class cMCTS(MCTS):
             if self.tree_type == 'belief':
                 self.c = 1.0 / np.sqrt(2.0)
             elif self.tree_type == 'dpw':
-                self.c = 1.0 / np.sqrt(2.0)
+                # self.c = 1.0 / np.sqrt(2.0) 
                 # self.c = 1.0
+                self.c = 1.0 / np.sqrt(2.0) / 10.0
                 # self.c = 5.0
                 # self.c = 0.0
         else:
             self.c = 1.0
-        print "Setting c to :", self.c
+            
+        print "Setting c to new value :", self.c
 
     def choose_trajectory(self, t):
         #Main function loop which makes the tree and selects the best child
@@ -672,7 +678,7 @@ class cMCTS(MCTS):
         while i < self.comp_budget:#time.time() - time_start < self.comp_budget:
             i += 1
             self.tree.get_next_leaf(gp)
-            if False:
+            if True:
                 gp = copy.copy(self.GP)
         time_end = time.time()
         print "Rollouts completed in", str(time_end - time_start) +  "s"
@@ -682,7 +688,7 @@ class cMCTS(MCTS):
         print [(node.nqueries, node.reward/node.nqueries) for node in self.tree.root.children]
 
         #best_child = self.tree.root.children[np.argmax([node.nqueries for node in self.tree.root.children])]
-        best_child = random.choice([node for node in self.tree.root.children if node.nqueries == max([n.nqueries for n in self.tree.root.children])])
+        best_child = random.choice([node for node in self.tree.root.children if node.nqueries == np.nanmax([n.nqueries for n in self.tree.root.children])])
         all_vals = {}
         for i, child in enumerate(self.tree.root.children):
             all_vals[i] = child.reward / float(child.nqueries)

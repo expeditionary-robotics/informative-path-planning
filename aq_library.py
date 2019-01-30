@@ -113,7 +113,7 @@ def hotspot_info_UCB(time, xvals, robot_model, param=None):
     return info_gain(time, xvals, robot_model) + LAMBDA * np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
 
 
-def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = True, obstacles=obslib.FreeWorld()):
+def sample_max_vals(robot_model, t, nK = 5, nFeatures = 200, visualize = True, obstacles=obslib.FreeWorld()):
     ''' The mutual information between a potential set of samples and the local maxima'''
     # If the robot has not samples yet, return a constant value
     if robot_model.xvals is None:
@@ -131,9 +131,56 @@ def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = True, o
     for i in xrange(nK):
         print "Starting global optimization", i, "of", nK
         logger.info("Starting global optimization {} of {}".format(i, nK))
+
+        alpha = np.sqrt(2.0 * math.pi * (robot_model.lengthscale ** 2)) * robot_model.variance # Assuming 2D
+        # print alpha
+        
+        W = np.random.normal(loc = 0.0, scale = np.sqrt(1./(2.0 * math.pi * robot_model.lengthscale)), size = (nFeatures, d)) # Way too smooth, Actually looks quite good at scale
+        b = 2 * np.pi * np.random.uniform(low = 0.0, high = 1.0, size = (nFeatures, 1))
+
+        # print "W shpae;", W.shape
+        # print "b shpae;", W.shape
+        
+        # Compute the features for xx
+        Z = np.sqrt(2.0 * alpha / nFeatures) * np.cos(np.dot(W, robot_model.xvals.T) + b)
+        # print "Phi shape;", Z.shape
+        # Z = np.sqrt(2 * robot_model.variance / nFeatures) * np.cos(np.dot(W, robot_model.xvals.T) + b)
+        
+        # Draw the coefficient theta
+        noise = np.random.normal(loc = 0.0, scale = 1.0, size = (nFeatures, 1))
+
+        #We adopt the formula $theta \sim \N(Z(Z'Z + \sigma^2 I)^{-1} y, I-Z(Z'Z + \sigma^2 I)Z')$.            
+        # try:
+        # Sigma = np.dot(Z, Z.T) + robot_model.noise * np.eye(robot_model.xvals.shape[0])
+        Sigma = np.dot(Z, Z.T) + robot_model.noise * np.eye(nFeatures)
+        # mu = np.dot(np.dot(Z, np.linalg.inv(Sigma)), robot_model.zvals)
+        Sigma_inv = np.linalg.inv(Sigma)
+        # print Sigma_inv.shape
+        # print Z.shape
+        # print robot_model.zvals.shape
+        mu = np.dot(np.dot(Sigma_inv, Z), robot_model.zvals)
+        # print "mu shape", mu.shape
+        # [D, U] = np.linalg.eig(Sigma)
+        # U = np.real(U)
+        # D = np.real(np.reshape(D, (D.shape[0], 1)))
+
+        # R = np.reciprocal((np.sqrt(D) * (np.sqrt(D) + np.sqrt(robot_model.noise))))
+        # theta = noise - np.dot(Z, np.dot(U, R*(np.dot(U.T, np.dot(Z.T, noise))))) + mu
+        # theta = (noise * robot_model.noise * Sigma_inv) + mu
+        theta = np.random.multivariate_normal(mean = np.reshape(mu, (nFeatures,)), cov = robot_model.noise * Sigma_inv)
+        # print "Thetha shape:", theta.shape
+        # except Exception as e:
+        #     # If Sigma is not positive definite, ignore this simulation
+        #     print e
+        #     print "[ERROR]: Sigma is not positive definite, ignoring simulation", i
+        #     logger.warning("[ERROR]: Sigma is not positive definite, ignoring simulation {}".format(i))
+        #     delete_locs.append(i)
+        #     continue
+
+        '''
         # Draw the weights for the random features
         # TODO: make sure this formula is correct
-        W = np.random.normal(loc = 0.0, scale = np.sqrt(1./(robot_model.lengthscale)), size = (nFeatures, d))
+        W = np.random.normal(loc = 0.0, scale = (1./(robot_model.lengthscale)), size = (nFeatures, d))
         b = 2 * np.pi * np.random.uniform(low = 0.0, high = 1.0, size = (nFeatures, 1))
         
         # Compute the features for xx
@@ -175,12 +222,14 @@ def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = True, o
                 continue
 
             #theta = np.random.multivariate_normal(mean = np.reshape(mu, (nFeatures,)), cov = Sigma, size = (nFeatures, 1))
+        '''
             
         # Obtain a function samples from posterior GP
         #def target(x): 
         #    pdb.set_trace()
         #    return np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
-        target = lambda x: np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
+        # target = lambda x: np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
+        target = lambda x: np.dot(np.sqrt(2.0 * alpha / nFeatures) * np.cos(np.dot(W, x.T) + b).T , theta)
         target_vector_n = lambda x: -target(x.reshape(1,2))
         
         # Can only take a 1D input
@@ -201,11 +250,11 @@ def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = True, o
             delete_locs.append(i)
             continue
         
-        samples[i] = max_val
+        samples[i] = max_val.reshape((1,1))
         funcs.append(target)
         print "Max Value in Optimization \t \t", samples[i]
         logger.info("Max Value in Optimization \t {}".format(samples[i]))
-        locs[i, :] = maxima
+        locs[i, :] = maxima.reshape((1,2))
         
         #if max_val < np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise) or \
         #    maxima[0] == robot_model.ranges[0] or maxima[0] == robot_model.ranges[1] or \
@@ -219,6 +268,7 @@ def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = True, o
             locs[i, :] = robot_model.xvals[np.argmax(robot_model.zvals)]
         '''
 
+    print "Deleting values at:", delete_locs
     samples = np.delete(samples, delete_locs, axis = 0)
     locs = np.delete(locs, delete_locs, axis = 0)
 
@@ -226,9 +276,10 @@ def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = True, o
     if len(delete_locs) == nK:
         samples[0] = np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise)
         locs[0, :] = robot_model.xvals[np.argmax(robot_model.zvals)]
-   
+  
+
+    print "Returning:", samples.shape, locs.shape
     return samples, locs, funcs
-      
 
 def mves(time, xvals, robot_model, param):
     ''' Define the Acquisition Function and the Gradient of MES'''
@@ -362,10 +413,13 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
     x1, x2 = np.meshgrid(x1, x2, sparse = False, indexing = 'xy')
     Xgrid_sample = np.vstack([x1.ravel(), x2.ravel()]).T    
     Xgrid = np.vstack([Xgrid_sample, guesses])   
+    print "Xgrid shape:", Xgrid.shape
     
     # Get the function value at Xgrid locations
     y = target(Xgrid)
+    print "y shape:", y.shape
     max_index = np.argmax(y)   
+    print "Max index:", max_index
     start = np.asarray(Xgrid[max_index, :])
 
     # If the highest sample point seen is ouside of the boundary, find the highest inside the boundary
@@ -398,16 +452,16 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
     
     if visualize:
         # Generate a set of observations from robot model with which to make contour plots
-        x1vals = np.linspace(ranges[0], ranges[1], 100)
-        x2vals = np.linspace(ranges[2], ranges[3], 100)
+        x1vals = np.linspace(hold_ranges[0], hold_ranges[1], 100)
+        x2vals = np.linspace(hold_ranges[2], hold_ranges[3], 100)
         x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
         data = np.vstack([x1.ravel(), x2.ravel()]).T
         observations = target(data)
-        fig2, ax2 = plt.subplots(figsize=(8, 6))
+        fig2, ax2 = plt.subplots(figsize=(8, 8))
         ax2.set_xlim(hold_ranges[0:2])
         ax2.set_ylim(hold_ranges[2:])        
-        ax2.set_title('Countour Plot of the Approximated World Model')     
-        plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR, levels=np.linspace(MIN_COLOR, MAX_COLOR, 15))
+        ax2.set_title('Countour Plot of the Sampled World Model')     
+        plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), 25, cmap = 'viridis')
 
     res = sp.optimize.minimize(fun = target_vector_n, x0 = start, method = 'SLSQP', \
             jac = target_vector_gradient_n, bounds = ((ranges[0], ranges[1]), (ranges[2], ranges[3])))
@@ -422,7 +476,7 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
     if visualize:
         # Generate a set of observations from robot model with which to make contour plots
         scatter = ax2.scatter(guesses[:, 0], guesses[:, 1], color = 'k', s = 20.0)
-        scatter = ax2.scatter(res['x'][0], res['x'][1], color = 'r', s = 100.0)      
+        scatter = ax2.scatter(res['x'][0], res['x'][1], marker = '*', color = 'r', s = 500)      
 
         if not os.path.exists('./figures/mes/opt'):
             os.makedirs('./figures/mes/opt')

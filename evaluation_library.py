@@ -30,7 +30,7 @@ class Evaluation:
         world (Environment object): an environment object that represents the ground truth environment
         f_rew (string): the reward function. One of {hotspot_info, mean, info_gain, mes, exp_improve} 
     '''
-    def __init__(self, world, reward_function = 'mean', num_stars=3):
+    def __init__(self, world, reward_function = 'mean', num_stars=10):
         ''' Initialize the evaluation module and select reward function'''
         self.world = world
         self.max_val = np.max(world.GP.zvals)
@@ -65,6 +65,7 @@ class Evaluation:
                         'mes_reward_robot': {},
                         'mes_reward_omni': {},
                        }
+
         for i in range(0,num_stars):
             self.metrics['star_obs_'+str(i)] = {}
             self.metrics['star_obs_loc_x_'+str(i)] = {}
@@ -163,6 +164,7 @@ class Evaluation:
 
         global_max_val = np.reshape(np.array(self.max_val), (1,1))
         global_max_loc = np.reshape(np.array(self.max_loc), (1,2))
+
         avg_loc_dist = sp.spatial.distance.cdist(global_max_loc, robot_model.xvals)
         avg_val_dist = sp.spatial.distance.cdist(global_max_val, robot_model.zvals)
         return np.mean(avg_loc_dist), np.mean(avg_val_dist)
@@ -226,7 +228,7 @@ class Evaluation:
         self.metrics['max_val_regret'][t], self.metrics['mes_reward_robot'][t], self.metrics['mes_reward_omni'][t] = self.inst_regret(t, all_paths, selected_path, robot_model, param = 'info_regret')
 
         if params[2] is None:
-            for i in range(0,self.num_stars):
+            for i in range(0, self.num_stars):
                 self.metrics['star_obs_'+str(i)][t] = -1.
                 self.metrics['star_obs_loc_x_'+str(i)][t] = -1.
                 self.metrics['star_obs_loc_y_'+str(i)][t] = -1.
