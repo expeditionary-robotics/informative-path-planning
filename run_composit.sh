@@ -50,9 +50,9 @@ fi
 
 
 # Give all devices the correct R/W permissions 
-#echo "Granting permissions to devices"
-#sudo chmod 777 /dev/ttyACM*
-#sudo chmod 777 /dev/vesc
+echo "Granting permissions to devices"
+sudo chmod 777 /dev/ttyACM*
+sudo chmod 777 /dev/vesc
 
 # Start LCM + scan matcher
 source ~/rrg/dependencies/setup.sh
@@ -72,9 +72,9 @@ sleep 2
 # { roslaunch composit_planner mapping.launch & } &> /dev/null
 # sleep 2
 
-source ~/rrg/devel/setup.bash
-echo "Starting the COMPOSIT Planner"
-{ roslaunch composit_planner car.launch real_sensor:=0 & }
+#source ~/rrg/devel/setup.bash
+#echo "Starting the COMPOSIT Planner"
+#{ roslaunch composit_planner car.launch real_sensor:=0 & }
 
 # yorai learning 
 #source ~/rrg/devel/setup.bash

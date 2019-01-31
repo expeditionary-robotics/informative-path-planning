@@ -22,6 +22,8 @@ import scipy as sp
 logger = logging.getLogger('robot')
 import pdb
 
+import aq_library as aq_lib
+
 class GPModel(object):
     '''The GPModel class, which is a wrapper on top of GPy.'''     
     
@@ -35,6 +37,8 @@ class GPModel(object):
             dimension (float) the dimension of the environment; only 2D supported
             kernel (string) the type of kernel; only 'rbf' supported now
         '''
+        self._maxima = None
+        self._max_val = None
         
         # Model parameterization (noise, lengthscale, variance)
         self.noise = noise
@@ -54,7 +58,7 @@ class GPModel(object):
             raise ValueError('Environment must have dimension 2 \'rbf\'')
 
         if kernel == 'rbf':
-            self.kern = GPy.kern.RBF(input_dim = self.dim, lengthscale = lengthscale, variance = variance, useGPU = True) 
+            self.kern = GPy.kern.RBF(input_dim = self.dim, lengthscale = lengthscale, variance = variance, useGPU = False) 
             # self.kern = GPy.kern.RBF(input_dim = self.dim, lengthscale = lengthscale, variance = variance, useGPU = True) 
         else:
             raise ValueError('Kernel type must by \'rbf\'')
@@ -92,6 +96,10 @@ class GPModel(object):
             xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2
             zvals (float array): an nparray of floats representing sensor observations, with dimension NUM_PTS x 1 
         ''' 
+        # Reset the maximum values
+        print "Resetting the sampled maximum values"
+        self._maxima = None
+        self._max_val = None
        
         if self.xvals is None:
             self.xvals = xvals
@@ -172,7 +180,7 @@ class GPModel(object):
         ''' Property that returns the maxima for value calculations if already 
             set, or computes if new maxima not yet computed. ''' 
         if self._maxima is None:
-            max_vals, max_locs, func = aq_lib.sample_max_vals(self.GP) 
+            max_vals, max_locs, func = aq_lib.sample_max_vals(self) 
             self._maxima = (max_vals, max_locs, func)
         return self._maxima
 
@@ -276,6 +284,11 @@ class OnlineGPModel(GPModel):
             xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2
             zvals (float array): an nparray of floats representing sensor observations, with dimension NUM_PTS x 1 
         ''' 
+        # Reset the maximum values
+        print "Resetting the sampled maximum values"
+        self._maxima = None
+        self._max_val = None
+
         if self.xvals is None:
             assert(self.zvals is None)
             self.init_model(xvals, zvals)
@@ -535,6 +548,11 @@ class SpatialGPModel(GPModel):
             xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2
             zvals (float array): an nparray of floats representing sensor observations, with dimension NUM_PTS x 1 
         ''' 
+        # Reset the maximum values
+        print "Resetting the sampled maximum values"
+        self._maxima = None
+        self._max_val = None
+
         if self.xvals is None:
             assert(self.zvals is None)
             self.init_model(xvals, zvals)
@@ -686,6 +704,11 @@ class SubsampledGPModel(OnlineGPModel):
             xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2
             zvals (float array): an nparray of floats representing sensor observations, with dimension NUM_PTS x 1 
         ''' 
+        # Reset the maximum values
+        print "Resetting the sampled maximum values"
+        self._maxima = None
+        self._max_val = None
+
         if self.xvals is None:
             self.init_model(xvals, zvals)
         elif self.xvals.shape[0] < self.max_size:
