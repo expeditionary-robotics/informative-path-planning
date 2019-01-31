@@ -14,6 +14,9 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   nav_msgs
   message_generation
+  genmsg
+  actionlib_msgs
+  actionlib
 ##  actionlib
 ##  move_base_msgs
 )
@@ -72,11 +75,14 @@ add_service_files(
 )
 
 ## Generate actions in the 'action' folder
-# add_action_files(
-#   FILES
+add_action_files(
+  DIRECTORY
+  action
+  FILES
+  ReplanRequest.action
 #   Action1.actions
 #   Action2.action
-# )
+)
 
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
@@ -84,6 +90,8 @@ generate_messages(
   std_msgs
   geometry_msgs
   nav_msgs
+  actionlib_msgs
+  actionlib
 )
 
 ################################################
@@ -115,6 +123,7 @@ generate_messages(
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
+
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES composit_planner

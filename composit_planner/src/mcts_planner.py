@@ -1,44 +1,43 @@
 #!/usr/bin/python
 
-# Copyright 2018 Massachusetts Institute of Technology
+'''
+Copyright 2018 Massachusetts Institute of Technology
+'''
+
 # Sytem includes
-import numpy as np
-import scipy as sp
-import math
-import os
 import threading
+import numpy as np
 
 # ROS includes
 import rospy
+import roslib
+import actionlib
 from geometry_msgs.msg import *
-from nav_msgs.msg import * 
+from nav_msgs.msg import *
 from sensor_msgs.msg import *
 from std_msgs.msg import *
 from composit_planner.srv import *
 from composit_planner.msg import *
-from tf.transformations import quaternion_from_euler, euler_from_quaternion
-
-# GPy and GP includes
-import GPy as GPy
-from gpmodel_library import GPModel, OnlineGPModel
-from scipy.stats import multivariate_normal
-from scipy.stats import norm
+from tf.transformations import euler_from_quaternion
 
 # Libraries includes
-import paths_library as paths_lib
 import aq_library as aq_lib
 import mcts_library as mcts_lib
+from gpmodel_library import *
 
 '''
 This node runs the MCTS system in order to select trajectories
 '''
 
-class Planner:
+class Planner(object):
+    '''
+    Planner class node.
+    '''
     def __init__(self):
         ''' Get ROS parameters '''
-        # The kernel hyperparmeters for the robot's GP model 
-        self.variance = float(rospy.get_param('model_variance','100'))
-        self.lengthscale = float(rospy.get_param('model_lengthscale','0.1'))
+        # The kernel hyperparmeters for the robot's GP model
+        self.variance = float(rospy.get_param('model_variance', '100'))
+        self.lengthscale = float(rospy.get_param('model_lengthscale', '0.1'))
         self.noise = float(rospy.get_param('model_noise', '0.0001'))
         self.x1min = float(rospy.get_param('xmin', '0'))
         self.x1max = float(rospy.get_param('xmax', '10'))
@@ -47,69 +46,71 @@ class Planner:
 
         # Get planning parameters like number of replanning steps
         self.visualize_rate = rospy.get_param('visualize_rate', 0.1)
-        self.reward = rospy.get_param('reward_func','mes')
-        self.replan_budget = rospy.get_param('replan_budget' ,150)
-        self.frontier_size = rospy.get_param('frontier_size',15)
-        self.horizon_len = rospy.get_param('horizon_length',1.5)
-        self.turn_radius  = rospy.get_param('turning_radius',0.05)
-        self.sample_step = rospy.get_param('sample_step',0.5)
+        self.reward = rospy.get_param('reward_func', 'mes')
+        self.replan_budget = rospy.get_param('replan_budget', 150)
+        self.frontier_size = rospy.get_param('frontier_size', 15)
+        self.horizon_len = rospy.get_param('horizon_length', 1.5)
+        self.turn_radius = rospy.get_param('turning_radius', 0.05)
+        self.sample_step = rospy.get_param('sample_step', 0.5)
         self.rollout_len = rospy.get_param('rollout_length', 5)
-        self.tree_type = rospy.get_param('tree_type','dpw_tree')
+        self.tree_type = rospy.get_param('tree_type', 'dpw_tree')
         self.planner_type = rospy.get_param('planner_type', 'myopic')
         self.belief_updates = rospy.get_param('belief_updates', 'False')
 
         # Get navigation params
         self.allowed_error = rospy.get_param('trajectory_endpoint_precision', 0.1)
         self.allow_backup = rospy.get_param('allow_to_backup', True)
-        
+
         # Initialize member variables
         self.current_max = -float("inf")
         self.data_queue = list()
         self.pose_queue = list()
-        self.pose = Point32() 
+        self.pose = Point32()
         self.last_viable = None
-        
-        # Initialize the robot's GP model with the initial kernel parameters
-        self.GP = OnlineGPModel(ranges = [self.x1min, self.x1max, self.x2min, self.x2max], lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
-       
-        # Initialize path generator
-        # self.path_generator = paths_lib.ROS_Path_Generator(self.fs, self.hl, self.tr, self.ss)
 
-        # Create mutex for the data queue
+        # Initialize the robot's GP model with the initial kernel parameters
+        self.GP = OnlineGPModel(ranges=[self.x1min, self.x1max, self.x2min, self.x2max],
+                                lengthscale=self.lengthscale,
+                                variance=self.variance,
+                                noise=self.noise)
+
+        # Create mutex for the GP data queue
         self.data_lock = threading.Lock()
 
-        # Subscriptions to topics and services 
-        # rospy.wait_for_service('query_obstacles')
+        # Subscriptions to topics and services
         rospy.wait_for_service('query_chemical')
-        # self.srv_traj = rospy.ServiceProxy('query_obstacles', TrajectoryCheck)
         self.srv_paths = rospy.ServiceProxy('get_paths', PathFromPose)
         self.srv_chem = rospy.ServiceProxy('query_chemical', SimMeasurement)
         self.pose_sub = rospy.Subscriber("/pose", PoseStamped, self.update_pose)
         self.data = rospy.Subscriber("/chem_data", ChemicalSample, self.get_sensordata)
-        
-        # Publications and service offering 
-        # Publications and service offering 
-        self.srv_replan = rospy.Service('replan', RequestReplan, self.replan)
-        self.pub = rospy.Publisher('/chem_map', PointCloud, queue_size = 100)
-        # self.plan_pub = rospy.Publisher("/selected_trajectory", PolygonStamped, queue_size=1)
+
+        # Publications and service offering
+        self.srv_replan = actionlib.SimpleActionServer('replan', RequestReplan, self.replan, False)
+        self.srv_replan.start()
+        self.pub = rospy.Publisher('/chem_map', PointCloud, queue_size=100)
         self.plan_pub = rospy.Publisher("/trajectory/current", PolygonStamped, queue_size=1)
         self.backup_pub = rospy.Publisher("call_backup", Bool, queue_size=1)
 
         r = rospy.Rate(self.visualize_rate)
         while not rospy.is_shutdown():
             # Pubish current belief map
-            status = self.update_model()  #Updating the model this frequently is costly, but helps visualization 
+            status = self.update_model() # Updating frequently is costly, but helps visualization
+            if status is False:
+                rospy.loginfo('Unable to update the model.')
+
             self.publish_gpbelief()
             r.sleep()
 
     def update_model(self):
-        ''' Adds all data currently in the data queue into the GP model and clears the data queue. Threadsafe. 
+        ''' Adds all data currently in the data queue into the GP model and clears the data queue.
+        Threadsafe.
         Input: None
-        Output: Boolean success. ''' 
+        Output: Boolean success.
+        '''
         try:
             # Cannot update model if no data has been collected
             if len(self.data_queue) == 0:
-                return True 
+                return True
 
             # Aquire the data lock
             self.data_lock.acquire()
@@ -121,31 +122,31 @@ class Planner:
 
             self.GP.add_data(xobs, zobs)
             rospy.loginfo("Number of sample points in belief model %d", self.GP.zvals.shape[0])
-        
+
             # Delete data from the data_queue
-            del self.data_queue[:] 
-            del self.pose_queue[:] 
+            del self.data_queue[:]
+            del self.pose_queue[:]
 
             # Release the data lock
             self.data_lock.release()
             return True
 
         except ValueError as e:
-            print e 
+            print e
             return False
 
-    def replan(self, _):
-        ''' Updates the GP model and generates the next best path. 
+    def replan(self, goal):
+        ''' Updates the GP model and generates the next best path.
         Input: None
-        Output: Boolean success service response. ''' 
+        Output: Boolean success service response. '''
         status = self.update_model()
         print "Update model status:", status
         # Publish the best plan
         if status is True:
-            self.get_plan()
-            return RequestReplanResponse(True)
+            self.get_plan(goal)
+            return self.srv_replan.set_succeeded()
         else:
-            return RequestReplanResponse(False)
+            return self.srv_replan.set_succeeded()
 
     def update_pose(self, msg):
         ''' Update the current pose of the robot.

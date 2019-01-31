@@ -1,9 +1,0 @@
-<launch>
-    <!-- This launch file is used to launch autonomy stack nodes on a car vehicle -->
-
-    <rosparam command="load" file="$(find composit_planner)/launch/chem_params.yaml" />
-    <rosparam command="load" file="$(find composit_planner)/launch/planner_params.yaml" />
-    <!-- The planner node -->
-    <node pkg="composit_planner" type="mcts_planner.py" name="mcts_planner" output="screen"/>
-
-</launch>

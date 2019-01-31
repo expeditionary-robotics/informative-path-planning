@@ -1,0 +1,8 @@
+# Define the goal
+geometry_msgs/Point32 root_pose  # Specify the point FROM which we want to plan
+---
+# Define the result
+geometry_msgs/PolygonStamped selected_path  # Specify the path from the root that is chosen by the tree
+---
+# Define a feedback message
+string planning_phase
