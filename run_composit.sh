@@ -72,9 +72,15 @@ sleep 2
 # { roslaunch composit_planner mapping.launch & } &> /dev/null
 # sleep 2
 
-# source ~/rrg/devel/setup.bash
-# echo "Starting the COMPOSIT Planner"
-# { roslaunch composit_planner car.launch real_sensor:=0 & }
+source ~/rrg/devel/setup.bash
+echo "Starting the COMPOSIT Planner"
+{ roslaunch composit_planner car.launch real_sensor:=0 & }
+
+# yorai learning 
+#source ~/rrg/devel/setup.bash
+#echo "starting the car_nav package -- ~~yorai learning~~"
+# { roslaunch car_nav car_nav_launcher.launch & }
+sleep 2
 
 
 # Start the vehicle

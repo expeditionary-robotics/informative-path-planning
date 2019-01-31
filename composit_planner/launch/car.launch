@@ -12,9 +12,7 @@
     <rosparam command="load" file="$(find composit_planner)/launch/planner_params.yaml" />
 
     <!-- Temporary Simulated Input -->
-    <!-- <node pkg="composit_planner" type="chemical_sensor.py" name="chemical_sensor" output="screen"/> -->
-    <node pkg="composit_planner" type="chemical_sensor.py" name="chemical_sensor" output="screen" unless="$(arg real_sensor)"/>
-    <node pkg="composit_planner" type="read_serial_chem.py" name="read_serial_chem" output="screen" if="$(arg real_sensor)"/>
+    <node pkg="composit_planner" type="chemical_sensor.py" name="chemical_sensor" output="screen"/>
     <node pkg="composit_planner" type="chemical_world_sim.py" name="chemical_world_sim" output="screen"/>
 
     <!-- Obstacle Avoidance Hindbrain -->
@@ -32,7 +30,6 @@
     <!-- <node pkg="composit_planner" type="obstacle_check_server.py" name="obstacle_check_server" output="screen" /> -->
 
     <node pkg="composit_planner" type="traj_serv.py" name="traj_serv" output="screen"/>
-
 
     <!-- The planner node -->
     <node pkg="composit_planner" type="mcts_planner.py" name="mcts_planner" output="screen"/>

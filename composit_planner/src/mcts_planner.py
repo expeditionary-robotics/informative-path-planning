@@ -70,8 +70,7 @@ class Planner:
         self.last_viable = None
         
         # Initialize the robot's GP model with the initial kernel parameters
-        # self.GP = OnlineGPModel(ranges = [self.x1min, self.x1max, self.x2min, self.x2max], lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
-        self.GP = GPModel(ranges = [self.x1min, self.x1max, self.x2min, self.x2max], lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
+        self.GP = OnlineGPModel(ranges = [self.x1min, self.x1max, self.x2min, self.x2max], lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
        
         # Initialize path generator
         # self.path_generator = paths_lib.ROS_Path_Generator(self.fs, self.hl, self.tr, self.ss)
@@ -88,6 +87,7 @@ class Planner:
         self.pose_sub = rospy.Subscriber("/pose", PoseStamped, self.update_pose)
         self.data = rospy.Subscriber("/chem_data", ChemicalSample, self.get_sensordata)
         
+        # Publications and service offering 
         # Publications and service offering 
         self.srv_replan = rospy.Service('replan', RequestReplan, self.replan)
         self.pub = rospy.Publisher('/chem_map', PointCloud, queue_size = 100)
@@ -229,39 +229,43 @@ class Planner:
                 # topixel_rew = lambda val: int((val - min_rew) / (max_rew - min_rew) * 255.0)
                 topixel_rew = lambda val: float(val)
 
-        # Create the point cloud message
-        msg = PointCloud()
-        msg.header.frame_id = 'world' # Global frame
+            # Create the point cloud message
+            msg = PointCloud()
+            msg.header.frame_id = 'world' # Global frame
 
-        val = ChannelFloat32()
-        val.name = 'chemical_value'
-        for i, d in enumerate(data):
-            pt = geometry_msgs.msg.Point32()
-            pt.x = data[i, 0]
-            pt.y = data[i, 1]
-            pt.z = 1.0
-            msg.points.append(pt)
+            val = ChannelFloat32()
+            val.name = 'chemical_value'
+            for i, d in enumerate(data):
+                pt = geometry_msgs.msg.Point32()
+                pt.x = data[i, 0]
+                pt.y = data[i, 1]
+                pt.z = 1.0
+                msg.points.append(pt)
 
-            # If no data, just publish the average value
-            if self.GP.xvals is None:
-                val.values.append(255./2.)
-            else:
-                val.values.append(topixel_rew(observations[i, :]))
-        msg.channels.append(val)
+                # If no data, just publish the average value
+                if self.GP.xvals is None:
+                    val.values.append(255./2.)
+                else:
+                    val.values.append(topixel_rew(observations[i, :]))
+            msg.channels.append(val)
 
-        rew = ChannelFloat32()
-        rew.name = 'reward'
-        for i, d in enumerate(data):
-            # If no data, just publish the average value
-            if self.GP.xvals is None:
-                rew.values.append(255./2.)
-            else:
-                rew.values.append(topixel_rew(reward[i, :]))
-        
+       
+            '''
+            print  reward.shape
+            rew = ChannelFloat32()
+            rew.name = 'reward'
+            for i, d in enumerate(data):
+                # If no data, just publish the average value
+                if self.GP.xvals is None:
+                    rew.values.append(255./2.)
+                else:
+                    rew.values.append(topixel_rew(reward[i, :]))
+            
 
-        msg.channels.append(rew)
+            msg.channels.append(rew)
+            '''
 
-        self.pub.publish(msg)
+            self.pub.publish(msg)
 
         # Release the data lock
         self.data_lock.release()
@@ -334,19 +338,19 @@ class Planner:
                 clear_paths = self.srv_paths(PathFromPoseRequest(self.pose))
                 clear_paths = clear_paths.safe_paths
                 if len(clear_paths) > 1:
-                    mcts = mcts_lib.cMCTS(self.GP, self.pose, self.replan_budget, self.rollout_len, self.srv_paths, eval_value, time = 0, tree_type = self.tree_type, belief_updates = self.belief_updates)
-                    best_path, value = mcts.choose_trajectory(t = 0)
-                    controller_path = self.strip_angle(best_path)
-                    self.plan_pub.publish(controller_path) #send the trajectory to move base
-                    self.last_viable = controller_path.polygon.points[-1]
-                    '''except Exception as e:
+                    try:
+                        mcts = mcts_lib.cMCTS(self.GP, self.pose, self.replan_budget, self.rollout_len, self.srv_paths, eval_value, time = 0, tree_type = self.tree_type, belief_updates = self.belief_updates)
+                        best_path, value = mcts.choose_trajectory(t = 0)
+                        controller_path = self.strip_angle(best_path)
+                        self.plan_pub.publish(controller_path) #send the trajectory to move base
+                        self.last_viable = controller_path.polygon.points[-1]
+                    except Exception as e:
                         print e 
                         print 'PLANNER FAILED! I MAY NEED ASSISTANCE!'
                         if self.allow_backup == True:
                             call_backup = Bool()
                             call_backup.data = True
                             self.backup_pub.publish(call_backup)
-                        self.last_viable = None '''
                 else:
                     print 'Only option is to stay! Backing Up!'
                     if self.allow_backup == True:
