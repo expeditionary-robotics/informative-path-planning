@@ -56,7 +56,7 @@ class Planner:
         self.rollout_len = rospy.get_param('rollout_length', 5)
         self.tree_type = rospy.get_param('tree_type','dpw_tree')
         self.planner_type = rospy.get_param('planner_type', 'myopic')
-        self.belief_updates = rospy.get_param('belief_updates', 'True')
+        self.belief_updates = rospy.get_param('belief_updates', 'False')
 
         # Get navigation params
         self.allowed_error = rospy.get_param('trajectory_endpoint_precision', 0.1)

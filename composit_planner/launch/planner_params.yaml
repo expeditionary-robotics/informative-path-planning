@@ -15,6 +15,6 @@ trajectory_endpoint_precision: 0.2
 planner_type: 'nonmyopic'
 tree_type: 'dpw_tree'
 reward_func: 'mes'
-replan_budget: 200
+replan_budget: 100
 rollout_length: 5
 belief_updates: False 
