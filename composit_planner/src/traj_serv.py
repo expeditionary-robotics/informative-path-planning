@@ -36,17 +36,30 @@ class TrajMonitor():
         The trajectory comes in as a series of poses. It is assumed that the desired angle has already been determined
         '''
         # print 'Getting planning point'
-        self.new_goals = traj.polygon.points
-        if len(self.new_goals) > 1:
-            self.last_viable = self.new_goals[-1]
+
+        check_points = traj.polygon.points
+        if self.last_viable is not None:
+            if check_points[-1] == self.last_viable:
+                self.last_viable = -1
+            else:
+                self.new_goals = traj.polygon.points
+                self.last_viable = self.new_goals[-1]
+        else:
+            self.last_viable = None
 
 
     def handle_pose(self, msg):
-        self.pose = msg
         last = self.last_viable
         if last is not None:
-            if (msg.pose.position.x-last.x)**2 + (msg.pose.position.y-last.y)**2 < self.allowed_error**2:
-                self.replan()
+            if last != -1:
+                if (msg.pose.position.x-last.x)**2 + (msg.pose.position.y-last.y)**2 < self.allowed_error**2:
+                    self.last_viable = -1
+                    self.replan()
+            else:
+                pass
+        else:
+            pass
+
 
 
 if __name__ == '__main__':

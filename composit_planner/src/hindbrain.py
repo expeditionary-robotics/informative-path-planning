@@ -17,6 +17,7 @@ from nav_msgs.msg import *
 from sensor_msgs.msg import *
 from scipy.ndimage import gaussian_filter, convolve
 from tf import TransformListener
+from tf.transformations import euler_from_quaternion
 
 
 '''
@@ -37,19 +38,21 @@ class Hindbrain:
         self.map = None
         self.map_data = None
         self.path = None
+        self.pose = None
 
         # subscribe to costmap and trajectory
         # self.map_sub = rospy.Subscriber('/costmap',OccupancyGrid, self.handle_map)
-        self.traj_sub = rospy.Subscriber('/trajectory/current', PolygonStamped, self.handle_trajectory)
+        self.traj_sub = rospy.Subscriber('/trajectory/current', PolygonStamped, self.handle_trajectory, queue_size=1)
         self.cost_srv = rospy.ServiceProxy('obstacle_map', GetCostMap)
+        self.pose_sub = rospy.Subscriber("/pose", PoseStamped, self.handle_pose, queue_size=1)
+
 
         # publish to generate new plan
-        self.replan = rospy.ServiceProxy('replan', RequestReplan)
+        # self.replan = rospy.ServiceProxy('replan', RequestReplan)
 
         #create polygon object to kill current trajectory
-        self.path_pub = rospy.Publisher('/selected_trajectory', PolygonStamped,
+        self.path_pub = rospy.Publisher('/trajectory/current', PolygonStamped,
                                         queue_size=1)
-        self.backup_pub = rospy.Publisher('/call_backup', Bool, queue_size=1)
 
         #run the node at a certain rate to check things
         r = rospy.Rate(30)
@@ -85,21 +88,23 @@ class Hindbrain:
                     except:
                         break
             if cost > self.safe_threshold:
-                print 'Replanning!'
-                # abort_mission = PolygonStamped()
-                # abort_mission.header.frame_id = 'world'
-                # abort_mission.header.stamp = rospy.Time(0)
-                # abort_mission.polygon.points = []
-                # self.path_pub.publish(abort_mission)
-                self.path = None
-                if self.allow_backup == True:
-                        call_backup = Bool()
-                        call_backup.data = True
-                        self.backup_pub.publish(call_backup)
+                abort_mission = PolygonStamped()
+                abort_mission.header.frame_id = 'world'
+                abort_mission.header.stamp = rospy.Time(0)
+                abort_mission.polygon.points = [self.pose, self.pose, self.pose]
+                self.path_pub.publish(abort_mission)
                 
 
     def make_array(self,data,height,width):
         return np.array(data).reshape((height,width),order='C')
+
+    def handle_pose(self, msg):
+        current = Point32()
+        current.x = msg.pose.position.x
+        current.y = msg.pose.position.y
+        q = msg.pose.orientation
+        current.z = euler_from_quaternion((q.x, q.y, q.z, q.w))[2]
+        self.pose = current
 
 
 def main():
