@@ -54,7 +54,7 @@ class GPModel(object):
             raise ValueError('Environment must have dimension 2 \'rbf\'')
 
         if kernel == 'rbf':
-            self.kern = GPy.kern.RBF(input_dim = self.dim, lengthscale = lengthscale, variance = variance, useGPU = False) 
+            self.kern = GPy.kern.RBF(input_dim = self.dim, lengthscale = lengthscale, variance = variance) 
             # self.kern = GPy.kern.RBF(input_dim = self.dim, lengthscale = lengthscale, variance = variance, useGPU = True) 
         else:
             raise ValueError('Kernel type must by \'rbf\'')
@@ -666,49 +666,3 @@ class SpatialGPModel(GPModel):
                 else:
                     fsim[d] = sim_one_dim(m[:, d], v)
         return fsim
-
-class SubsampledGPModel(OnlineGPModel):
-    ''' This class inherits from the GP model class
-        Implements online, recursive updates for a Gaussian Process using the 
-        Woodbury-Morrison formula by modifying the Posteior class from the GPy Library 
-    '''
-    def __init__(self, ranges, lengthscale, variance, noise = 0.0001, dimension = 2, kernel = 'rbf',  update_legacy = False, max_size = 20, neighbor_radius = 0.50, val_eps = 2.00):
-        super(SubsampledGPModel, self).__init__(ranges, lengthscale, variance, noise, dimension, kernel)
-
-        self._spatial_tree = None
-        self.max_size = max_size
-        self.neighbor_radius = neighbor_radius
-        self.val_eps = val_eps
-        
-    def add_data(self, xvals, zvals):
-        ''' Public method that adds data to an the GP model.
-        Inputs:
-            xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2
-            zvals (float array): an nparray of floats representing sensor observations, with dimension NUM_PTS x 1 
-        ''' 
-        if self.xvals is None:
-            self.init_model(xvals, zvals)
-        elif self.xvals.shape[0] < self.max_size:
-            self.update_model(xvals, zvals)
-        else:
-            # Find nearest neightbor within radius
-            dist, index = self.spatial_tree.query(xvals, k = 1, distance_upper_bound = self.neighbor_radius)
-            print "Distance to nearest neighbor:", dist
-            print "Index:", index
-            print "Dataset:", self.xvals.shape
-
-            for j, (d, i) in enumerate(zip(dist, index)):
-                # m, v = self.predict_value(xvals, include_noise = True, full_cov = False)
-                # print "Value distance:", np.abs(self.zvals[i, :] - m[j, :])
-                # if d == float("inf") or np.abs(self.zvals[i, :] - m[j, :]) > self.val_eps:
-                if d == float("inf"):
-                    self.update_model(xvals, zvals)
-                    return
-            print "---------- Skiped Update! -------------------"
-
-    @property
-    def spatial_tree(self):
-        if self._spatial_tree is None:
-            print "Rebuilding KD tree"
-            self._spatial_tree = sp.spatial.KDTree(self.xvals, leafsize = 5)
-        return self._spatial_tree

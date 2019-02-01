@@ -143,13 +143,13 @@ class DPWTree(object):
                     nqueries = [node.nqueries for node in current_node.children]
                     child = random.choice([node for node in current_node.children if node.nqueries == min(nqueries)])
                     if self.UPDATE_FLAG:
-                        print "Adding kids!"
+                        #print "Adding kids!"
                         belief.add_data(xobs, child.zvals)
                     #print "Selcted child:", child.nqueries
                     return self.leaf_helper(child, reward + r, belief)
 
             if self.UPDATE_FLAG:
-                print "Adding kids!"
+                #print "Adding kids!"
                 if belief.model is None:
                     n_points, input_dim = xobs.shape
                     zmean, zvar = np.zeros((n_points, )), np.eye(n_points) * belief.variance
