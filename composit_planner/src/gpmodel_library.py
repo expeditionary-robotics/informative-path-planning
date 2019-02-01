@@ -54,7 +54,7 @@ class GPModel(object):
             raise ValueError('Environment must have dimension 2 \'rbf\'')
 
         if kernel == 'rbf':
-            self.kern = GPy.kern.RBF(input_dim = self.dim, lengthscale = lengthscale, variance = variance, useGPU = True) 
+            self.kern = GPy.kern.RBF(input_dim = self.dim, lengthscale = lengthscale, variance = variance, useGPU = False) 
             # self.kern = GPy.kern.RBF(input_dim = self.dim, lengthscale = lengthscale, variance = variance, useGPU = True) 
         else:
             raise ValueError('Kernel type must by \'rbf\'')

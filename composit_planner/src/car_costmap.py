@@ -39,7 +39,7 @@ class CostMap:
         self.sub = rospy.Subscriber('/projected_map', OccupancyGrid, self.get_map, queue_size=1)
 
         # temp pub
-        self.temp_pub = rospy.Publisher('/costmap', OccupancyGrid)
+        self.temp_pub = rospy.Publisher('/costmap', OccupancyGrid, queue_size=1)
 
         # costmap params
         self.obstacle_threshold = 80.0
@@ -55,7 +55,7 @@ class CostMap:
         The service request listened, forms the response
         '''
         # print 'Map Queried'
-	return GetCostMapResponse(self.map)
+        return GetCostMapResponse(self.map)
 
     def get_map(self, msg):
         '''
@@ -111,7 +111,7 @@ class CostMap:
         #kernel = np.zeros((kernel_size,kernel_size))
         #kernel[y*y+x*x <= inflation_radius*inflation_radius] = 1
         #inflated_mask = scipy.ndimage.filters.gaussian_filter(operation_grid, np.sqrt(inflation_radius), truncate=4.0, mode='constant', cval=-1)
-	inflated_mask = scipy.ndimage.filters.maximum_filter(operation_grid, size=(inflation_radius, inflation_radius), cval=-1, mode='constant')
+        inflated_mask = scipy.ndimage.filters.maximum_filter(operation_grid, size=(inflation_radius, inflation_radius), cval=-1, mode='constant')
         #convolve(operation_grid, kernel, mode='constant', cval=0)
         #inflated_mask = inflated_mask >= 1.0
         return inflated_mask

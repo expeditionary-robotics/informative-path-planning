@@ -63,7 +63,6 @@ class Environment:
         self.regen_map = rospy.Service('regen_map', RequestRegen, self.make_world)
         self.pub_vis = rospy.Publisher('vis_chemworld', PointCloud, queue_size = 100)
         self.pub_max = rospy.Publisher('vis_maxima', PointCloud, queue_size = 100)
-        
         rospy.spin()
 
     def make_world(self, msg):
