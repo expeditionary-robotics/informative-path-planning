@@ -25,6 +25,7 @@
     <node pkg="composit_planner" type="path_fabricator.py" name="path_fabricator" output="screen" />
 
     <!-- Tools for inferring safety -->
+    <node pkg="composit_planner" type="obstacle_check_server.py" name="obstacle_check" output="screen" />
     <node pkg="composit_planner" type="car_costmap.py" name="car_costmap" output="screen" />
 
     <node pkg="composit_planner" type="traj_serv.py" name="traj_serv" output="screen"/>

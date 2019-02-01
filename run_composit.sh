@@ -3,7 +3,7 @@
 # Configurations
 DO_PLAYBACK_DATA=false
 BAG_FILE=
-DO_BAG_DATA=true
+DO_BAG_DATA=false
 DO_START_RVIZ=false
 
 while [ "$1" != "" ]; do
@@ -50,9 +50,9 @@ fi
 
 
 # Give all devices the correct R/W permissions 
-echo "Granting permissions to devices"
-sudo chmod 777 /dev/ttyACM*
-sudo chmod 777 /dev/vesc
+#echo "Granting permissions to devices"
+#sudo chmod 777 /dev/ttyACM*
+#sudo chmod 777 /dev/vesc
 
 # Start LCM + scan matcher
 source ~/rrg/dependencies/setup.sh
@@ -69,18 +69,19 @@ source ~/rrg/devel/setup.bash
 echo "Starting Octomap"
 { roslaunch octomap_metrics_msgs octomap_server_composit.launch & } &> /dev/null
 sleep 2
+
 # { roslaunch composit_planner mapping.launch & } &> /dev/null
 # sleep 2
 
-#source ~/rrg/devel/setup.bash
+#source ~/rrg/devel/setup.sh
 #echo "Starting the COMPOSIT Planner"
-#{ roslaunch composit_planner car.launch real_sensor:=0 & }
+# { roslaunch composit_planner car.launch real_sensor:=0 & }
 
 # yorai learning 
-#source ~/rrg/devel/setup.bash
+#source ~/rrg/devel/setup.sh
 #echo "starting the car_nav package -- ~~yorai learning~~"
 # { roslaunch car_nav car_nav_launcher.launch & }
-sleep 2
+# sleep 2
 
 
 # Start the vehicle
