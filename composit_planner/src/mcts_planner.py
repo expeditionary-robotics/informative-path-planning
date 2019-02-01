@@ -90,7 +90,9 @@ class Planner:
         # Publications and service offering 
         # Publications and service offering 
         self.srv_replan = rospy.Service('replan', RequestReplan, self.replan)
-        self.pub = rospy.Publisher('/chem_map', PointCloud, queue_size = 100)
+        self.pub_chem = rospy.Publisher('/chem_map', PointCloud, queue_size = 100)
+        self.pub_max = rospy.Publisher('/maxima_map', PointCloud, queue_size = 100)
+        self.pub_sample = rospy.Publisher('/sample_map', PointCloud, queue_size = 100)
         # self.plan_pub = rospy.Publisher("/selected_trajectory", PolygonStamped, queue_size=1)
         self.plan_pub = rospy.Publisher("/trajectory/current", PolygonStamped, queue_size=1)
         self.backup_pub = rospy.Publisher("call_backup", Bool, queue_size=1)
@@ -98,8 +100,8 @@ class Planner:
         r = rospy.Rate(self.visualize_rate)
         while not rospy.is_shutdown():
             # Pubish current belief map
-            status = self.update_model()  #Updating the model this frequently is costly, but helps visualization 
-            self.publish_gpbelief()
+            # status = self.update_model()  #Updating the model this frequently is costly, but helps visualization 
+            # self.publish_gpbelief()
             r.sleep()
 
     def update_model(self):
@@ -143,6 +145,7 @@ class Planner:
         # Publish the best plan
         if status is True:
             self.get_plan()
+            #self.publish_gpbelief()
             return RequestReplanResponse(True)
         else:
             return RequestReplanResponse(False)
@@ -171,6 +174,7 @@ class Planner:
     
     def publish_gpbelief(self):
         ''' Publishes the current GP belief as a point cloud for visualization. 
+        Assumes that the data lock is already aquired
         Input: None
         Output: msg (sensor_msgs/PointCloud) point cloud centered at current pose '''
 
@@ -178,7 +182,7 @@ class Planner:
     	print self.pose.x
     	print self.pose.y
         # Aquire the data lock
-        self.data_lock.acquire()
+        # self.data_lock.acquire()
 
         # Generate a set of observations from robot model with which to make contour plots
         grid_size = 8.0 # grid size in meters
@@ -216,7 +220,7 @@ class Planner:
             
             # Get reward
             eval_value = aq_lib.GetValue(self.reward)
-            reward = eval_value.predict_value(self.GP, data)
+            reward = eval_value.predict_value(self.GP, data, FVECTOR = True)
             
             # Scale obesrvations between the 10th and 90th percentile value
             max_rew = np.max(reward)
@@ -249,9 +253,6 @@ class Planner:
                     val.values.append(topixel_rew(observations[i, :]))
             msg.channels.append(val)
 
-       
-            '''
-            print  reward.shape
             rew = ChannelFloat32()
             rew.name = 'reward'
             for i, d in enumerate(data):
@@ -260,15 +261,47 @@ class Planner:
                     rew.values.append(255./2.)
                 else:
                     rew.values.append(topixel_rew(reward[i, :]))
-            
-
             msg.channels.append(rew)
-            '''
+            self.pub_chem.publish(msg)
 
-            self.pub.publish(msg)
+            ''' Publish the current set of sample points '''
+            msg = PointCloud()
+            msg.header.frame_id = 'world' # Global frame
+
+            val = ChannelFloat32()
+            val.name = 'sample_points'
+            for i, d in enumerate(self.GP.xvals):
+                pt = geometry_msgs.msg.Point32()
+                pt.x = self.GP.xvals[i, 0]
+                pt.y = self.GP.xvals[i, 1]
+                pt.z = 3.0
+                msg.points.append(pt)
+
+                # If no data, just publish the average value
+                val.values.append(topixel_rew(self.GP.zvals[i, :]))
+            msg.channels.append(val)
+            self.pub_sample.publish(msg)
+            
+            ''' Publish the current set of sampled maxima ''' 
+            msg = PointCloud()
+            msg.header.frame_id = 'world' # Global frame
+
+            val = ChannelFloat32()
+            val.name = 'sampled_maxima'
+            for i, d in enumerate(self.GP.maxima[1]):
+                pt = geometry_msgs.msg.Point32()
+                pt.x = self.GP.maxima[1][i, 0]
+                pt.y = self.GP.maxima[1][i, 1]
+                pt.z = 3.5
+                msg.points.append(pt)
+
+                # If no data, just publish the average value
+                val.values.append(topixel_rew(self.GP.maxima[0][i, :]))
+            msg.channels.append(val)
+            self.pub_max.publish(msg)
 
         # Release the data lock
-        self.data_lock.release()
+        # self.data_lock.release()
     
     def choose_myopic_trajectory(self, eval_value):
         # Generate paths (will be obstacle checked against current map)
@@ -312,6 +345,8 @@ class Planner:
     def get_plan(self):
         # Aquire the data lock (no new data can be added to the GP model during planning)
         self.data_lock.acquire()
+        
+        self.publish_gpbelief()
 
         # Generate object to calculate reward from list of geometry_msgs/Pose
         eval_value = aq_lib.GetValue(self.reward)

@@ -6,6 +6,7 @@
 import numpy as np
 import math
 import os
+from scipy.stats import norm
 
 # GPy and GP includes
 import GPy as GPy
@@ -50,6 +51,9 @@ class Environment:
         self.x2min = float(rospy.get_param('ymin', '0'))
         self.x2max = float(rospy.get_param('ymax', '10'))
 
+
+        self.global_max = None
+
         # Keeps track of current pose of the robot so to report the correct sensor measurement
         self.current_pose = PoseStamped()
         self.pose = rospy.Subscriber("/pose", PoseStamped, self.update_pose)
@@ -62,7 +66,8 @@ class Environment:
         self.visualize_map = rospy.Service('vis_chemworld', RequestReplan, self.publish_gp)
         self.regen_map = rospy.Service('regen_map', RequestRegen, self.make_world)
         self.pub_vis = rospy.Publisher('vis_chemworld', PointCloud, queue_size = 100)
-        self.pub_max = rospy.Publisher('vis_maxima', PointCloud, queue_size = 100)
+        self.pub_max = rospy.Publisher('/true_maxima', PointCloud, queue_size = 100)
+        
         rospy.spin()
 
     def make_world(self, msg):
@@ -77,42 +82,55 @@ class Environment:
         # dimension: num_pts*num_pts x 2
         data = np.vstack([x1vals.ravel(), x2vals.ravel()]).T 
 
-        bb = ((self.x1max - self.x1min)*0.05, (self.x2max - self.x2min) * 0.05)
+        bb = ((self.x1max - self.x1min)*0.01, (self.x2max - self.x2min) * 0.01)
         ranges = (self.x1min + bb[0], self.x1max - bb[0], self.x2min + bb[1], self.x2max - bb[1])
         # Initialize maxima arbitrarily to violate boundary constraints
         maxima = [self.x1min, self.x2min]
+
+
+        # Seed the GP with a single "high" value in the middle
+        xmax = np.array([ranges[0] + (ranges[1] - ranges[0])/2.0, ranges[2] + (ranges[3] - ranges[2])/ 2.0]).reshape((1, 2))
+        zmax = np.array([norm.ppf(q = 0.999, loc = 0.0, scale = np.sqrt(self.variance))]).reshape((1, 1))
+
+        print "Ranges:", ranges
+        print "Setting maxima to :", zmax, "at location", xmax
 
         # Continue to generate random environments until the global maximia 
         # lives within the boundary constraints
         while maxima[0] < ranges[0] or maxima[0] > ranges[1] or \
               maxima[1] < ranges[2] or maxima[1] > ranges[3]:
-            # print "Current environment in violation of boundary constraint. Regenerating!"
             # logger.warning("Current environment in violation of boundary constraint. Regenerating!")
 
             # Intialize a GP model of the environment
             # self.GP = OnlineGPModel(ranges = ranges, lengthscale = self.lengthscale, variance = self.variance)         
             self.GP = GPModel(ranges = ranges, lengthscale = self.lengthscale, variance = self.variance)         
-            data = np.vstack([x1vals.ravel(), x2vals.ravel()]).T 
+            self.GP.add_data(xmax, zmax)
 
             # Take an initial sample in the GP prior, conditioned on no other data
-            xsamples = np.reshape(np.array(data[0, :]), (1, 2)) # dimension: 1 x 2        
-            mean, var = self.GP.predict_value(xsamples, include_noise = False)   
-            if msg is not None:
-                np.random.seed(seed)
-                seed += 1
-            elif self.seed is not None:
-                np.random.seed(self.seed)
-                self.seed += 1
+            data = np.vstack([x1vals.ravel(), x2vals.ravel()]).T 
+            #xsamples = np.reshape(np.array(data[0, :]), (1, 2)) # dimension: 1 x 2        
+            #mean, var = self.GP.predict_value(xsamples, include_noise = False)   
+            #if msg is not None:
+            #    np.random.seed(seed)
+            #    seed += 1
+            #elif self.seed is not None:
+            #    np.random.seed(self.seed)
+            #    self.seed += 1
 
-            zsamples = np.random.normal(loc = 0, scale = np.sqrt(var))
-            zsamples = np.reshape(zsamples, (1,1)) # dimension: 1 x 1 
+            #zsamples = np.random.normal(loc = 0, scale = np.sqrt(var))
+            #zsamples = np.reshape(zsamples, (1,1)) # dimension: 1 x 1 
                                 
             # Add initial sample data point to the GP model
-            self.GP.add_data(xsamples, zsamples)                            
+            #self.GP.add_data(xsamples, zsamples)                            
+
             np.random.seed(self.seed)
-            observations = self.GP.posterior_samples(data[1:, :], full_cov = True, size=1)
-            self.GP.add_data(data[1:, :], observations) 
+            observations = self.GP.posterior_samples(data, full_cov = True, size=1)
+
+            self.GP = GPModel(ranges = ranges, lengthscale = self.lengthscale, variance = self.variance)         
+            self.GP.add_data(data, observations) 
             maxima = self.GP.xvals[np.argmax(self.GP.zvals), :]
+            self.global_max = (maxima, np.max(self.GP.zvals))
+            print "Generated maxima:", self.global_max
 
         print "World generated! Size:", x1.shape, ",", x2.shape
         # Save the map for later comparison
@@ -129,13 +147,14 @@ class Environment:
         # Generate a set of observations from robot model with which to make contour plots
         max_val = np.max(self.GP.zvals)
         min_val = np.min(self.GP.zvals)
-        print "Max val:", max_val
-        print "Min val:", min_val
+        #print "Max val:", max_val
+        #print "Min val:", min_val
         if max_val == min_val and max_val == 0.00: 
             topixel = lambda val: 0.0
         else:
             # Define lambda for transforming from observation to 0-255 range
-            topixel = lambda val: int((val - min_val) / (max_val - min_val) * 255.0)
+            # topixel = lambda val: int((val - min_val) / (max_val - min_val) * 255.0)
+            topixel = lambda val: float(val) 
         msg = PointCloud()
         msg.header.frame_id = 'map' # Global frame
 
@@ -151,6 +170,22 @@ class Environment:
             val.values.append(topixel(self.GP.zvals[i, :]))
         msg.channels.append(val)
         self.pub_vis.publish(msg)
+
+        ''' Publish the ground truth global maxima '''
+        msg = PointCloud()
+        msg.header.frame_id = 'map' # Global frame
+
+	val = ChannelFloat32()
+        val.name = 'global_maxima'
+        #msg.header.stamp = rospy.get_rostime()
+        pt = geometry_msgs.msg.Point32()
+        pt.x = self.global_max[0][0]
+        pt.y = self.global_max[0][1]
+        pt.z = 2.0
+        msg.points.append(pt)
+        val.values.append(topixel(self.global_max[1]))
+        msg.channels.append(val)
+        self.pub_max.publish(msg)
         
         return RequestReplanResponse(True)
 

@@ -49,7 +49,7 @@ class GetValue():
         elif self.reward == 'ucb':
             self.value = mean_ucb(time = time, xvals = xvals, robot_model = self.GP, param = None)
         elif self.reward == 'mes':
-            value = mves(time = time, xvals = xvals, robot_model = self.GP, param = self.maxima, FVECTOR = FVECTOR)
+            value = mves(time = time, xvals = xvals, robot_model = self.GP, param = self.GP.maxima, FVECTOR = FVECTOR)
         elif self.reward == 'ig':
             value = info_gain(time = time, xvals = xvals, robot_model = self.GP, param = None)
         else:
@@ -218,7 +218,7 @@ def exp_improvement(time, xvals, robot_model, param = None):
                                         Utilities Functions 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'''
 
-def sample_max_vals(robot_model, nK = 1, nFeatures = 200):
+def sample_max_vals(robot_model, nK = 4, nFeatures = 200):
     ''' Utility function that samples a set of nK maxima from the current Gaussian belief using spectral sampling'''
     # If the robot has not samples yet, return a constant value
     if robot_model.xvals is None:
