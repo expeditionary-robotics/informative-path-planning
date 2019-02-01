@@ -12,7 +12,7 @@ cost_limit: 200.0
 unknown_limit: -5.0
 trajectory_endpoint_precision: 0.2
 
-planner_type: 'nonmyopic'
+planner_type: 'myopic'
 tree_type: 'dpw_tree'
 reward_func: 'mes'
 replan_budget: 100

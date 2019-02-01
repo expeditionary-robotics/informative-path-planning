@@ -54,14 +54,20 @@ class CostMap:
  	'''
         The service request listened, forms the response
         '''
-        # print 'Map Queried'
-        return GetCostMapResponse(self.map)
+        if req.type == 'inflated':
+        	# print 'Map Queried'
+        	return GetCostMapResponse(self.map)
+        elif req.type == 'raw':
+		return GetCostMapResponse(self.original)
+        else:
+		return GetCostMapResponse(self.map)
 
     def get_map(self, msg):
         '''
         Clears the current map from periodic full map updates
         '''
         # print 'Map Established'
+        self.original = msg
         self.map = self.process_map(msg)
         self.temp_pub.publish(self.map)
 

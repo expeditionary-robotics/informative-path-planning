@@ -50,7 +50,9 @@ class ObstacleCheck:
         '''
         safe_paths = []
         # get the costmap of interest
-        map_resp = self.world(GetCostMapRequest())
+	req = GetCostMapRequest()
+	req.type = 'inflated'
+        map_resp = self.world(req)
         current_map = map_resp.map
         # reshape the array to be a matrix for querying
         data = self.make_array(current_map.data, current_map.info.height, current_map.info.width)

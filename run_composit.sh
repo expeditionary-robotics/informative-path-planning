@@ -27,8 +27,8 @@ set -e
 cleanup() {
         local pids=$(jobs -pr)
         [ -n "$pids" ] && kill $pids
-	deactivate
 	killall -9 bot-param-server
+	deactivate
 }
 trap "cleanup" INT QUIT TERM EXIT
 
@@ -51,8 +51,8 @@ fi
 
 # Give all devices the correct R/W permissions 
 #echo "Granting permissions to devices"
-#sudo chmod 777 /dev/ttyACM*
-#sudo chmod 777 /dev/vesc
+sudo chmod 777 /dev/ttyACM*
+sudo chmod 777 /dev/vesc
 
 # Start LCM + scan matcher
 source ~/rrg/dependencies/setup.sh

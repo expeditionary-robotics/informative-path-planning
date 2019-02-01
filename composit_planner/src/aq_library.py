@@ -218,7 +218,7 @@ def exp_improvement(time, xvals, robot_model, param = None):
                                         Utilities Functions 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'''
 
-def sample_max_vals(robot_model, nK = 4, nFeatures = 200):
+def sample_max_vals(robot_model, nK = 3, nFeatures = 200):
     ''' Utility function that samples a set of nK maxima from the current Gaussian belief using spectral sampling'''
     # If the robot has not samples yet, return a constant value
     if robot_model.xvals is None:

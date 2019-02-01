@@ -68,7 +68,9 @@ class Hindbrain:
         self.path = coordinates
 
     def check_trajectory(self):
-        map_resp = self.cost_srv(GetCostMapRequest())
+	req = GetCostMapRequest()
+	req.type = 'raw'
+        map_resp = self.cost_srv(req)
         current_map = map_resp.map
         data = self.make_array(current_map.data, current_map.info.height, current_map.info.width)
 
