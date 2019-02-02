@@ -402,8 +402,6 @@ class Planner:
         l.polygon.points = clear
         return l
 
-
-
 if __name__ == '__main__':
     rospy.init_node('mcts_planner')
     try:

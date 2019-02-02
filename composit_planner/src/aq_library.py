@@ -297,7 +297,7 @@ def sample_max_vals(robot_model, nK = 1, nFeatures = 200):
         # Retry optimization up to 5 times; if hasn't converged, give up on this simulated world
         while status == False and count < 5:
             maxima, max_val, max_inv_hess, status = global_maximization(target, target_vector_n, target_gradient, 
-                target_vector_gradient_n, robot_model.ranges, robot_model.xvals)
+                target_vector_gradient_n, robot_model.ranges, robot_model.xvals, visualize = True, filename = 't' + str(t) + '.nK' + str(i))
             count += 1
         if status == False:
             delete_locs.append(i)
@@ -319,7 +319,7 @@ def sample_max_vals(robot_model, nK = 1, nFeatures = 200):
    
     return samples, locs, funcs
       
-def global_maximization(target, target_vector_n, target_grad, target_vector_gradient_n, ranges, guesses):
+def global_maximization(target, target_vector_n, target_grad, target_vector_gradient_n, ranges, guesses, visualize = True, filename = ''):
     ''' Utility function that performs nonconvex global maximization'''
     gridSize = 300
     # Create a buffer around the boundary so the optmization doesn't always concentrate there
@@ -345,12 +345,36 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
         max_index = np.argmax(y)
         start = np.asarray(Xgrid_sample[max_index, :])
 
+    if visualize:
+        # Generate a set of observations from robot model with which to make contour plots
+        x1vals = np.linspace(hold_ranges[0], hold_ranges[1], 40)
+        x2vals = np.linspace(hold_ranges[2], hold_ranges[3], 40)
+        x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
+        data = np.vstack([x1.ravel(), x2.ravel()]).T
+        observations = target(data)
+        fig2, ax2 = plt.subplots(figsize=(8, 8))
+        ax2.set_xlim(hold_ranges[0:2])
+        ax2.set_ylim(hold_ranges[2:])        
+        ax2.set_title('Countour Plot of the Sampled World Model')     
+        plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), 25, cmap = 'viridis')
+
     res = sp.optimize.minimize(fun = target_vector_n, x0 = start, method = 'SLSQP', \
             jac = target_vector_gradient_n, bounds = ((ranges[0], ranges[1]), (ranges[2], ranges[3])))
 
     if res['success'] == False:
         print "Failed to converge!"
         return 0, 0, 0, False
+
+    if visualize:
+        # Generate a set of observations from robot model with which to make contour plots
+        scatter = ax2.scatter(guesses[:, 0], guesses[:, 1], color = 'k', s = 20.0)
+        scatter = ax2.scatter(res['x'][0], res['x'][1], marker = '*', color = 'r', s = 500)      
+
+        if not os.path.exists('./figures/mes/opt'):
+            os.makedirs('./figures/mes/opt')
+        fig2.savefig('./figures/mes/opt/globalopt.' + filename + '.png')
+        #plt.show()
+        plt.close()
     
     return res['x'], -res['fun'], res['jac'], True
 
