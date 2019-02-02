@@ -27,7 +27,7 @@ import aq_library as aq_lib
 class GPModel(object):
     '''The GPModel class, which is a wrapper on top of GPy.'''     
     
-    def __init__(self, ranges, lengthscale, variance, noise = 0.0001, dimension = 2, kernel = 'rbf'):
+    def __init__(self, ranges, lengthscale, variance, noise = 0.0001, t = 0, dimension = 2, kernel = 'rbf'):
         '''Initialize a GP regression model with given kernel parameters. 
         Inputs:
             ranges (list of floats) the bounds of the world
@@ -39,6 +39,8 @@ class GPModel(object):
         '''
         self._maxima = None
         self._max_val = None
+
+        self.t = t
         
         # Model parameterization (noise, lengthscale, variance)
         self.noise = noise
@@ -180,7 +182,7 @@ class GPModel(object):
         ''' Property that returns the maxima for value calculations if already 
             set, or computes if new maxima not yet computed. ''' 
         if self._maxima is None:
-            max_vals, max_locs, func = aq_lib.sample_max_vals(self) 
+            max_vals, max_locs, func = aq_lib.sample_max_vals(self, t = self.t) 
             self._maxima = (max_vals, max_locs, func)
         return self._maxima
 
@@ -190,8 +192,8 @@ class OnlineGPModel(GPModel):
         Woodbury-Morrison formula by modifying the Posteior class from the GPy Library 
     '''
 
-    def __init__(self, ranges, lengthscale, variance, noise = 0.0001, dimension = 2, kernel = 'rbf'):
-        super(OnlineGPModel, self).__init__(ranges, lengthscale, variance, noise, dimension, kernel)
+    def __init__(self, ranges, lengthscale, variance, t = 0, noise = 0.0001, dimension = 2, kernel = 'rbf'):
+        super(OnlineGPModel, self).__init__(ranges, lengthscale, variance, noise, t, dimension, kernel)
         
         self._K_chol = None
         self._K = None

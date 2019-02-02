@@ -10,7 +10,10 @@
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'''
 from sklearn import mixture
+from matplotlib import pyplot as plt
 from scipy.stats import multivariate_normal
+import matplotlib
+from matplotlib import cm
 import numpy as np
 import scipy as sp
 import math
@@ -64,7 +67,7 @@ class GetValue():
         ''' Property that returns the maxima for value calculations if already 
             set, or computes if new maxima not yet computed. ''' 
         if self._maxima is None:
-            max_vals, max_locs, func = sample_max_vals(self.GP) 
+            max_vals, max_locs, func = sample_max_vals(self.GP, self.t) 
             self._maxima = (max_vals, max_locs, func)
         return self._maxima
    
@@ -226,7 +229,7 @@ def exp_improvement(time, xvals, robot_model, param = None):
                                         Utilities Functions 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'''
 
-def sample_max_vals(robot_model, nK = 1, nFeatures = 200):
+def sample_max_vals(robot_model, t = 0, nK = 3, nFeatures = 200):
     ''' Utility function that samples a set of nK maxima from the current Gaussian belief using spectral sampling'''
     # If the robot has not samples yet, return a constant value
     if robot_model.xvals is None:
@@ -296,6 +299,7 @@ def sample_max_vals(robot_model, nK = 1, nFeatures = 200):
         count = 0
         # Retry optimization up to 5 times; if hasn't converged, give up on this simulated world
         while status == False and count < 5:
+            print "Starting global maximiazation #", i
             maxima, max_val, max_inv_hess, status = global_maximization(target, target_vector_n, target_gradient, 
                 target_vector_gradient_n, robot_model.ranges, robot_model.xvals, visualize = True, filename = 't' + str(t) + '.nK' + str(i))
             count += 1
@@ -316,7 +320,7 @@ def sample_max_vals(robot_model, nK = 1, nFeatures = 200):
     if len(delete_locs) == nK:
         samples[0] = np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise)
         locs[0, :] = robot_model.xvals[np.argmax(robot_model.zvals)]
-   
+
     return samples, locs, funcs
       
 def global_maximization(target, target_vector_n, target_grad, target_vector_gradient_n, ranges, guesses, visualize = True, filename = ''):
@@ -326,7 +330,8 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
     hold_ranges = ranges
     bb = ((ranges[1] - ranges[0])*0.05, (ranges[3] - ranges[2]) * 0.05)
     ranges = (ranges[0] + bb[0], ranges[1] - bb[0], ranges[2] + bb[1], ranges[3] - bb[1])
-    
+   
+    print "Visulize:", visualize
     # Uniformly sample gridSize number of points in interval xmin to xmax
     x1 = np.random.uniform(ranges[0], ranges[1], size = gridSize)
     x2 = np.random.uniform(ranges[2], ranges[3], size = gridSize)
@@ -347,6 +352,7 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
 
     if visualize:
         # Generate a set of observations from robot model with which to make contour plots
+        print "Generating a plot of the maxima!"
         x1vals = np.linspace(hold_ranges[0], hold_ranges[1], 40)
         x2vals = np.linspace(hold_ranges[2], hold_ranges[3], 40)
         x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
@@ -370,11 +376,14 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
         scatter = ax2.scatter(guesses[:, 0], guesses[:, 1], color = 'k', s = 20.0)
         scatter = ax2.scatter(res['x'][0], res['x'][1], marker = '*', color = 'r', s = 500)      
 
+        print "Does dir exist?", os.path.exists('./figures/mes/opt')
         if not os.path.exists('./figures/mes/opt'):
+            print "Making dir!"
             os.makedirs('./figures/mes/opt')
+        print "Saving dir!", './figures/mes/opt/globalopt.' + filename + '.png'
         fig2.savefig('./figures/mes/opt/globalopt.' + filename + '.png')
-        #plt.show()
-        plt.close()
+        # plt.show()
+        # plt.close()
     
     return res['x'], -res['fun'], res['jac'], True
 
