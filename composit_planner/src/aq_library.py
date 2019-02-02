@@ -26,7 +26,7 @@ import rospy
 from geometry_msgs.msg import Pose
    
 class GetValue():
-    def __init__(self, reward, t = 0):
+    def __init__(self, reward, t):
         self.reward = reward
         self._maxima = None
         self._max_val = None
@@ -46,9 +46,9 @@ class GetValue():
         self.GP = GP
 
         if self.reward == 'ei':
-            value = exp_improvement(time = self.t, xvals = xvals, robot_model = self.GP, param = self.max_val)
+            self.value = exp_improvement(time = self.t, xvals = xvals, robot_model = self.GP, param = self.max_val)
         elif self.reward == 'ucb':
-            value = mean_ucb(time = self.t, xvals = xvals, robot_model = self.GP, param = None)
+            self.value = mean_ucb(time = self.t, xvals = xvals, robot_model = self.GP, param = None, FVECTOR = FVECTOR)
         elif self.reward == 'mes':
             value = mves(time = self.t, xvals = xvals, robot_model = self.GP, param = self.GP.maxima, FVECTOR = FVECTOR)
         elif self.reward == 'ig':
@@ -166,15 +166,19 @@ def info_gain(time, xvals, robot_model, param = None):
     return entropy_total - entropy_const
 
     
-def mean_ucb(time, xvals, robot_model, param = None):
+def mean_ucb(time, xvals, robot_model, param = None, FVECTOR = False):
     ''' Computes the UCB for a set of points along a trajectory '''
-    if robot_model.xvals is None:
-        return 1.0
 
     data = np.array(xvals)
     x1 = data[:,0]
     x2 = data[:,1]
     queries = np.vstack([x1, x2]).T   
+
+    if robot_model.xvals is None:
+        if FVECTOR:
+            return np.ones((data.shape[0], 1))
+        else:
+            return 1.0
                               
     # The GPy interface can predict mean and variance at an array of points; this will be an overestimate
     mu, var = robot_model.predict_value(queries)
@@ -184,7 +188,10 @@ def mean_ucb(time, xvals, robot_model, param = None):
     pit = np.pi**2 * (time + 1)**2 / 6.
     beta_t = 2 * np.log(d * pit / delta)
 
-    return np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
+    if FVECTOR:
+        return mu + np.sqrt(beta_t) * np.fabs(var)
+    else:
+        return np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
 
 
 def exp_improvement(time, xvals, robot_model, param = None):

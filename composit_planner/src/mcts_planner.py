@@ -71,8 +71,8 @@ class Planner:
         self.last_viable = None
         
         # Initialize the robot's GP model with the initial kernel parameters
-        self.GP = GPModel(ranges = [self.x1min, self.x1max, self.x2min, self.x2max], lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
         # self.GP = OnlineGPModel(ranges = [self.x1min, self.x1max, self.x2min, self.x2max], lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
+        self.GP = GPModel(ranges = [self.x1min, self.x1max, self.x2min, self.x2max], lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
         self.t = 0
        
         # Initialize path generator
@@ -148,6 +148,7 @@ class Planner:
         # Publish the best plan
         if status is True:
             self.get_plan()
+            self.t += 1
             #self.publish_gpbelief()
             self.t += 1
             return RequestReplanResponse(True)
@@ -225,7 +226,7 @@ class Planner:
                 topixel = lambda val: int((val - min_val) / (max_val - min_val) * 255.0)
             
             # Get reward
-            eval_value = aq_lib.GetValue(self.reward)
+            eval_value = aq_lib.GetValue(self.reward, self.t)
             reward = eval_value.predict_value(self.GP, data, FVECTOR = True)
             
             # Scale obesrvations between the 10th and 90th percentile value
@@ -328,25 +329,6 @@ class Planner:
         else:
             return
 
-    def choose_myopic_trajectory(self, eval_value):
-        # Generate paths (will be obstacle checked against current map)
-        clear_paths = self.srv_paths(PathFromPoseRequest(self.pose))
-        clear_paths = clear_paths.safe_paths
-        if len(clear_paths) > 1 or self.allow_backup == False:
-            #Now, select the path with the highest potential reward
-            path_selector = {}
-            for i, path in enumerate(clear_paths):
-                if len(path.polygon.points) != 0:
-                    # TODO: need to keep an updated discrete time for the UCB reward
-                    path_selector[i] = eval_value.predict_value(self.GP, path.polygon.points)
-                else:
-                    path_selector[i] = -float("inf")
-
-            best_key = np.random.choice([key for key in path_selector.keys() if path_selector[key] == max(path_selector.values())])
-            return clear_paths[best_key], path_selector[best_key]
-        else:
-            return
-
 
     def get_plan(self):
         # Aquire the data lock (no new data can be added to the GP model during planning)
@@ -355,7 +337,7 @@ class Planner:
         self.publish_gpbelief()
 
         # Generate object to calculate reward from list of geometry_msgs/Pose
-        eval_value = aq_lib.GetValue(self.reward)
+        eval_value = aq_lib.GetValue(self.reward, self.t)
 
         if self.planner_type == 'myopic':
             if self.pose is not None:
