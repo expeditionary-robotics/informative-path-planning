@@ -53,9 +53,9 @@ class TrajMonitor():
         last = self.last_viable
         if last is not None:
             if last != -1:
-                print "CHECKING POSE NOW"
-                print last
-                print msg.pose.position
+                # print "CHECKING POSE NOW"
+                # print last
+                # print msg.pose.position
                 if (msg.pose.position.x-last.x)**2 + (msg.pose.position.y-last.y)**2 < self.allowed_error**2:
                     # self.last_viable = -1
                     print "~~~~~~~~TRIGGERING REPLAN~~~~~~~~~~~~"

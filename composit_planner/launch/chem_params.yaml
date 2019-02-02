@@ -12,8 +12,8 @@ model_noise: 1.0
 sensor_rate: 1.0
 visualize_rate: 0.2
 
-ymin: -2.0
-ymax: 2.0
-xmin: -5.0
-xmax: 5.0
+ymin: -2.25
+ymax: 2.25
+xmin: -3.5
+xmax: 3.5
 num_pts: 40

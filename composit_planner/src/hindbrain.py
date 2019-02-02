@@ -69,7 +69,7 @@ class Hindbrain:
 
     def check_trajectory(self):
 	req = GetCostMapRequest()
-	req.type = 'raw'
+	req.type = 'inflated'
         map_resp = self.cost_srv(req)
         current_map = map_resp.map
         data = self.make_array(current_map.data, current_map.info.height, current_map.info.width)

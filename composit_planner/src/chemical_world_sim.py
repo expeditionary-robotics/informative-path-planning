@@ -165,7 +165,7 @@ class Environment:
             pt = geometry_msgs.msg.Point32()
             pt.x = self.GP.xvals[i, 0]
             pt.y = self.GP.xvals[i, 1]
-            pt.z = 2.0
+            pt.z = 0.0
             msg.points.append(pt)
             val.values.append(topixel(self.GP.zvals[i, :]))
         msg.channels.append(val)
@@ -181,7 +181,7 @@ class Environment:
         pt = geometry_msgs.msg.Point32()
         pt.x = self.global_max[0][0]
         pt.y = self.global_max[0][1]
-        pt.z = 2.0
+        pt.z = 0.0
         msg.points.append(pt)
         val.values.append(topixel(self.global_max[1]))
         msg.channels.append(val)

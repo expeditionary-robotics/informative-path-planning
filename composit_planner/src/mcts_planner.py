@@ -6,6 +6,7 @@ import numpy as np
 import scipy as sp
 import math
 import os
+import copy
 import threading
 
 # ROS includes
@@ -167,9 +168,11 @@ class Planner:
         ''' Creates a queue of incoming sample points on the /chem_data topic 
         Input: msg (flat64) checmical data at current pose
         '''
+        pose = copy.copy(self.pose)
         self.data_lock.acquire()
         self.data_queue.append(msg)
-        self.pose_queue.append(self.pose)
+        self.pose_queue.append(pose)
+        # print "Appending value:\t", msg.data, "at pose \t", pose
         self.data_lock.release()    
     
     def publish_gpbelief(self):
@@ -243,7 +246,7 @@ class Planner:
                 pt = geometry_msgs.msg.Point32()
                 pt.x = data[i, 0]
                 pt.y = data[i, 1]
-                pt.z = 1.0
+                pt.z = 0.0
                 msg.points.append(pt)
 
                 # If no data, just publish the average value
@@ -274,7 +277,7 @@ class Planner:
                 pt = geometry_msgs.msg.Point32()
                 pt.x = self.GP.xvals[i, 0]
                 pt.y = self.GP.xvals[i, 1]
-                pt.z = 3.0
+                pt.z = 0.0
                 msg.points.append(pt)
 
                 # If no data, just publish the average value
@@ -292,7 +295,7 @@ class Planner:
                 pt = geometry_msgs.msg.Point32()
                 pt.x = self.GP.maxima[1][i, 0]
                 pt.y = self.GP.maxima[1][i, 1]
-                pt.z = 3.5
+                pt.z = 0.0
                 msg.points.append(pt)
 
                 # If no data, just publish the average value
