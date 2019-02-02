@@ -71,7 +71,9 @@ class Planner:
         self.last_viable = None
         
         # Initialize the robot's GP model with the initial kernel parameters
-        self.GP = OnlineGPModel(ranges = [self.x1min, self.x1max, self.x2min, self.x2max], lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
+        self.GP = GPModel(ranges = [self.x1min, self.x1max, self.x2min, self.x2max], lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
+        # self.GP = OnlineGPModel(ranges = [self.x1min, self.x1max, self.x2min, self.x2max], lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
+        self.t = 0
        
         # Initialize path generator
         # self.path_generator = paths_lib.ROS_Path_Generator(self.fs, self.hl, self.tr, self.ss)
@@ -147,6 +149,7 @@ class Planner:
         if status is True:
             self.get_plan()
             #self.publish_gpbelief()
+            self.t += 1
             return RequestReplanResponse(True)
         else:
             return RequestReplanResponse(False)

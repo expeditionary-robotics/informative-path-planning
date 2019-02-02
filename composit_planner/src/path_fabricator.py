@@ -83,11 +83,12 @@ class ROS_Path_Generator(object):
 
         if self.make_paths_behind is True:
             # make a single path directly behind the vehicle
-            behind_goal = trig_projection(self.cp, self.hl, 3*np.pi/2)
-            paths = dubins.shortest_path((self.cp[0], self.cp[1], self.cp[2]+3*np.pi/2),
+            behind_goal = trig_projection(self.cp, self.hl, np.pi)
+            paths = dubins.shortest_path((self.cp[0], self.cp[1], self.cp[2]+np.pi),
                                          behind_goal,
                                          self.tr)
             true_path, _ = paths.sample_many(self.ss)
+            true_path = [(-100000.,-100000.,-100000.)] + true_path #indicator for the controller
             all_paths.append(true_path)
 
         if self.make_stay_path is True:
@@ -109,9 +110,12 @@ class ROS_Path_Generator(object):
         # Check the poses
         self.viz = []
         for path in paths:
-            idy = [int(round((x[0]-current_map.info.origin.position.x)/current_map.info.resolution)) for x in path]
-            idx = [int(round((x[1]-current_map.info.origin.position.y)/current_map.info.resolution)) for x in path]
-
+            if path[0][0] > -100000:
+                idy = [int(round((x[0]-current_map.info.origin.position.x)/current_map.info.resolution)) for x in path]
+                idx = [int(round((x[1]-current_map.info.origin.position.y)/current_map.info.resolution)) for x in path]
+            else:
+                idy = [int(round((x[0]-current_map.info.origin.position.x)/current_map.info.resolution)) for x in path[1:]]
+                idx = [int(round((x[1]-current_map.info.origin.position.y)/current_map.info.resolution)) for x in path[1:]]
             try:
                 cost_vals = data[idx, idy]
                 cost = np.sum([k for k in cost_vals if k >= 0.])
@@ -148,14 +152,15 @@ class ROS_Path_Generator(object):
         return clear_paths
 
     def make_rosmsg(self, path):
-        ''' Does the ROS message conversion
+        ''' Does the ROS message conversionros
         '''
         pub_path = []
         for coord in path:
             pc = Point32()
             pc.x = coord[0]
             pc.y = coord[1]
-            self.viz.append(pc)
+            if pc.x > -100000: #don't visualize helper indicators
+                self.viz.append(pc)
             c = copy.copy(pc)
             c.z = coord[2] # keep heading information
             pub_path.append(c)

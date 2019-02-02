@@ -3,7 +3,7 @@
 # Configurations
 DO_PLAYBACK_DATA=false
 BAG_FILE=
-DO_BAG_DATA=false
+DO_BAG_DATA=true
 DO_START_RVIZ=false
 
 while [ "$1" != "" ]; do
@@ -58,17 +58,17 @@ sudo chmod 777 /dev/vesc
 source ~/rrg/dependencies/setup.sh
 echo "Starting LCM & scan matcher"
 { source ~/rrg/src/platform/quad/perception_launch/scripts/quad_scan_matcher.sh & } &> /dev/null
-sleep 2
+sleep 5
 
 source ~/rrg/devel/setup.bash
 echo "Starting the estimator"
 { roslaunch perception_launch estimation.launch & } &> /dev/null
-sleep 2
+sleep 5
 
 source ~/rrg/devel/setup.bash
 echo "Starting Octomap"
 { roslaunch octomap_metrics_msgs octomap_server_composit.launch & } &> /dev/null
-sleep 2
+sleep 5
 
 # { roslaunch composit_planner mapping.launch & } &> /dev/null
 # sleep 2
@@ -91,7 +91,7 @@ if [ "$DO_ENABLE_SENSORS" = true ]; then
     export PYTHONPATH=$PYTHONPATH:/usr/lib/python2.7/dist-packages
     echo "Starting car/sensors"
     { roslaunch racecar rrg_teleop.launch imu_name:=microstrain run_pp:=true & }
-    sleep 1
+    sleep 5
 fi
 
 
