@@ -83,7 +83,7 @@ class ROS_Path_Generator(object):
 
         if self.make_paths_behind is True:
             # make a single path directly behind the vehicle
-            behind_goal = trig_projection(self.cp, self.hl, np.pi)
+            behind_goal = trig_projection(self.cp, self.hl*0.80, np.pi)
             paths = dubins.shortest_path((self.cp[0], self.cp[1], self.cp[2]+np.pi),
                                          behind_goal,
                                          self.tr)

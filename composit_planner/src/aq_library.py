@@ -46,9 +46,9 @@ class GetValue():
         self.GP = GP
 
         if self.reward == 'ei':
-            self.value = exp_improvement(time = self.t, xvals = xvals, robot_model = self.GP, param = self.max_val)
+            value = exp_improvement(time = self.t, xvals = xvals, robot_model = self.GP, param = self.max_val)
         elif self.reward == 'ucb':
-            self.value = mean_ucb(time = self.t, xvals = xvals, robot_model = self.GP, param = None, FVECTOR = FVECTOR)
+            value = mean_ucb(time = self.t, xvals = xvals, robot_model = self.GP, param = None, FVECTOR = FVECTOR)
         elif self.reward == 'mes':
             value = mves(time = self.t, xvals = xvals, robot_model = self.GP, param = self.GP.maxima, FVECTOR = FVECTOR)
         elif self.reward == 'ig':
@@ -57,7 +57,7 @@ class GetValue():
             print self.reward 
             raise ValueError('Aqusition function must be one of ei, ucb, ig, or mes')
 
-        return value
+        return value / float(xvals.shape[0])
     
     @property
     def maxima(self):
@@ -226,7 +226,7 @@ def exp_improvement(time, xvals, robot_model, param = None):
                                         Utilities Functions 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'''
 
-def sample_max_vals(robot_model, nK = 1, nFeatures = 200):
+def sample_max_vals(robot_model, nK = 2, nFeatures = 200):
     ''' Utility function that samples a set of nK maxima from the current Gaussian belief using spectral sampling'''
     # If the robot has not samples yet, return a constant value
     if robot_model.xvals is None:
@@ -307,6 +307,12 @@ def sample_max_vals(robot_model, nK = 1, nFeatures = 200):
         funcs.append(target)
         print "Max Value in Optimization \t \t", samples[i]
         locs[i, :] = maxima
+
+        if max_val > np.max(robot_model.zvals) + 1.0 * np.sqrt(robot_model.noise):
+            samples[i] = np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise)
+            print "Max observed is smaller than max in opt:", samples[i]
+            locs[i, :] = robot_model.xvals[np.argmax(robot_model.zvals)]
+            samples[i] = np.max(robot_model.zvals) 
    
     # Return the set of collected samples
     samples = np.delete(samples, delete_locs, axis = 0)

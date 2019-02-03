@@ -23,6 +23,8 @@ class TrajMonitor(object):
         #subscribe to trajectory topic
         self.sub = rospy.Subscriber("/trajectory/current", PolygonStamped, self.handle_trajectory, queue_size=1)
         self.pose_sub = rospy.Subscriber("/pose", PoseStamped, self.handle_pose, queue_size=1)
+        
+        self.traj_pub = rospy.Publisher("/trajectory/current", PolygonStamped, queue_size=1)
 
         #access replan service to trigger when finished a trajectory
         self.replan = rospy.ServiceProxy('replan', RequestReplan)
@@ -38,9 +40,9 @@ class TrajMonitor(object):
         '''
         check_points = traj.polygon.points
         if self.last_viable != -1:
-            if self.last_viable is not None and np.isclose(check_points[-1].x, self.last_viable.x) is True:
+            if self.last_viable is not None and len(check_points) > 0 and np.isclose(check_points[-1].x, self.last_viable.x) is True:
                 pass
-            else:
+            elif len(check_points) > 0:
                 self.new_goals = traj.polygon.points
                 self.last_viable = self.new_goals[-1]
         else:
@@ -56,6 +58,10 @@ class TrajMonitor(object):
             if last != -1:
                 if (msg.pose.position.x-last.x)**2 + (msg.pose.position.y-last.y)**2 < self.allowed_error**2:
                     # print "~~~~~~~~TRIGGERING REPLAN~~~~~~~~~~~~"
+                    pte = PolygonStamped()
+                    pte.header.frame_id = 'world'
+                    pte.header.stamp = rospy.Time(0)
+                    self.traj_pub.publish(pte)
                     self.replan()
             else:
                 pass

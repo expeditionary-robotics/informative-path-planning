@@ -74,6 +74,7 @@ class Planner:
         # self.GP = OnlineGPModel(ranges = [self.x1min, self.x1max, self.x2min, self.x2max], lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
         self.GP = GPModel(ranges = [self.x1min, self.x1max, self.x2min, self.x2max], lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
         self.t = 0
+        self.PLANNING_ACTIVE = False
        
         # Initialize path generator
         # self.path_generator = paths_lib.ROS_Path_Generator(self.fs, self.hl, self.tr, self.ss)
@@ -144,6 +145,7 @@ class Planner:
         Input: None
         Output: Boolean success service response. ''' 
         status = self.update_model()
+        self.PLANNING_ACTIVE = True
         print "Update model status:", status
         # Publish the best plan
         if status is True:
@@ -151,8 +153,10 @@ class Planner:
             self.t += 1
             #self.publish_gpbelief()
             self.t += 1
+            self.PLANNING_ACTIVE = False
             return RequestReplanResponse(True)
         else:
+            self.PLANNING_ACTIVE = False
             return RequestReplanResponse(False)
 
     def update_pose(self, msg):
@@ -172,12 +176,13 @@ class Planner:
         ''' Creates a queue of incoming sample points on the /chem_data topic 
         Input: msg (flat64) checmical data at current pose
         '''
-        pose = copy.copy(self.pose)
-        self.data_lock.acquire()
-        self.data_queue.append(msg)
-        self.pose_queue.append(pose)
-        # print "Appending value:\t", msg.data, "at pose \t", pose
-        self.data_lock.release()    
+        if not self.PLANNING_ACTIVE:
+            pose = copy.copy(self.pose)
+            self.data_lock.acquire()
+            self.data_queue.append(msg)
+            self.pose_queue.append(pose)
+            # print "Appending value:\t", msg.data, "at pose \t", pose
+            self.data_lock.release()    
     
     def publish_gpbelief(self):
         ''' Publishes the current GP belief as a point cloud for visualization. 
@@ -325,6 +330,7 @@ class Planner:
                     path_selector[i] = -float("inf")
 
             best_key = np.random.choice([key for key in path_selector.keys() if path_selector[key] == max(path_selector.values())])
+            print path_selector.values()
             return clear_paths[best_key], path_selector[best_key]
         else:
             return
