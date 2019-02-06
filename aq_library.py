@@ -113,7 +113,7 @@ def hotspot_info_UCB(time, xvals, robot_model, param=None):
     return info_gain(time, xvals, robot_model) + LAMBDA * np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
 
 
-def sample_max_vals(robot_model, t, nK = 5, nFeatures = 200, visualize = True, obstacles=obslib.FreeWorld()):
+def sample_max_vals(robot_model, t, nK = 1, nFeatures = 200, visualize = True, obstacles=obslib.FreeWorld()):
     ''' The mutual information between a potential set of samples and the local maxima'''
     # If the robot has not samples yet, return a constant value
     if robot_model.xvals is None:
@@ -404,7 +404,7 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
     gridSize = 300
     # Create a buffer around the boundary so the optmization doesn't always concentrate there
     hold_ranges = ranges
-    bb = ((ranges[1] - ranges[0])*0.05, (ranges[3] - ranges[2]) * 0.05)
+    bb = ((ranges[1] - ranges[0])*0.10, (ranges[3] - ranges[2]) * 0.10)
     ranges = (ranges[0] + bb[0], ranges[1] - bb[0], ranges[2] + bb[1], ranges[3] - bb[1])
     
     # Uniformly sample gridSize number of points in interval xmin to xmax

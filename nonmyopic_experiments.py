@@ -27,8 +27,8 @@ import bag_utils as baglib
 
 print "User specified options: SEED, REWARD_FUNCTION, PATHSET, USE_COST, NONMYOPIC, GOAL_ONLY, TREE_TYPE, RUN_REAL"
 # Allow selection of seed world to be consistent, and to run through reward functions
-# SEED =  int(sys.argv[1])
-SEED = 0 
+SEED =  int(sys.argv[1])
+# SEED = 0 
 REWARD_FUNCTION = sys.argv[2]
 PATHSET = sys.argv[3]
 USE_COST = (sys.argv[4] == "True")
@@ -41,8 +41,8 @@ if RUN_REAL_EXP:
     MAX_COLOR = 1.50
     MIN_COLOR = -1.80
 else:
-    MAX_COLOR = 17.0
-    MIN_COLOR = -20.0
+    MAX_COLOR = 35.0
+    MIN_COLOR = -35.0
 # MAX_COLOR = None
 # MIN_COLOR = None
 
@@ -55,7 +55,7 @@ logger = logging.getLogger('robot')
 
 # Create a random enviroment sampled from a GP with an RBF kernel and specified hyperparameters, mean function 0 
 # The enviorment will be constrained by a set of uniformly distributed  sample points of size NUM_PTS x NUM_PTS
-ranges = (0., 50., 0., 50.)
+ranges = (-2.0, 2.0, -3.15, 3.15)
 
 # Create obstacle world
 ow = obslib.FreeWorld()
@@ -82,9 +82,12 @@ if RUN_REAL_EXP:
     NOISE = 0.0862445597387173
 else:
     gp_world = None
-    VAR = 50.0
-    LEN = 5.0
-    NOISE = 0.1
+    # VAR = 50.0
+    # LEN = 5.0
+    # NOISE = 0.1
+    VAR = 100.0
+    LEN = 0.8
+    NOISE = 1.0
 
 world = envlib.Environment(ranges = ranges,
                            NUM_PTS = 20, 
@@ -112,7 +115,7 @@ observations = world.sample_value(data)
 
 # Create the point robot
 robot = roblib.Robot(sample_world = world.sample_value, #function handle for collecting observations
-                     start_loc = (5.0, 5.0, 0.0), #where robot is instantiated
+                     start_loc = (0.0, 0.0, 0.0), #where robot is instantiated
                      extent = ranges, #extent of the explorable environment
                      MAX_COLOR = MAX_COLOR,
                      MIN_COLOR = MIN_COLOR,
@@ -123,14 +126,14 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      # prior_dataset = None,
                      init_lengthscale = LEN,
                      init_variance = VAR,
-                     # noise = NOISE,
-                     noise = float(sys.argv[1]),
+                     noise = NOISE,
+                     # noise = float(sys.argv[1]),
                      path_generator = PATHSET, #options: default, dubins, equal_dubins, fully_reachable_goal, fully_reachable_step
                      goal_only = GOAL_ONLY, #select only if using fully reachable step and you want the reward of the step to only be the goal
-                     frontier_size = 15,
-                     horizon_length = 7.5, 
-                     turning_radius = 0.015,
-                     sample_step = 2.0,
+                     frontier_size = 10,
+                     horizon_length = 1.50, 
+                     turning_radius = 0.11,
+                     sample_step = 0.1,
                      evaluation = evaluation, 
                      f_rew = REWARD_FUNCTION, 
                      create_animation = True, #logs images to the file folder
@@ -139,7 +142,7 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      discretization = (20, 20), #parameterizes the fully reachable sets
                      use_cost = USE_COST, #select if you want to use a cost heuristic
                      computation_budget = 250,
-                     rollout_length = 5,
+                     rollout_length = 4,
                      obstacle_world = ow, 
                      tree_type = TREE_TYPE) 
 

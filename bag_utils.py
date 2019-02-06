@@ -4,6 +4,24 @@ import navpy
 import numpy as np
 import GPy
 
+def truncate_by_distance(xvals, dist_lim=250.0):
+    dist = 0
+    last = None
+
+    for i, pt in enumerate(xvals):
+        if i == 0: 
+            last = pt
+            continue
+
+        dist += np.sqrt((pt[0] - last[0])**2 + (pt[1]-last[1])**2)
+        print dist
+        last = pt
+
+        if dist > dist_lim:
+            break
+
+    return i
+
 def read_fulldataset(home = [13.1916987, -59.6419202, 0.00000]):
     # Read data from the bag file. Sets home to be the first lat-long coordiante observed. 
     # Every recieved Micron echo data point is associated with the lat-long message recieved immediately after it.
@@ -12,14 +30,14 @@ def read_fulldataset(home = [13.1916987, -59.6419202, 0.00000]):
     position_topic = '/slicklizard/gnc/mavros/global_position/global'
     data_topic = '/slicklizard/sensors/micron_echo/data'
 
-    file_list = ['/home/genevieve/mit-whoi/barbados/rosbag_16Jan_slicklizard/slicklizard_2019-01-16-16-12-40.bag',
-		'/home/genevieve/mit-whoi/barbados/rosbag_16Jan_slicklizard/slicklizard_2019-01-16-17-44-02.bag',
+    file_list = [#'/home/genevieve/mit-whoi/barbados/rosbag_16Jan_slicklizard/slicklizard_2019-01-16-16-12-40.bag',
+		#'/home/genevieve/mit-whoi/barbados/rosbag_16Jan_slicklizard/slicklizard_2019-01-16-17-44-02.bag',
 		'/home/genevieve/mit-whoi/barbados/rosbag_16Jan_slicklizard/slicklizard_2019-01-16-18-19-53.bag',
-		'/home/genevieve/mit-whoi/barbados/rosbag_16Jan_slicklizard/slicklizard_2019-01-17-01-51-47.bag',
-		'/home/genevieve/mit-whoi/barbados/rosbag_16Jan_slicklizard/slicklizard_2019-01-17-02-16-18.bag',
-		'/home/genevieve/mit-whoi/barbados/rosbag_16Jan_slicklizard/slicklizard_2019-01-17-03-01-44.bag',
-		'/home/genevieve/mit-whoi/barbados/rosbag_16Jan_slicklizard/slicklizard_2019-01-17-03-43-09.bag',
-		'/home/genevieve/mit-whoi/barbados/rosbag_16Jan_slicklizard/slicklizard_2019-01-17-04-07-11.bag']
+		#'/home/genevieve/mit-whoi/barbados/rosbag_16Jan_slicklizard/slicklizard_2019-01-17-01-51-47.bag']
+		 '/home/genevieve/mit-whoi/barbados/rosbag_16Jan_slicklizard/slicklizard_2019-01-17-02-16-18.bag',
+		 '/home/genevieve/mit-whoi/barbados/rosbag_16Jan_slicklizard/slicklizard_2019-01-17-03-01-44.bag',
+		 '/home/genevieve/mit-whoi/barbados/rosbag_16Jan_slicklizard/slicklizard_2019-01-17-03-43-09.bag',
+		 '/home/genevieve/mit-whoi/barbados/rosbag_16Jan_slicklizard/slicklizard_2019-01-17-04-07-11.bag']
 
     all_altitude = []
     all_locations = []
@@ -49,10 +67,11 @@ def read_fulldataset(home = [13.1916987, -59.6419202, 0.00000]):
     # Convert lists to ndarrays
     all_locations = np.array(all_locations).reshape((-1, 2)); 
     print "Mean altitude:", np.mean(all_altitude)
+    # all_altitude = np.array(all_altitude-np.mean(all_altitude)).reshape((-1, 1))
     all_altitude = np.array(all_altitude-np.mean(all_altitude))
     print "Mean altitude:", np.mean(all_altitude)
 
-    FILT_N = 10
+    FILT_N = 5
     all_altitude = np.convolve(all_altitude, np.ones((FILT_N,))/FILT_N, mode='same').reshape((-1, 1))
 
     # Reject outliers in the main dataset (more then 2 standard deviations from the mean)
@@ -72,15 +91,17 @@ def read_fulldataset(home = [13.1916987, -59.6419202, 0.00000]):
     mod = GPy.models.GPRegression(xvals[::5], zvals[::5], kern)
 
     # Create a discrete grid over which to plot the points
-    x1vals = np.linspace(ranges[0], ranges[1], 40)
-    x2vals = np.linspace(ranges[2], ranges[3], 40)
+    x1vals = np.linspace(ranges[0], ranges[1], 100)
+    x2vals = np.linspace(ranges[2], ranges[3], 100)
     x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
     data = np.vstack([x1.ravel(), x2.ravel()]).T
     obs, var = mod.predict(data, full_cov = False, include_likelihood = True)
 
     return data, obs
+    # return all_locations, all_altitude
+    # return xvals, zvals
 
-def read_bagfile(seed_bag, home = [13.1916987, -59.6419202, 0.00000]):
+def read_bagfile(seed_bag, subsample = 1, home = [13.1916987, -59.6419202, 0.00000]):
     # Hard coded bag file and topic names
     bag = rosbag.Bag(seed_bag)
     position_topic = '/slicklizard/gnc/mavros/global_position/global'
@@ -115,7 +136,9 @@ def read_bagfile(seed_bag, home = [13.1916987, -59.6419202, 0.00000]):
 
     # Reject outliers (more then 2 standard deviations from the mean) and subsamples the data
     outlier_index = (abs(altitude - np.mean(altitude)) < 2.0 * np.std(altitude)).reshape(-1, )
-    locations = locations[outlier_index, :][::10]
-    altitude = altitude[outlier_index][::10]
+    # locations = locations[outlier_index, :][::10]
+    # altitude = altitude[outlier_index][::10]
+    locations = locations[outlier_index, :][::subsample]
+    altitude = altitude[outlier_index][::subsample]
 
     return locations, altitude 

@@ -640,7 +640,7 @@ class cMCTS(MCTS):
             elif self.tree_type == 'dpw':
                 # self.c = 1.0 / np.sqrt(2.0) 
                 # self.c = 1.0
-                self.c = 1.0 / np.sqrt(2.0) / 10.0
+                self.c = 1.0 / np.sqrt(2.0) 
                 # self.c = 5.0
                 # self.c = 0.0
         else:
