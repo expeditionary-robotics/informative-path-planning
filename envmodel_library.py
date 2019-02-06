@@ -98,7 +98,7 @@ class Environment:
                 #plt.show()           
                 plt.close()
         else:
-            # Generate a set of discrete grid points, uniformly spread across the environment
+	    # Generate a set of discrete grid points, uniformly spread across the environment
             x1 = np.linspace(self.x1min, self.x1max, NUM_PTS)
             x2 = np.linspace(self.x2min, self.x2max, NUM_PTS)
             # dimension: NUM_PTS x NUM_PTS
@@ -110,10 +110,6 @@ class Environment:
             ranges = (ranges[0] + bb[0], ranges[1] - bb[0], ranges[2] + bb[1], ranges[3] - bb[1])
             # Initialize maxima arbitrarily to violate boundary constraints
             maxima = [self.x1min, self.x2min]
-        
-            # Seed the GP with a single "high" value in the middle
-            xmax = np.array([ranges[0] + (ranges[1] - ranges[0])/2.0, ranges[2] + (ranges[3] - ranges[2])/ 2.0]).reshape((1, 2))
-            zmax = np.array([norm.ppf(q = 0.999, loc = 0.0, scale = np.sqrt(self.variance))]).reshape((1, 1))
 
             # Continue to generate random environments until the global maximia 
             # lives within the boundary constraints
@@ -126,11 +122,8 @@ class Environment:
                 # Intialize a GP model of the environment
                 # self.GP = OnlineGPModel(ranges = ranges, lengthscale = lengthscale, variance = variance)         
                 self.GP = GPModel(ranges = ranges, lengthscale = lengthscale, variance = variance)         
-                self.GP.add_data(xmax, zmax)
-
                 data = np.vstack([x1vals.ravel(), x2vals.ravel()]).T 
 
-                '''
                 # Take an initial sample in the GP prior, conditioned on no other data
                 xsamples = np.reshape(np.array(data[0, :]), (1, dim)) # dimension: 1 x 2        
                 mean, var = self.GP.predict_value(xsamples, include_noise = False)   
@@ -142,16 +135,32 @@ class Environment:
                                     
                 # Add initial sample data point to the GP model
                 self.GP.add_data(xsamples, zsamples)                            
-                '''
-
                 np.random.seed(seed)
-                # observations = self.GP.posterior_samples(data[1:, :], full_cov = True, size=1)
-                observations = self.GP.posterior_samples(data, full_cov = True, size=1)
-
-                # self.GP.add_data(data[1:, :], observations)                            
-                self.GP = GPModel(ranges = ranges, lengthscale = self.lengthscale, variance = self.variance)         
-                self.GP.add_data(data, observations)               
-
+                observations = self.GP.posterior_samples(data[1:, :], full_cov = True, size=1)
+                self.GP.add_data(data[1:, :], observations)                            
+                        
+                '''
+                # Iterate through the rest of the grid sequentially and sample a z values, 
+                # conditioned on previous samples
+                for index, point in enumerate(data[1:, :]):
+                    # Get a new sample point
+                    xs = np.reshape(np.array(point), (1, dim))
+            
+                    # Compute the predicted mean and variance
+                    mean, var = self.GP.predict_value(xs)
+                    
+                    # Sample a new observation, given the mean and variance
+                    if seed is not None:
+                        np.random.seed(seed)
+                        seed += 1            
+                    zs = np.random.normal(loc = mean, scale = np.sqrt(var))
+                    
+                    # Add new sample point to the GP model
+                    zsamples = np.vstack([zsamples, np.reshape(zs, (1, 1))])
+                    xsamples = np.vstack([xsamples, np.reshape(xs, (1, dim))])
+                    self.GP.add_data(np.reshape(xs, (1, dim)), np.reshape(zs, (1, 1)))
+                '''
+            
                 maxima = self.GP.xvals[np.argmax(self.GP.zvals), :]
 
                 # Plot the surface mesh and scatter plot representation of the samples points
