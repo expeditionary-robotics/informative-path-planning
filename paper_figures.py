@@ -178,7 +178,7 @@ def planning_iteration_plots(dfs, labels, param, title, end_time=149, d=20, plot
         plt.savefig(fname)
     plt.title(title)
 
-def make_dist_dfs(data_dfs, sample_dfs, column_names, max_loc, max_val, ythresh = 2.50, xthresh=1.5, dist_lim=150.0):
+def make_dist_dfs(data_dfs, sample_dfs, column_names, max_loc, max_val, ythresh = 2.50, xthresh=1.5, dist_lim=150.0, lawnmower = False):
     all_dist = pd.DataFrame()
     all_samps = pd.DataFrame()
     all_props = []
@@ -190,7 +190,15 @@ def make_dist_dfs(data_dfs, sample_dfs, column_names, max_loc, max_val, ythresh 
         # Make samples df
         temp_sdf, temp_prop, temp_propy = make_samples_df(file_names = [g], column_names = ['x','y','z'], max_loc = [m], max_val = [v],  xthresh = xthresh, ythresh = ythresh)
 
-        dtemp, dstemp, dprop, dpropy, stats_id = truncate_by_distance(temp_df, temp_sdf, dist_lim = dist_lim, xthresh = xthresh, ythresh = ythresh)
+        if lawnmower:
+            dtemp = temp_dsf
+            dprop = temp_prop
+            dpropy = temp_propy
+
+            dtemp, dstemp, dprop, dpropy, stats_id = truncate_by_distance(temp_df, temp_sdf, dist_lim = dist_lim, xthresh = xthresh, ythresh = ythresh)
+        else:
+            dtemp, dstemp, dprop, dpropy, stats_id = truncate_by_distance(temp_df, temp_sdf, dist_lim = dist_lim, xthresh = xthresh, ythresh = ythresh)
+
         all_dist = all_dist.append(dtemp)
         all_samps = all_samps.append(dstemp)
         all_props.append(float(dprop))
@@ -200,7 +208,6 @@ def make_dist_dfs(data_dfs, sample_dfs, column_names, max_loc, max_val, ythresh 
     return all_dist, all_samps, all_props, all_propsy, all_statsids
 
 
-'''
 def truncate_by_distance(df, sample_df, dist_lim=250.0, xthresh=1.5, ythresh = 2.50):
 
     temp_df = df[df['distance'] < dist_lim]
@@ -211,9 +218,6 @@ def truncate_by_distance(df, sample_df, dist_lim=250.0, xthresh=1.5, ythresh = 2
 
     temp_sidx = sample_df[np.isclose(sample_df['x'], last_samp_x)& \
                           np.isclose(sample_df['y'], last_samp_y)].index
-
-    print temp_sidx
-
 
     candidates = []
     if len(temp_sidx) == 1:
@@ -231,30 +235,6 @@ def truncate_by_distance(df, sample_df, dist_lim=250.0, xthresh=1.5, ythresh = 2
                 candidates.append(i)
     idx = candidates[-1]
     temp_sdf = sample_df[sample_df.index<idx]
-
-    prop = float(len(temp_sdf[temp_sdf.Distance < xthresh]))/len(temp_sdf)
-    propy = float(len(temp_sdf[temp_sdf.YDistance < ythresh]))/len(temp_sdf)
-    return temp_df, temp_sdf, prop, propy, stats_id
-'''
-
-def truncate_by_distance(df, sample_df, dist_lim=250.0, xthresh=1.5, ythresh = 2.50):
-
-    temp_sidx = sample_df[np.isclose(sample_df['x'], last_samp_x)& \
-                          np.isclose(sample_df['y'], last_samp_y)].index
-    candidates = []
-    for i in temp_sidx:
-        print i
-        dist = 0
-        disty = 0
-        last = 0
-        for j in range(1, i):
-            dist += np.sqrt((sample_df['x'].values[last]-sample_df['x'].values[j])**2 + (sample_df['y'].values[last]-sample_df['y'].values[j])**2)
-            last = j
-            print "Dist:", dist, "Lim:", dist_lim
-        if dist <= dist_lim:
-            candidates.append(i)
-    idx = candidates[-1]
-    temp_sdf = sample_df[sample_df.index < idx]
 
     prop = float(len(temp_sdf[temp_sdf.Distance < xthresh]))/len(temp_sdf)
     propy = float(len(temp_sdf[temp_sdf.YDistance < ythresh]))/len(temp_sdf)
@@ -359,17 +339,15 @@ if __name__ == '__main__':
     # seed_numbers = [0, 100, 200, 400, 500, 700, 800, 900, 1000, 1200, 1300, 1400, 1600, 1700, 1800, 1900]
     seeds = ['seed'+ str(x) + '-' for x in seed_numbers]
 
-    SUFFIX  = 'FREE'
+    SUFFIX  = 'FREE' # or CLUTTERED
     if SUFFIX == 'FREE':
         fileparams = ['pathsetdubins-nonmyopicTrue-treedpw-' + SUFFIX,
-                    # 'pathsetdubins-nonmyopicTrue-treebelief-' + SUFFIX,
-                    # 'pathsetdubins-nonmyopicFalse-' + SUFFIX,
+                     'pathsetdubins-nonmyopicTrue-treebelief-' + SUFFIX,
+                     'pathsetdubins-nonmyopicFalse-' + SUFFIX,
                     'lawnmower']
 
-        # trials = ['mes', 'mean', 'mean', '']
-        # labels = ['PLUMES', 'UCB-MCTS', 'UCB-MYOPIC', 'LAWNMOWER']
-        trials = ['mes',  '']
-        labels = ['PLUMES', 'LAWNMOWER']
+        trials = ['mes', 'mean', 'mean', '']
+        labels = ['PLUMES', 'UCB-MCTS', 'UCB-MYOPIC', 'LAWNMOWER']
     else:
         fileparams = ['pathsetdubins-nonmyopicTrue-treedpw-' + SUFFIX,
                     'pathsetdubins-nonmyopicTrue-treebelief-' + SUFFIX,
@@ -450,7 +428,6 @@ if __name__ == '__main__':
                             except:
                                 max_loc.append((float(ls[0].split(" ")[6].split("[")[1]), float(ls[0].split(" ")[7].split("]")[0])))
        
-    
         if 'dpw' in param:
             old_values = copy.copy(values)
         
@@ -467,7 +444,11 @@ if __name__ == '__main__':
         all_propsy.append(propy)
         all_labels.append(label)
 
-        dist_data, dist_sdata, d_props, d_propsy, ids = make_dist_dfs(values, samples, column_names, max_loc, max_val, ythresh = 3.0, xthresh = 1.5, dist_lim = 200.0)
+        if 'lawnmower' in param:
+            dist_data, dist_sdata, d_props, d_propsy, ids = make_dist_dfs(values, samples, column_names, max_loc, max_val, ythresh = 3.0, xthresh = 1.5, dist_lim = 200.0, lawnmower = True)
+        else:
+            dist_data, dist_sdata, d_props, d_propsy, ids = make_dist_dfs(values, samples, column_names, max_loc, max_val, ythresh = 3.0, xthresh = 1.5, dist_lim = 200.0)
+
         dist_dfs.append(dist_data)
         dist_samples_dfs.append(dist_sdata)
         dist_props.append(d_props)

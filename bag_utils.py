@@ -97,9 +97,9 @@ def read_fulldataset(home = [13.1916987, -59.6419202, 0.00000]):
     data = np.vstack([x1.ravel(), x2.ravel()]).T
     obs, var = mod.predict(data, full_cov = False, include_likelihood = True)
 
-    return data, obs
+    # return data, obs
     # return all_locations, all_altitude
-    # return xvals, zvals
+    return xvals, zvals
 
 def read_bagfile(seed_bag, subsample = 1, home = [13.1916987, -59.6419202, 0.00000]):
     # Hard coded bag file and topic names
@@ -132,7 +132,11 @@ def read_bagfile(seed_bag, subsample = 1, home = [13.1916987, -59.6419202, 0.000
     # Convert lists to ndarrays
     locations = np.array(locations).reshape((-1, 2)); 
     # altitude = np.array(altitude-np.mean(altitude)).reshape((-1, 1))
-    altitude = np.array(altitude).reshape((-1, 1))
+    # altitude = np.array(altitude).reshape((-1, 1))
+    altitude = np.array(altitude)
+
+    FILT_N = 5
+    altitude = np.convolve(altitude, np.ones((FILT_N,))/FILT_N, mode='same').reshape((-1, 1))
 
     # Reject outliers (more then 2 standard deviations from the mean) and subsamples the data
     outlier_index = (abs(altitude - np.mean(altitude)) < 2.0 * np.std(altitude)).reshape(-1, )
