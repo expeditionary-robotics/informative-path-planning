@@ -165,7 +165,7 @@ class Robot(object):
         max_locs = max_vals = None      
         if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
             self.max_val, self.max_locs, self.target = aqlib.sample_max_vals(self.GP, t = t, obstacles = self.obstacle_world)
-        pred_loc, pred_val = self.predict_max()
+        pred_loc, pred_val = self.predict_max(t = t)
             
         paths, true_paths = self.path_generator.get_path_set(self.loc)
 
@@ -216,7 +216,7 @@ class Robot(object):
                 self.current_max = z[0]
                 self.current_max_loc = [x[0],x[1]]
 
-    def predict_max(self):
+    def predict_max(self, t = 0):
         # If no observations have been collected, return default value
         if self.GP.xvals is None:
             return np.array([0., 0.]), 0.
@@ -231,6 +231,16 @@ class Robot(object):
         x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') 
         data = np.vstack([x1.ravel(), x2.ravel()]).T
         observations, var = self.GP.predict_value(data)        
+
+        if t > 50:
+            fig2, ax2 = plt.subplots(figsize=(8, 6))
+            ax2.set_xlim(self.ranges[0:2])
+            ax2.set_ylim(self.ranges[2:])        
+            ax2.set_title('Countour Plot of the Approximated World Model')     
+            plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis')
+            plot = ax2.scatter(x1, x2, observations.reshape(x1.shape), cmap = 'viridis')
+            plt.show()
+
 
         return data[np.argmax(observations), :], np.max(observations)
         
@@ -288,6 +298,7 @@ class Robot(object):
                 self.visualize_trajectory(screen = False, filename = t, best_path = sampling_path, 
                         maxes = self.max_locs, all_paths = all_paths, all_vals = all_values)            
 
+                self.visualize_reward(screen = True, filename = 'REWARD.' + str(t), t = t)
             #if t > 50:
             #    self.visualize_reward(screen = True, filename = 'REWARD_' + str(t), t = t)
 
@@ -320,7 +331,8 @@ class Robot(object):
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.set_xlim(self.ranges[0:2])
         ax.set_ylim(self.ranges[2:])
-        plot = ax.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = self.MIN_COLOR, vmax = self.MAX_COLOR, levels=np.linspace(self.MIN_COLOR, self.MAX_COLOR, 15))
+        # plot = ax.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = self.MIN_COLOR, vmax = self.MAX_COLOR, levels=np.linspace(self.MIN_COLOR, self.MAX_COLOR, 15))
+        plot = ax.contourf(x1, x2, observations.reshape(x1.shape), 25, cmap = 'viridis', vmin = self.MIN_COLOR)
         if self.GP.xvals is not None:
             scatter = ax.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c='k', s = 20.0, cmap = 'viridis')                
         color = iter(plt.cm.cool(np.linspace(0,1,len(self.trajectory))))
@@ -372,12 +384,14 @@ class Robot(object):
             plt.close()
 
 
-    def visualize_reward(self, screen = True, filename = 'REWARD', t = 0):
+    def visualize_reward(self, screen = False, filename = 'REWARD', t = 0):
         # Generate a set of observations from robot model with which to make contour plots
         x1vals = np.linspace(self.ranges[0], self.ranges[1], 100)
         x2vals = np.linspace(self.ranges[2], self.ranges[3], 100)
         x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
         data = np.vstack([x1.ravel(), x2.ravel()]).T
+        print "Etnering visualize reward"
+        print data.shape
 
         if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
             param = (self.max_val, self.max_locs, self.target)
@@ -392,34 +406,42 @@ class Robot(object):
         '''
         r = self.aquisition_function(time = t, xvals = data, robot_model = self.GP, param = param)
         print "rewrd:", r
-        print "Shape reward:", r.shape
         '''
         
-        reward = []
-        for x in data:
-            x = x.reshape((1,2))
-            r = self.aquisition_function(time = t, xvals = x, robot_model = self.GP, param = param)
-            reward.append(r)
-        reward = np.array(reward)
+        reward = self.aquisition_function(time = t, xvals = data, robot_model = self.GP, param = param, FVECTOR = True)
+        print "Shape reward:", reward.shape
         
-        fig2, ax2 = plt.subplots(figsize=(8, 6))
+        fig2, ax2 = plt.subplots(figsize=(8, 8))
         ax2.set_xlim(self.ranges[0:2])
         ax2.set_ylim(self.ranges[2:])        
-        ax2.set_title('Reward Plot of the Robot\'s World Model')     
-        #plot = ax2.contourf(x1, x2, reward.reshape(x1.shape), cmap = 'viridis', vmin = self.MIN_COLOR, vmax = self.MAX_COLOR, levels=np.linspace(self.MIN_COLOR, self.MAX_COLOR, 15))
-        plot = ax2.contourf(x1, x2, reward.reshape(x1.shape), cmap = 'viridis')
+        ax2.set_title('Reward Plot ')     
 
+        MAX_COLOR = np.percentile(reward, 98)
+        MIN_COLOR = np.percentile(reward, 2)
+        
+        print MAX_COLOR
+        print MIN_COLOR
+
+        if MAX_COLOR > MIN_COLOR:
+            # plot = ax2.contourf(x1, x2, reward.reshape(x1.shape), cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR, levels=np.linspace(MIN_COLOR, MAX_COLOR, 25))
+            plot = ax2.contourf(x1, x2, reward.reshape(x1.shape), 25, cmap = 'plasma', vmin = MIN_COLOR, vmax = MAX_COLOR)
+        else:
+            plot = ax2.contourf(x1, x2, reward.reshape(x1.shape), 25, cmap = 'plasma')
+        
+        # If available, plot the current location of the maxes for mes
+        if self.max_locs is not None:
+            for coord in self.max_locs:
+                plt.scatter(coord[0], coord[1], color = 'r', marker = '*', s = 500.0)
+
+        '''
         # Plot the samples taken by the robot
         if self.GP.xvals is not None:
             scatter = ax2.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c=self.GP.zvals.ravel(), s = 10.0, cmap = 'viridis')        
-        if screen:
-            plt.show()           
-        else:
-            if not os.path.exists('./figures/' + str(self.f_rew)):
-                os.makedirs('./figures/' + str(self.f_rew))
-            fig.savefig('./figures/' + str(self.f_rew)+ '/world_model.' + str(filename) + '.png')
-            plt.close()
-            
+        '''
+        if not os.path.exists('./figures/' + str(self.f_rew)):
+            os.makedirs('./figures/' + str(self.f_rew))
+        fig2.savefig('./figures/' + str(self.f_rew)+ '/world_model.' + str(filename) + '.png')
+        plt.close()
     def visualize_world_model(self, screen = True, filename = 'SUMMARY'):
         ''' Visaulize the robots current world model by sampling points uniformly in space and 
         plotting the predicted function value at those locations.
@@ -439,7 +461,8 @@ class Robot(object):
         ax2.set_xlim(self.ranges[0:2])
         ax2.set_ylim(self.ranges[2:])        
         ax2.set_title('Countour Plot of the Robot\'s World Model')     
-        plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = self.MIN_COLOR, vmax = self.MAX_COLOR, levels=np.linspace(self.MIN_COLOR, self.MAX_COLOR, 15))
+        # plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = self.MIN_COLOR, vmax = self.MAX_COLOR, levels=np.linspace(self.MIN_COLOR, self.MAX_COLOR, 15))
+        plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), 25, cmap = 'viridis', vmin = self.MIN_COLOR, vmax = self.MAX_COLOR)
 
         # Plot the samples taken by the robot
         if self.GP.xvals is not None:

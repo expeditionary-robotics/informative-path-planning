@@ -73,12 +73,18 @@ def info_gain(time, xvals, robot_model, param=None):
     return entropy_total - entropy_const
 
     
-def mean_UCB(time, xvals, robot_model, param=None):
+def mean_UCB(time, xvals, robot_model, param=None, FVECTOR = False):
     ''' Computes the UCB for a set of points along a trajectory '''
     data = np.array(xvals)
     x1 = data[:,0]
     x2 = data[:,1]
     queries = np.vstack([x1, x2]).T   
+    
+    if robot_model.xvals is None:
+        if FVECTOR:
+            return np.ones((data.shape[0], 1))
+        else:
+            return 1.0
                               
     # The GPy interface can predict mean and variance at an array of points; this will be an overestimate
     mu, var = robot_model.predict_value(queries)
@@ -92,8 +98,10 @@ def mean_UCB(time, xvals, robot_model, param=None):
     pit = np.pi**2 * (time + 1)**2 / 6.
     beta_t = 2 * np.log(d * pit / delta)
 
-    return np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
-
+    if FVECTOR:
+        return mu + np.sqrt(beta_t) * np.fabs(var)
+    else:
+        return np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
 
 def hotspot_info_UCB(time, xvals, robot_model, param=None):
     ''' The reward information gathered plus the estimated exploitation value gathered'''
@@ -230,14 +238,17 @@ def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = True, o
     return samples, locs, funcs
       
 
-def mves(time, xvals, robot_model, param):
+def mves(time, xvals, robot_model, param, FVECTOR = False):
     ''' Define the Acquisition Function and the Gradient of MES'''
     # Compute the aquisition function value f and garident g at the queried point x using MES, given samples
     # function maxes and a previous set of functino maxes
     maxes = param[0]
     # If no max values are provided, return default value
     if maxes is None:
-        return 1.0
+        if FVECTOR:
+            return np.ones((xvals.shape[0], 1))
+        else:
+            return 1.0
 
     data = np.array(xvals)
     x1 = data[:,0]
@@ -247,7 +258,11 @@ def mves(time, xvals, robot_model, param):
     d = queries.shape[1] # The dimension of the points (should be 2D)     
 
     # Initialize f, g
-    f = 0
+    if FVECTOR:
+        f = np.zeros((data.shape[0], 1))
+    else:
+        f = 0
+
     for i in xrange(maxes.shape[0]):
         # Compute the posterior mean/variance predictions and gradients.
         #[meanVector, varVector, meangrad, vargrad] = mean_var(x, xx, ...
@@ -259,10 +274,11 @@ def mves(time, xvals, robot_model, param):
         pdfgamma = sp.stats.norm.pdf(gamma)
         cdfgamma = sp.stats.norm.cdf(gamma)
         utility = gamma * pdfgamma / (2.0 * cdfgamma) - np.log(cdfgamma)
-
-        # Alternative formulation, less stable
-        #utility = entropy_of_n(var) - entropy_of_tn(a = None, b = maxes[i], mu = mean, var = var)
-        #utility /= entropy_of_n(var) 
+        
+        if FVECTOR:
+            f += utility
+        else:
+            f += sum(utility)
 
         #if np.sum(utility) == 0.000:
         #    pdb.set_trace()
@@ -271,7 +287,11 @@ def mves(time, xvals, robot_model, param):
     # Average f
     f = f / maxes.shape[0]
     # f is an np array; return scalar value
-    return f[0]
+    if FVECTOR:
+        return f
+    else:
+        # f is an np array; return scalar value
+        return f[0]
 
 '''
 def mves_maximal_set(time, xvals, robot_model, param):
