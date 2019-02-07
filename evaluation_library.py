@@ -30,7 +30,7 @@ class Evaluation:
         world (Environment object): an environment object that represents the ground truth environment
         f_rew (string): the reward function. One of {hotspot_info, mean, info_gain, mes, exp_improve} 
     '''
-    def __init__(self, world, reward_function = 'mean', num_stars=15):
+    def __init__(self, world, reward_function = 'mean', num_stars=200):
         ''' Initialize the evaluation module and select reward function'''
         self.world = world
         self.max_val = np.max(world.GP.zvals)

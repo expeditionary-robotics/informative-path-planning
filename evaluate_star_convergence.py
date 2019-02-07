@@ -81,12 +81,12 @@ if RUN_REAL_EXP:
     xseed, zseed = baglib.read_bagfile(seed_bag, 20)
    
     # PLUMES trials
-    seed_bag = '/home/genevieve/mit-whoi/barbados/rosbag_16Jan_slicklizard/slicklizard_2019-01-17-03-01-44.bag'
-    xobs, zobs = baglib.read_bagfile(seed_bag, 1)
-    trunc_index = baglib.truncate_by_distance(xobs, dist_lim = 1000.0)
-    print "PLUMES trunc:", trunc_index
-    xobs = xobs[0:trunc_index, :]
-    zobs = zobs[0:trunc_index, :]
+    # seed_bag = '/home/genevieve/mit-whoi/barbados/rosbag_16Jan_slicklizard/slicklizard_2019-01-17-03-01-44.bag'
+    # xobs, zobs = baglib.read_bagfile(seed_bag, 1)
+    # trunc_index = baglib.truncate_by_distance(xobs, dist_lim = 1000.0)
+    # print "PLUMES trunc:", trunc_index
+    # xobs = xobs[0:trunc_index, :]
+    # zobs = zobs[0:trunc_index, :]
 
     # Myopic trials
     # seed_bag = '/home/genevieve/mit-whoi/barbados/rosbag_16Jan_slicklizard/slicklizard_2019-01-17-03-43-09.bag'
@@ -97,27 +97,29 @@ if RUN_REAL_EXP:
     # zobs = zobs[0:trunc_index, :]
 
     # Lawnmower trials
-    # seed_bag = '/home/genevieve/mit-whoi/barbados/rosbag_16Jan_slicklizard/slicklizard_2019-01-16-16-12-40.bag'
-    # xobs, zobs = baglib.read_bagfile(seed_bag, 1)
-    # trunc_index = baglib.truncate_by_distance(xobs, dist_lim = 1000.0)
-    # print "Lawnmower trunc:", trunc_index
-    # xobs = xobs[0:trunc_index, :]
-    # zobs = zobs[0:trunc_index, :]
+    seed_bag = '/home/genevieve/mit-whoi/barbados/rosbag_16Jan_slicklizard/slicklizard_2019-01-16-16-12-40.bag'
+    xobs, zobs = baglib.read_bagfile(seed_bag, 1)
+    trunc_index = baglib.truncate_by_distance(xobs, dist_lim = 1000.0)
+    print "Lawnmower trunc:", trunc_index
+    xobs = xobs[0:trunc_index, :]
+    zobs = zobs[0:trunc_index, :]
 
     xobs = np.vstack([xseed, xobs])
     zobs = np.vstack([zseed, zobs])
+    
+    LEN = 2.0122 
+    VAR = 5.3373 / 10.0
+    NOISE = 0.19836 / 10.0
 
     # Create the GP model
-    gp_world = gplib.GPModel(ranges, lengthscale = 4.0543111858072445, variance = 0.3215773006606948, noise = 0.0862445597387173)
+    # gp_world = gplib.GPModel(ranges, lengthscale = 4.0543111858072445, variance = 0.3215773006606948, noise = 0.0862445597387173)
+    gp_world = gplib.GPModel(ranges, lengthscale = LEN, variance = VAR, noise = NOISE)
     gp_world.add_data(xfull[::5], zfull[::5])
 
     # VAR = 0.3215773006606948
     # LEN = 4.0543111858072445
     # NOISE = 0.0862445597387173
 
-    LEN = 2.0122 
-    VAR = 5.3373 / 10.0
-    NOISE = 0.19836 / 10.0
 else:
     gp_world = None
     # VAR = 50.0
@@ -128,7 +130,7 @@ else:
     NOISE = 1.0
 
 world = envlib.Environment(ranges = ranges,
-                           NUM_PTS = 20, 
+                           NUM_PTS = 100, 
                            variance = VAR,
                            lengthscale = LEN,
                            noise = NOISE,
@@ -193,6 +195,7 @@ print "Done creating robot!"
 
 if RUN_REAL_EXP:
     print "Evaluting!"
+    robot.planner(T = 1)
 
     true_val = np.array(world.max_val).reshape((-1, 1))
     true_loc = np.array(world.max_loc).reshape((-1, 2))
@@ -235,7 +238,6 @@ if RUN_REAL_EXP:
     entropy_val = -np.mean(np.log(density_val))
     print "Entropy of star value:", entropy_val
 
-    robot.planner(T = 1)
     pdb.set_trace()
 else:
     robot.planner(T = 150)
