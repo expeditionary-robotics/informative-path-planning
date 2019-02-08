@@ -94,7 +94,7 @@ class CostMap:
         #np.multiply(global_grid, [1./(i+2)])
 
         costmap = OccupancyGrid()
-        costmap.header.stamp = rospy.Time(0)
+        costmap.header.stamp = rospy.Time.now()
         costmap.header.frame_id = 'world'
         costmap.data = global_grid.flatten('C')
         costmap.info = msg.info

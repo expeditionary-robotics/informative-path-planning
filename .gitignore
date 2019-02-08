@@ -20,3 +20,4 @@ figures_and_experiments/*
 *.swp*
 *.swo*
 *.pyc
+car_nav/*

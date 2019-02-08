@@ -141,7 +141,7 @@ class ROS_Path_Generator(object):
         if self.visualize_paths is True:
             m = PointCloud()
             m.header.frame_id = 'world'
-            m.header.stamp = rospy.Time(0)
+            m.header.stamp = rospy.Time.now()
             m.points = self.viz
             val = ChannelFloat32()
             val.name = 'path_options'
@@ -166,7 +166,7 @@ class ROS_Path_Generator(object):
             pub_path.append(c)
         pte = PolygonStamped()
         pte.header.frame_id = 'world'
-        pte.header.stamp = rospy.Time(0)
+        pte.header.stamp = rospy.Time.now()
         pte.polygon.points = pub_path
         return pte
 

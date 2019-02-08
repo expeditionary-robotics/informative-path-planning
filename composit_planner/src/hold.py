@@ -71,10 +71,9 @@ class Planner:
         self.last_viable = None
         
         # Initialize the robot's GP model with the initial kernel parameters
-        # self.GP = OnlineGPModel(ranges = [self.x1min, self.x1max, self.x2min, self.x2max], lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
         self.GP = GPModel(ranges = [self.x1min, self.x1max, self.x2min, self.x2max], lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
+        # self.GP = OnlineGPModel(ranges = [self.x1min, self.x1max, self.x2min, self.x2max], lengthscale = self.lengthscale, variance = self.variance, noise = self.noise)
         self.t = 0
-        self.PLANNING_ACTIVE = True
        
         # Initialize path generator
         # self.path_generator = paths_lib.ROS_Path_Generator(self.fs, self.hl, self.tr, self.ss)
@@ -145,18 +144,14 @@ class Planner:
         Input: None
         Output: Boolean success service response. ''' 
         status = self.update_model()
-        self.PLANNING_ACTIVE = True
         print "Update model status:", status
         # Publish the best plan
         if status is True:
             self.get_plan()
             #self.publish_gpbelief()
             self.t += 1
-            print "Planning iteration:", self.t
-            self.PLANNING_ACTIVE = False
             return RequestReplanResponse(True)
         else:
-            self.PLANNING_ACTIVE = False
             return RequestReplanResponse(False)
 
     def update_pose(self, msg):
@@ -176,13 +171,12 @@ class Planner:
         ''' Creates a queue of incoming sample points on the /chem_data topic 
         Input: msg (flat64) checmical data at current pose
         '''
-        if not self.PLANNING_ACTIVE:
-            pose = copy.copy(self.pose)
-            self.data_lock.acquire()
-            self.data_queue.append(msg)
-            self.pose_queue.append(pose)
-            # print "Appending value:\t", msg.data, "at pose \t", pose
-            self.data_lock.release()    
+        pose = copy.copy(self.pose)
+        self.data_lock.acquire()
+        self.data_queue.append(msg)
+        self.pose_queue.append(pose)
+        # print "Appending value:\t", msg.data, "at pose \t", pose
+        self.data_lock.release()    
     
     def publish_gpbelief(self):
         ''' Publishes the current GP belief as a point cloud for visualization. 
@@ -248,6 +242,7 @@ class Planner:
             # Create the point cloud message
             msg = PointCloud()
             msg.header.frame_id = 'world' # Global frame
+
             val = ChannelFloat32()
             val.name = 'chemical_value'
             for i, d in enumerate(data):
@@ -273,12 +268,12 @@ class Planner:
                 else:
                     rew.values.append(topixel_rew(reward[i, :]))
             msg.channels.append(rew)
-            msg.header.stamp = rospy.Time.now()
             self.pub_chem.publish(msg)
 
             ''' Publish the current set of sample points '''
             msg = PointCloud()
             msg.header.frame_id = 'world' # Global frame
+
             val = ChannelFloat32()
             val.name = 'sample_points'
             for i, d in enumerate(self.GP.xvals):
@@ -291,12 +286,12 @@ class Planner:
                 # If no data, just publish the average value
                 val.values.append(topixel_rew(self.GP.zvals[i, :]))
             msg.channels.append(val)
-            msg.header.stamp = rospy.Time.now()
             self.pub_sample.publish(msg)
             
             ''' Publish the current set of sampled maxima ''' 
             msg = PointCloud()
             msg.header.frame_id = 'world' # Global frame
+
             val = ChannelFloat32()
             val.name = 'sampled_maxima'
             for i, d in enumerate(self.GP.maxima[1]):
@@ -309,7 +304,6 @@ class Planner:
                 # If no data, just publish the average value
                 val.values.append(topixel_rew(self.GP.maxima[0][i, :]))
             msg.channels.append(val)
-            msg.header.stamp = rospy.Time.now()
             self.pub_max.publish(msg)
 
         # Release the data lock
@@ -330,7 +324,25 @@ class Planner:
                     path_selector[i] = -float("inf")
 
             best_key = np.random.choice([key for key in path_selector.keys() if path_selector[key] == max(path_selector.values())])
-            print path_selector.values()
+            return clear_paths[best_key], path_selector[best_key]
+        else:
+            return
+
+    def choose_myopic_trajectory(self, eval_value):
+        # Generate paths (will be obstacle checked against current map)
+        clear_paths = self.srv_paths(PathFromPoseRequest(self.pose))
+        clear_paths = clear_paths.safe_paths
+        if len(clear_paths) > 1 or self.allow_backup == False:
+            #Now, select the path with the highest potential reward
+            path_selector = {}
+            for i, path in enumerate(clear_paths):
+                if len(path.polygon.points) != 0:
+                    # TODO: need to keep an updated discrete time for the UCB reward
+                    path_selector[i] = eval_value.predict_value(self.GP, path.polygon.points)
+                else:
+                    path_selector[i] = -float("inf")
+
+            best_key = np.random.choice([key for key in path_selector.keys() if path_selector[key] == max(path_selector.values())])
             return clear_paths[best_key], path_selector[best_key]
         else:
             return
@@ -407,7 +419,6 @@ class Planner:
             elem.z = 0
             clear.append(elem)
         l.polygon.points = clear
-        l.header.stamp = rospy.Time.now()
         return l
 
 
