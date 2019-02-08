@@ -308,11 +308,11 @@ def sample_max_vals(robot_model, nK = 2, nFeatures = 200):
         print "Max Value in Optimization \t \t", samples[i]
         locs[i, :] = maxima
 
-        if max_val > np.max(robot_model.zvals) + 1.0 * np.sqrt(robot_model.noise):
-            samples[i] = np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise)
-            print "Max observed is smaller than max in opt:", samples[i]
-            locs[i, :] = robot_model.xvals[np.argmax(robot_model.zvals)]
-            samples[i] = np.max(robot_model.zvals) 
+        # if max_val > np.max(robot_model.zvals) + 1.0 * np.sqrt(robot_model.noise):
+        #     samples[i] = np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise)
+        #     print "Max observed is smaller than max in opt:", samples[i]
+        #     locs[i, :] = robot_model.xvals[np.argmax(robot_model.zvals)]
+        #     samples[i] = np.max(robot_model.zvals) 
    
     # Return the set of collected samples
     samples = np.delete(samples, delete_locs, axis = 0)
