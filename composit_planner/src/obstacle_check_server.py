@@ -50,8 +50,8 @@ class ObstacleCheck:
         '''
         safe_paths = []
         # get the costmap of interest
-	req = GetCostMapRequest()
-	req.type = 'inflated'
+    	req = GetCostMapRequest()
+    	req.type = 'inflated'
         map_resp = self.world(req)
         current_map = map_resp.map
         # reshape the array to be a matrix for querying
@@ -84,7 +84,7 @@ class ObstacleCheck:
             if len(updated_trajectory) != 0:
                 #create the response message
                 resp = Path()
-                resp.header.stamp = rospy.Time(0)
+                resp.header.stamp = rospy.Time.now()
                 resp.header.frame_id = 'world'
                 resp.poses = updated_trajectory
                 safe_paths.append(resp)

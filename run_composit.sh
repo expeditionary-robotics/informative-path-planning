@@ -98,7 +98,7 @@ fi
 if [ "$DO_BAG_DATA" = true ]; then
     echo "Bagging Data"
     pushd ~/Desktop
-    rosbag record /pose_body /pose /tf /tf_static /imu/data /trajectory/current /projected_map /costmap /chem_data /chem_map /path_options /vis_chemworld
+    rosbag record /true_maxima /maxima_map /sample_map /pose /tf /tf_static /trajectory/current /projected_map /costmap /chem_data /chem_map /path_options /vis_chemworld
     popd
 elif [ "$DO_PLAYBACK_DATA" = true ]; then
     echo "Playing back data"

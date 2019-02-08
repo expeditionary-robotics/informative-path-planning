@@ -158,7 +158,7 @@ class Environment:
         msg = PointCloud()
         msg.header.frame_id = 'map' # Global frame
 
-	val = ChannelFloat32()
+	    val = ChannelFloat32()
         val.name = 'ground_truth'
         #msg.header.stamp = rospy.get_rostime()
         for i, d in enumerate(self.GP.xvals):
@@ -169,13 +169,14 @@ class Environment:
             msg.points.append(pt)
             val.values.append(topixel(self.GP.zvals[i, :]))
         msg.channels.append(val)
+        msg.header.stamp = rospy.Time.now()
         self.pub_vis.publish(msg)
 
         ''' Publish the ground truth global maxima '''
         msg = PointCloud()
         msg.header.frame_id = 'map' # Global frame
 
-	val = ChannelFloat32()
+	    val = ChannelFloat32()
         val.name = 'global_maxima'
         #msg.header.stamp = rospy.get_rostime()
         pt = geometry_msgs.msg.Point32()
@@ -185,6 +186,7 @@ class Environment:
         msg.points.append(pt)
         val.values.append(topixel(self.global_max[1]))
         msg.channels.append(val)
+        msg.header.stamp = rospy.Time.now()
         self.pub_max.publish(msg)
         
         return RequestReplanResponse(True)

@@ -60,7 +60,7 @@ class TrajMonitor(object):
                     # print "~~~~~~~~TRIGGERING REPLAN~~~~~~~~~~~~"
                     pte = PolygonStamped()
                     pte.header.frame_id = 'world'
-                    pte.header.stamp = rospy.Time(0)
+                    pte.header.stamp = rospy.Time.now()
                     self.traj_pub.publish(pte)
                     self.replan()
             else:

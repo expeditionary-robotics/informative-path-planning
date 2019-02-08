@@ -92,7 +92,7 @@ class Hindbrain:
             if cost > self.safe_threshold:
                 abort_mission = PolygonStamped()
                 abort_mission.header.frame_id = 'world'
-                abort_mission.header.stamp = rospy.Time(0)
+                abort_mission.header.stamp = rospy.Time.now()
                 abort_mission.polygon.points = [self.pose, self.pose, self.pose]
                 self.path_pub.publish(abort_mission)
                 
