@@ -34,7 +34,7 @@ if __name__ == '__main__':
                     'lawnmower']
 
         trials = ['mes', 'mean', 'mean', '']
-        labels = ['PLUMES', 'UCB-MCTS', 'UCB-MYOPIC', 'LAWNMOWER']
+        labels = ['PLUMES', 'UCB-MCTS', 'UCB-MYOPIC', 'BOUSTRO.']
         # trials = ['mes', '']
         # labels = ['PLUMES', 'LAWNMOWER']
     else:
@@ -149,7 +149,7 @@ if __name__ == '__main__':
 
 
     if SUFFIX == 'FREE':
-        all_labels = ['PLUMES', 'UCB-MCTS', 'UCB-MYOPIC', 'LAWNMOWER']#['frpd', 'frgd', 'frgo', 'frpo', 'my', 'plumes']
+        all_labels = ['PLUMES', 'UCB-MCTS', 'UCB-MYOPIC', 'BOUSTRO.']#['frpd', 'frgd', 'frgo', 'frpo', 'my', 'plumes']
         # all_labels = ['PLUMES', 'LAWNMOWER']#['frpd', 'frgd', 'frgo', 'frpo', 'my', 'plumes']
     else:
         all_labels = ['PLUMES', 'UCB-MCTS', 'UCB-MYOPIC']#['frpd', 'frgd', 'frgo', 'frpo', 'my', 'plumes']

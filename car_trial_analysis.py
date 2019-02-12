@@ -21,13 +21,24 @@ if __name__ == '__main__':
 
     # Define files for globa maxima loc, robot samples, and name. 
     # Lists should be the same length
-    maxima_files = ['/home/genevieve/Downloads/true_maxima.csv',
-                    '/home/genevieve/Downloads/true_maxima.csv']
+    # maxima_files = ['/home/genevieve/Downloads/true_maxima.csv',
+    #                 '/home/genevieve/Downloads/true_maxima.csv']
+    prefix = '/home/genevieve/mit-whoi/temp/'
+    max_filename = 'true_maxima.csv'
+    samp_filename = 'robot_model_modified.csv'
 
-    sample_files = ['/home/genevieve/Downloads/robot_model.csv',
-                    '/home/genevieve/Downloads/robot_model.csv']
-    labels = ['SAMPLE1',
-              'SAMPLE2'] 
+    # Only have a global max value in the mvi 
+    maxima_files = [prefix + '2019-02-08-17-21-09-nonmyopic_mvi_final/' + max_filename,
+                    prefix + '2019-02-08-17-21-09-nonmyopic_mvi_final/' + max_filename,
+                    prefix + '2019-02-08-17-21-09-nonmyopic_mvi_final/' + max_filename]
+
+    sample_files = [prefix + '2019-02-08-17-21-09-nonmyopic_mvi_final/' + samp_filename,
+                    prefix + '2019-02-08-17-06-26-nonmyopic_ucb_final/' + samp_filename,
+                    prefix + '2019-02-08-17-49-54-myopic-ucb_final/' + samp_filename]
+
+    labels = ['PLUMES',
+              'UCB-NONMYOPIC',
+              'UCB-MYOPIC'] 
 
     # Filename for the logfile
     log_file_start = 'iros_car_trials'
@@ -84,10 +95,6 @@ if __name__ == '__main__':
         # dist_ids.append(ids)
         # dist_err_x.append(d_err_x)
         # dist_err_z.append(d_err_z)
-
-    print all_props
-    print all_errx
-    print all_errz
 
     # generate_stats(all_dfs, all_labels, ['distance', 'MSE', 'max_loc_error', 'max_val_error', 'max_value_info', 'info_regret'], 149, log_file_start + '_stats.txt')
     # generate_dist_stats(dist_dfs, labels, ['distance', 'MSE', 'max_loc_error', 'max_val_error', 'max_value_info', 'info_regret'], dist_ids, log_file_start + '_dist_stats.txt')

@@ -1,9 +1,6 @@
 # !/usr/bin/python
 
-'''
-Script for running myopic experiments using the run_sim bash script.
-Generally a function of convenience in the event of parallelizing simulation runs.
-Note: some of the parameters may need to be set prior to running the bash script.
+''' Script for running myopic experiments using the run_sim bash script.  Generally a function of convenience in the event of parallelizing simulation runs.  Note: some of the parameters may need to be set prior to running the bash script.
 
 License: MIT
 Maintainers: Genevieve Flaspohler and Victoria Preston
@@ -28,6 +25,36 @@ import obstacles as obslib
 import bag_utils as baglib
 
 from scipy.spatial import distance
+import matplotlib.pyplot as plt
+
+''' Predict the maxima of a GP model '''
+def predict_max(GP):
+    # If no observations have been collected, return default value
+    if GP.xvals is None:
+        return np.array([0., 0.]), 0.
+
+    ''' First option, return the max value observed so far '''
+    #return self.GP.xvals[np.argmax(GP.zvals), :], np.max(GP.zvals)
+
+    ''' Second option: generate a set of predictions from model and return max '''
+    # Generate a set of observations from robot model with which to predict mean
+    x1vals = np.linspace(GP.ranges[0], GP.ranges[1], 30)
+    x2vals = np.linspace(GP.ranges[2], GP.ranges[3], 30)
+    x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') 
+
+    data = np.vstack([x1.ravel(), x2.ravel()]).T
+    observations, var = GP.predict_value(data)        
+    max_loc, max_val = data[np.argmax(observations), :], np.max(observations)
+
+    fig2, ax2 = plt.subplots(figsize=(8, 8))
+    plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), 25, cmap = 'viridis')
+    scatter = ax2.scatter(GP.xvals[:, 0], GP.xvals[:, 1], c='k', s = 20.0, cmap = 'viridis')
+
+    scatter = ax2.scatter(data[:, 0], data[:, 1], c='b', s = 10.0, cmap = 'viridis')
+    scatter = ax2.scatter(max_loc[0], max_loc[1], c='r', s = 20.0, cmap = 'viridis')
+    plt.show()
+
+    return max_loc, max_val
 
 
 print "User specified options: SEED, REWARD_FUNCTION, PATHSET, USE_COST, NONMYOPIC, GOAL_ONLY, TREE_TYPE, RUN_REAL"
@@ -195,12 +222,21 @@ print "Done creating robot!"
 
 if RUN_REAL_EXP:
     print "Evaluting!"
-    robot.planner(T = 1)
+    # robot.planner(T = 1)
+
+    loc_guess, val_guess = predict_max(robot.GP)
 
     true_val = np.array(world.max_val).reshape((-1, 1))
     true_loc = np.array(world.max_loc).reshape((-1, 2))
-    
-    print [x for x in robot.GP.xvals]
+
+    print "Predicted maxima:", loc_guess, val_guess 
+    print "True maxima:", true_loc, true_val 
+
+    err_x = np.linalg.norm(loc_guess - true_loc)
+    err_z = np.linalg.norm(val_guess - true_val)
+  
+    print "Estimation error in x, z:", err_x, err_z
+    # print [x for x in robot.GP.xvals]
     # distance = [np.sqrt((x[0, 0] - true_loc[0])**2 + (x[0, 1] - true_loc[1])**2) for x in robot.GP.xvals]
     # print distance
     # distance_close = (distance < 10.0)
@@ -215,6 +251,10 @@ if RUN_REAL_EXP:
 
     max_vals=  np.array(max_vals).reshape((-1, 1))
     max_locs = np.array(max_locs).reshape((-1, 2))
+
+    np.savetxt('./sampled_maxes.csv', np.vstack((max_locs.T, max_vals.T)))
+    np.savetxt('./true_maxes.csv', np.vstack((true_loc.T, true_val.T)))
+
 
     dist_loc = distance.cdist(max_locs, true_loc, 'euclidean')
     dist_val = distance.cdist(max_vals, true_val, 'euclidean')
