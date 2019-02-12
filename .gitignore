@@ -1,4 +1,3 @@
-.ipynb_checkpoints
 .ipynb_checkpoints/*
 *.pyc
 figures/*
@@ -18,3 +17,7 @@ breaking_exps/*
 condensed_experiments/*
 temp_final/*
 figures_and_experiments/*
+*.sw*
+experiments*/*
+*.mp4
+hold*/*
