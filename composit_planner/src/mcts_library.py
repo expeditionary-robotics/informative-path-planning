@@ -123,21 +123,9 @@ class DPWTree(object):
             xobs = np.array([[msg.x, msg.y] for msg in current_node.action.polygon.points]).reshape(len(current_node.action.polygon.points), 2)
             r = self.eval_value.predict_value(belief, current_node.action.polygon.points, time = self.t)
 
-            '''
-            if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
-                r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief, param = self.param)
-            elif self.f_rew == 'exp_improve':
-                r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief, param = self.param)
-            else:
-                r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief)
-            '''
-
             if current_node.children is not None:
                 alpha = 3.0 / (10.0 * (self.max_depth - current_node.depth) - 3.0)
                 nchild = len(current_node.children)
-                #print "Current depth:", current_node.depth, "alpha:", alpha
-                #print "First:", np.floor(nchild ** alpha)
-                #print "Second:", np.floor((nchild - 1) ** alpha)
                 if current_node.depth < self.max_depth - 1 and np.floor(nchild ** alpha) == np.floor((nchild - 1) ** alpha):
                     child = random.choice(current_node.children)
                     nqueries = [node.nqueries for node in current_node.children]
@@ -293,19 +281,6 @@ class MLETree(DPWTree):
             r = self.eval_value.predict_value(belief, current_node.action.polygon.points, time = self.t)
             xobs = np.array([[msg.x, msg.y] for msg in current_node.action.polygon.points]).reshape(len(current_node.action.polygon.points), 2)
 
-            '''
-            # Sample a new set of observations and form a new belief
-            obs = np.array(current_node.action)
-            xobs = np.vstack([obs[:,0], obs[:,1]]).T
-
-            if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
-                r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief, param = self.param)
-            elif self.f_rew == 'exp_improve':
-                r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief, param = self.param)
-            else:
-                r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief)
-            '''
-
             if self.UPDATE_FLAG:
             # ''Simulate'' the maximum likelihood observation
                 if belief.model is None:
@@ -383,7 +358,7 @@ class cMCTS():
 
         # The different constants for logarithmic vs polynomial exploration
         # TODO: fix this; currently the tree doesn't know it's reward type
-        self.c = 1.0
+        # self.c = 1.0
         '''
         if self.f_rew == 'mean':
             if self.tree_type == 'mle_tree':
@@ -418,11 +393,14 @@ class cMCTS():
         else:
             param = None
         '''
-
+    
         # initialize tree
+        # TODO: fix self.c hardcoding. Problem because the tree serach currently doesnt know reward types
         if self.tree_type == 'dpw_tree':
+            self.c = 1.0 / np.sqrt(2.0) # Bad to hardcode, but for now, assume dpw_tree is MVI
             self.tree = DPWTree(self.eval_value, self.GP, self.pose, self.path_service, time = t, depth = self.rollout_len, c = self.c, UPDATE_FLAG = self.belief_updates)
         elif self.tree_type == 'mle_tree':
+            self.c = 300.0 # Bad to hardcode, but for now, assume dpw_tree is UCB 
             self.tree = MLETree(self.eval_value, self.GP, self.pose, self.path_service, time = t, depth = self.rollout_len, c = self.c, UPDATE_FLAG = self.belief_updates)
         else:
             raise ValueError('Tree type must be one of either \'dpw_tree\' or \'mle_tree\'')

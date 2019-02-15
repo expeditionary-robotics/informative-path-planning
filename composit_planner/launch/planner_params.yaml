@@ -12,9 +12,10 @@ cost_limit: 200.0
 unknown_limit: -10.0
 trajectory_endpoint_precision: 0.2
 
-planner_type: 'myopic'
-tree_type: 'dpw_tree'
+planner_type: 'nonmyopic'
+tree_type: 'mle_tree'
 reward_func: 'ucb'
-replan_budget: 200
+replan_budget: 150
 rollout_length: 4
 belief_updates: False 
+visualize_path_generation: True 

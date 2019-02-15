@@ -92,7 +92,7 @@ class Planner:
         self.data = rospy.Subscriber("/chem_data", ChemicalSample, self.get_sensordata)
         
         # Publications and service offering 
-        # Publications and service offering 
+        # Wait for the (simulated) environment to initialize
         self.srv_replan = rospy.Service('replan', RequestReplan, self.replan)
         self.pub_chem = rospy.Publisher('/chem_map', PointCloud, queue_size = 100)
         self.pub_max = rospy.Publisher('/maxima_map', PointCloud, queue_size = 100)
@@ -115,6 +115,7 @@ class Planner:
         try:
             # Cannot update model if no data has been collected
             if len(self.data_queue) == 0:
+                print "No data in queue to update!"
                 return True 
 
             # Aquire the data lock
@@ -330,9 +331,17 @@ class Planner:
                     path_selector[i] = -float("inf")
 
             best_key = np.random.choice([key for key in path_selector.keys() if path_selector[key] == max(path_selector.values())])
-            print path_selector.values()
+            # print "All vals:", path_selector.values()
+            # print "Selected trajectory:", clear_paths[best_key]
+            # print "Max val:", max(path_selector.values())
+            # print "Best value:", path_selector[best_key]
+
+            if len(clear_paths) <= 2:
+                return clear_paths[0], path_selector[0]
+    
             return clear_paths[best_key], path_selector[best_key]
         else:
+            print 'No paths in clear path!'
             return
 
 
@@ -350,9 +359,19 @@ class Planner:
                 try:
                     best_path, value = self.choose_myopic_trajectory(eval_value)
                     controller_path = self.strip_angle(best_path)
+
+                    if len(controller_path.polygon.points) < 5:
+                        for i in xrange(5):
+                            msg = self.srv_chem()
+                            pose = copy.copy(self.pose)
+                            self.data_queue.append(msg)
+                            self.pose_queue.append(pose)
+                            # print "Appending value:\t", msg.data, "at pose \t", pose
+
                     self.plan_pub.publish(controller_path) #send the trajectory to move base
                     self.last_viable = controller_path.polygon.points[-1]
-                except:
+                except Exception as e:
+                    print e
                     print 'ATTENTION HUMAN! I MAY NEED ASSISTANCE!'
                     # Publish a message to a backup controller to activate
                     if self.allow_backup == True:
@@ -371,6 +390,16 @@ class Planner:
                         mcts = mcts_lib.cMCTS(self.GP, self.pose, self.replan_budget, self.rollout_len, self.srv_paths, eval_value, time = 0, tree_type = self.tree_type, belief_updates = self.belief_updates)
                         best_path, value = mcts.choose_trajectory(t = 0)
                         controller_path = self.strip_angle(best_path)
+
+                        if len(controller_path.polygon.points) < 5:
+                            print "Selecting stay samples!"
+                            for i in xrange(5):
+                                msg = self.srv_chem()
+                                pose = copy.copy(self.pose)
+                                self.data_queue.append(msg)
+                                self.pose_queue.append(pose)
+                                # print "Appending value:\t", msg.data, "at pose \t", pose
+
                         self.plan_pub.publish(controller_path) #send the trajectory to move base
                         self.last_viable = controller_path.polygon.points[-1]
                     except Exception as e:

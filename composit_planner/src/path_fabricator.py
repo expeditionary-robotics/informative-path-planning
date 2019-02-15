@@ -44,7 +44,7 @@ class ROS_Path_Generator(object):
         self.unknown_threshold = rospy.get_param('unknown_limit', -2.0)
         self.make_paths_behind = rospy.get_param('make_paths_behind', False)
         self.make_stay_path = rospy.get_param('allow_to_stay', True)
-        self.visualize_paths = rospy.get_param('visualize_path_generation', True)
+        self.visualize_paths = rospy.get_param('visualize_path_generation', False)
 
         # Global variables
         self.goals = [] #The frontier coordinates

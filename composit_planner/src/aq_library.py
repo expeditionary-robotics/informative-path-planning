@@ -40,8 +40,11 @@ class GetValue():
         if type(path) is np.ndarray and path.shape[1] == 2:
             xvals = path
         else:
-            xvals = [[loc.x, loc.y] for loc in path]
-            xvals = np.array(xvals).reshape(len(path), 2)
+           
+            # NOTE: filter out the backup flag point here
+           
+            xvals = [[loc.x, loc.y] for loc in path if loc.x > -50.]
+            xvals = np.array(xvals).reshape((-1, 2))
 
         self.GP = GP
 
@@ -57,6 +60,9 @@ class GetValue():
             print self.reward 
             raise ValueError('Aqusition function must be one of ei, ucb, ig, or mes')
 
+        # print "Cummulative value:", value
+        # print "Length:", xvals.shape
+        # print "Average:", value / float(xvals.shape[0])
         return value / float(xvals.shape[0])
     
     @property
@@ -84,7 +90,7 @@ def mves(time, xvals, robot_model, param, FVECTOR = False):
     maxes = param[0]
     # If no max values are provided, return default value
     if maxes is None:
-        return 1.0
+        return 1.0 * xvals.shape[0]
 
     data = np.array(xvals)
     x1 = data[:,0]
@@ -122,7 +128,7 @@ def mves(time, xvals, robot_model, param, FVECTOR = False):
 def info_gain(time, xvals, robot_model, param = None):
     ''' Compute the information gain of a set of potential sample locations with respect to the underlying function conditioned or previous samples xobs'''        
     if robot_model.xvals is None:
-        return 1.0
+        return 1.0 * xvals.shape[0]
 
     data = np.array(xvals)
     x1 = data[:,0]
@@ -178,7 +184,8 @@ def mean_ucb(time, xvals, robot_model, param = None, FVECTOR = False):
         if FVECTOR:
             return np.ones((data.shape[0], 1))
         else:
-            return 1.0
+            return 1.0 * xvals.shape[0]
+
                               
     # The GPy interface can predict mean and variance at an array of points; this will be an overestimate
     mu, var = robot_model.predict_value(queries)
@@ -197,7 +204,7 @@ def mean_ucb(time, xvals, robot_model, param = None, FVECTOR = False):
 def exp_improvement(time, xvals, robot_model, param = None):
     ''' The aquisition function using expected information, as defined in Hennig and Schuler Entropy Search'''
     if robot_model.xvals is None:
-        return 1.0
+        return 1.0 * xvals.shape[0] 
     data = np.array(xvals)
     x1 = data[:,0]
     x2 = data[:,1]
@@ -226,7 +233,7 @@ def exp_improvement(time, xvals, robot_model, param = None):
                                         Utilities Functions 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'''
 
-def sample_max_vals(robot_model, nK = 2, nFeatures = 200):
+def sample_max_vals(robot_model, nK = 10, nFeatures = 200):
     ''' Utility function that samples a set of nK maxima from the current Gaussian belief using spectral sampling'''
     # If the robot has not samples yet, return a constant value
     if robot_model.xvals is None:
@@ -331,7 +338,8 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
     # Create a buffer around the boundary so the optmization doesn't always concentrate there
     hold_ranges = ranges
     bb = ((ranges[1] - ranges[0])*0.05, (ranges[3] - ranges[2]) * 0.05)
-    ranges = (ranges[0] + bb[0], ranges[1] - bb[0], ranges[2] + bb[1], ranges[3] - bb[1])
+    # ranges = (ranges[0] + bb[0], ranges[1] - bb[0], ranges[2] + bb[1], ranges[3] - bb[1])
+    ranges = (-3.15, 3.15, -2.0, 2.0) # TODO: gross, don't hardcode these values!
     
     # Uniformly sample gridSize number of points in interval xmin to xmax
     x1 = np.random.uniform(ranges[0], ranges[1], size = gridSize)

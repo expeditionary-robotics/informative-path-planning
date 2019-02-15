@@ -158,7 +158,7 @@ class Environment:
         msg = PointCloud()
         msg.header.frame_id = 'map' # Global frame
 
-	    val = ChannelFloat32()
+	val = ChannelFloat32()
         val.name = 'ground_truth'
         #msg.header.stamp = rospy.get_rostime()
         for i, d in enumerate(self.GP.xvals):
@@ -176,7 +176,7 @@ class Environment:
         msg = PointCloud()
         msg.header.frame_id = 'map' # Global frame
 
-	    val = ChannelFloat32()
+        val = ChannelFloat32()
         val.name = 'global_maxima'
         #msg.header.stamp = rospy.get_rostime()
         pt = geometry_msgs.msg.Point32()
