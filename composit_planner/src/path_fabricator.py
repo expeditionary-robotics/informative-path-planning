@@ -92,7 +92,10 @@ class ROS_Path_Generator(object):
             all_paths.append(true_path)
 
         if self.make_stay_path is True:
-            all_paths.append([self.cp for i in range(0, int(self.hl/self.ss)+1)])
+            # all_paths.append([self.cp for i in range(0, int(self.hl/self.ss)+1)])
+            # TODO: fix this behavior
+            all_paths.append([self.cp for i in range(0, 5)])
+            # print "Len of stay path:", len([self.cp for i in range(0, int(self.hl/self.ss)+1)])
 
         return all_paths
 

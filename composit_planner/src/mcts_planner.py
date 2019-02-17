@@ -360,11 +360,12 @@ class Planner:
                     best_path, value = self.choose_myopic_trajectory(eval_value)
                     controller_path = self.strip_angle(best_path)
 
-                    if len(controller_path.polygon.points) < 5:
+                    if len(controller_path.polygon.points) < 8:
                         for i in xrange(5):
                             msg = self.srv_chem()
+                            data = ChemicalSample(msg.sig)
                             pose = copy.copy(self.pose)
-                            self.data_queue.append(msg)
+                            self.data_queue.append(data)
                             self.pose_queue.append(pose)
                             # print "Appending value:\t", msg.data, "at pose \t", pose
 
@@ -385,18 +386,21 @@ class Planner:
             if self.pose is not None:
                 clear_paths = self.srv_paths(PathFromPoseRequest(self.pose))
                 clear_paths = clear_paths.safe_paths
+                print "Len of clear paths:", len(clear_paths)
                 if len(clear_paths) > 1:
                     try:
                         mcts = mcts_lib.cMCTS(self.GP, self.pose, self.replan_budget, self.rollout_len, self.srv_paths, eval_value, time = 0, tree_type = self.tree_type, belief_updates = self.belief_updates)
-                        best_path, value = mcts.choose_trajectory(t = 0)
+                        best_path, value = mcts.choose_trajectory(t = self.t)
                         controller_path = self.strip_angle(best_path)
 
-                        if len(controller_path.polygon.points) < 5:
-                            print "Selecting stay samples!"
+                        print "Len of seleted path:",len(controller_path.polygon.points)
+                        if len(controller_path.polygon.points) < 8:
+                            print "Selecting stay samples! ------------------------- \n \n \n "
                             for i in xrange(5):
                                 msg = self.srv_chem()
+                                data = ChemicalSample(msg.sig)
                                 pose = copy.copy(self.pose)
-                                self.data_queue.append(msg)
+                                self.data_queue.append(data)
                                 self.pose_queue.append(pose)
                                 # print "Appending value:\t", msg.data, "at pose \t", pose
 
