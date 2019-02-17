@@ -19,8 +19,7 @@ from analysis_utils import *
 ######### MAIN LOOP ###########
 if __name__ == '__main__':
     seed_numbers = range(5100, 10000, 100)
-    # seed_numbers.remove(1300)
-    # seed_numbers.remove(1500)
+    # seed_numbers = range(5100, 5300, 100)
     # seed_numbers.remove(5300)
     print len(seed_numbers)
     # seed_numbers = [0, 100, 200, 400, 500, 700, 800, 900, 1000, 1200, 1300, 1400, 1600, 1700, 1800, 1900]
@@ -35,8 +34,6 @@ if __name__ == '__main__':
 
         trials = ['mes', 'mean', 'mean', '']
         labels = ['PLUMES', 'UCB-MCTS', 'UCB-MYOPIC', 'BOUSTRO.']
-        # trials = ['mes', '']
-        # labels = ['PLUMES', 'LAWNMOWER']
     else:
         fileparams = ['pathsetdubins-nonmyopicTrue-treedpw-' + SUFFIX,
                     'pathsetdubins-nonmyopicTrue-treebelief-' + SUFFIX,
@@ -70,6 +67,10 @@ if __name__ == '__main__':
     dist_ids = []
     dist_err_x = []
     dist_err_z = []
+    dist_dist_x = []
+    dist_dist_z = []
+    dist_entropy_x = []
+    dist_entropy_z = []
 
     max_val = []
     max_loc = []
@@ -128,17 +129,21 @@ if __name__ == '__main__':
         data = make_df(values, column_names)
         all_dfs.append(data)
 
-        sdata, prop, propy, err_x, err_z = make_samples_df(samples, ['x', 'y', 'z'], max_loc = max_loc, max_val = max_val, xthresh = 1.5, ythresh = 3.0)
+        sdata, prop, propy, err_x, err_z, dist_x, dist_z, ent_x, ent_z = make_samples_df(samples, ['x', 'y', 'z'], max_loc = max_loc, max_val = max_val, xthresh = 1.5, ythresh = 3.0)
         all_sample_dfs.append(sdata)
         all_props.append(prop)
         all_propsy.append(propy)
         all_labels.append(label)
 
         if 'lawnmower' in param:
-            dist_data, dist_sdata, d_props, d_propsy, ids, d_err_x, d_err_z = make_dist_dfs(values, samples, column_names, max_loc, max_val, ythresh = 3.0, xthresh = 1.5, dist_lim = 200.0, lawnmower = True)
+            dist_data, dist_sdata, d_props, d_propsy, ids, d_err_x, d_err_z, d_dist_x, d_dist_z, d_hx, d_hz = make_dist_dfs(values, samples, column_names, max_loc, max_val, ythresh = 3.0, xthresh = 1.5, dist_lim = 200.0, lawnmower = True)
         else:
-            dist_data, dist_sdata, d_props, d_propsy, ids, d_err_x, d_err_z = make_dist_dfs(values, samples, column_names, max_loc, max_val, ythresh = 3.0, xthresh = 1.5, dist_lim = 200.0)
+            dist_data, dist_sdata, d_props, d_propsy, ids, d_err_x, d_err_z, d_dist_x, d_dist_z, d_hx, d_hz = make_dist_dfs(values, samples, column_names, max_loc, max_val, ythresh = 3.0, xthresh = 1.5, dist_lim = 200.0)
 
+        dist_dist_x.append(d_dist_x)
+        dist_dist_z.append(d_dist_z)
+        dist_entropy_x.append(d_hx)
+        dist_entropy_z.append(d_hz)
         dist_dfs.append(dist_data)
         dist_samples_dfs.append(dist_sdata)
         dist_props.append(d_props)
@@ -158,33 +163,18 @@ if __name__ == '__main__':
     generate_dist_stats(dist_dfs, all_labels, ['distance', 'MSE', 'max_loc_error', 'max_val_error', 'max_value_info', 'info_regret'], dist_ids, file_start + '_dist_stats.txt')
 
     # generate_histograms(all_sample_dfs, all_props, all_labels, title='All Iterations', figname=file_start, save_fig=False)
+
     generate_histograms(dist_samples_dfs, dist_props, all_labels, title='200$m$ Budget X Samples', figname=file_start, save_fig=False)
     generate_histograms(dist_samples_dfs, dist_propsy, all_labels, title='200$m$ Budget Y Samples', figname=file_start, save_fig=False)
 
     generate_histograms(dist_samples_dfs, dist_err_x, all_labels, title='200$m$ Budget X Dist', figname=file_start, save_fig=False, ONLY_STATS = True)
     generate_histograms(dist_samples_dfs, dist_err_z, all_labels, title='200$m$ Budget Z Dist', figname=file_start, save_fig=False, ONLY_STATS = True)
 
+    generate_histograms(dist_samples_dfs, dist_dist_x, all_labels, title='200$m$ Budget X Dist', figname=file_start, save_fig=False, ONLY_STATS = True)
+    generate_histograms(dist_samples_dfs, dist_dist_z, all_labels, title='200$m$ Budget Z Dist', figname=file_start, save_fig=False, ONLY_STATS = True)
 
-    # print '---- Mean and STD and Median for X Error---'
-    # for q,m in enumerate(dist_err_x):
-    #     print labels[q] + ': ' + str(np.mean(m)) + ', ' + str(np.std(m))
-    # print '---- Median and IQR for each proportion ---'
-    # for q,m in enumerate(dist_err_x):
-    #     print labels[q] + ': '+ str(np.median(m)) + ', ' + str(sp.stats.iqr(m))
-    # print '---- MIN and MAX for X Error---'
-    # for q,m in enumerate(dist_err_x):
-    #     print labels[q] + ': ' + str(np.min(m)) + ', ' + str(np.max(m))
-
-    # print '---- Mean and STD and Median for Z Error---'
-    # for q,m in enumerate(dist_err_z):
-    #     print labels[q] + ': ' + str(np.mean(m)) + ', ' + str(np.std(m))
-    # print '---- Median and IQR for each proportion ---'
-    # for q,m in enumerate(dist_err_z):
-    #     print labels[q] + ': ' + str(np.median(m)) + ', ' + str(sp.stats.iqr(m))
-    # print '---- MIN and MAX for Z Error---'
-    # for q,m in enumerate(dist_err_z):
-    #     print labels[q] + ': ' + str(np.min(m)) + ', ' + str(np.max(m))
-
+    generate_histograms(dist_samples_dfs, dist_entropy_x, all_labels, title='200$m$ Budget X Dist', figname=file_start, save_fig=False, ONLY_STATS = True)
+    generate_histograms(dist_samples_dfs, dist_entropy_z, all_labels, title='200$m$ Budget Z Dist', figname=file_start, save_fig=False, ONLY_STATS = True)
 
     # # def planning_iteration_plots(dfs, labels, param, title, end_time=149, d=20, plot_confidence=False, save_fig=False, fname='')
     # planning_iteration_plots(all_dfs, all_labels, 'MSE', 'Averaged MSE', 149, len(seeds), True, False, file_start+'_avg_mse.png')

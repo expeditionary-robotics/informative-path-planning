@@ -9,10 +9,14 @@ import matplotlib.pyplot as plt
 import math
 from matplotlib.colors import LogNorm
 from matplotlib import cm
+import matplotlib.colors as mcolors
 import os
 import pdb
 import copy
+
 import gpmodel_library as gplib 
+import aq_library as aqlib
+from scipy.spatial import distance
 
 plt.rcParams['xtick.labelsize'] = 22
 plt.rcParams['ytick.labelsize'] = 22
@@ -23,7 +27,7 @@ plt.rcParams['figure.figsize'] = (17,10)
 ''' Predict the maxima of a GP model '''
 def predict_max(xvals, zvals, ranges = [0.0, 10.0, 0.0, 10.0], LEN = 1.0, VAR = 100.0, NOISE = 0.5):
     # If no observations have been collected, return default value
-    if xvals is None:
+    if xvals is None or True: # TODO: remeber to change this!
         return np.array([0., 0.]), 0.
 
     GP = gplib.GPModel(ranges = ranges, lengthscale = LEN, variance = VAR, noise = NOISE)
@@ -50,6 +54,54 @@ def predict_max(xvals, zvals, ranges = [0.0, 10.0, 0.0, 10.0], LEN = 1.0, VAR = 
     # plt.show()
 
     return max_loc, max_val
+
+''' Quantify entropy of star distribution and visaulize the star heatmap '''
+def star_max_dist(xvals, zvals, true_loc, true_val, PATH, ranges = [0.0, 10.0, 0.0, 10.0], LEN = 1.0, VAR = 100.0, NOISE = 0.5):
+    # If no observations have been collected, return default value
+    if xvals is None:
+        return np.array([0., 0.]), 0.
+
+    GP = gplib.GPModel(ranges = ranges, lengthscale = LEN, variance = VAR, noise = NOISE)
+    GP.add_data(xvals, zvals) 
+  
+    # If files already exist, simply read in. Othrewise, sample maxima
+    # and create files.
+    # try:
+    #     sampled_maxes = np.loadtxt(os.path.join(PATH, 'sampled_maxes.csv')).T
+    #     max_locs = sampled_maxes[:, 0:2].reshape((-1, 2))
+    #     max_vals = sampled_maxes[:, 2].reshape((-1, 1))
+
+    # except:
+    max_vals, max_locs, func = aqlib.sample_max_vals(GP, t = 0, nK = 100)
+    max_vals = np.array(max_vals).reshape((-1, 1))
+    max_locs = np.array(max_locs).reshape((-1, 2))
+    np.savetxt(os.path.join(PATH, 'sampled_maxes.csv'), np.vstack((max_locs.T, max_vals.T)))
+
+    true_loc = np.array(true_loc).reshape((-1, 2))
+    true_val = np.array(true_val).reshape((-1, 1))
+
+    # Compute average distance from stars to true loc
+    dist_loc = distance.cdist(max_locs, true_loc, 'euclidean')
+    dist_val = distance.cdist(max_vals, true_val, 'euclidean')
+
+    # Create the star heatmap
+    NBINS = 50
+    RANGE = np.array([(0, 10), (0, 10)])
+    plt.figure(figsize=(8,8))
+    plt.hist2d(max_locs[:, 0], max_locs[:, 1], bins = NBINS, normed = True, range = RANGE, cmap = 'magma', norm=mcolors.LogNorm())
+    plt.colorbar()
+    plt.savefig(os.path.join(PATH, 'star_heatmap.png'))
+    plt.show()
+    plt.close()
+
+    # Compute the histrogram entropy of the star distribution
+    hist, xbins, ybins, _ = plt.hist2d(max_locs[:, 0], max_locs[:, 1], bins = NBINS, normed = True, range = RANGE)
+    entropy_x = -np.mean(np.log(hist[hist > 0.0]))
+
+    hist_z, xbins_z, _ = plt.hist(max_vals, bins = NBINS, density = True)
+    entropy_z = -np.mean(np.log(hist_z[hist_z > 0.0]))
+
+    return dist_loc, dist_val, entropy_x, entropy_z
         
 def make_df(file_names, column_names):
     d = file_names[0]
@@ -83,10 +135,13 @@ def make_samples_df(file_names, column_names, max_loc, max_val, xthresh=1.5, yth
     propy = []
     err_x = []
     err_z = []
+    dist_loc = []
+    dist_val = []
+    H_x = []
+    H_z = []
 
     # Read in the first file and compute statistics
     d = file_names[0]
-    print file_names
 
     sdata = pd.read_table(d, delimiter = " ", header = None)
     sdata = sdata.T
@@ -100,13 +155,22 @@ def make_samples_df(file_names, column_names, max_loc, max_val, xthresh=1.5, yth
     sdata.loc[:, 'YDistance'] = sdata.apply(lambda x: np.sqrt((x['z']-max_val[0])**2), axis=1)
     propy.append(float(len(sdata[sdata.YDistance <= ythresh]))/len(sdata))
 
-    # Compute the error in x and z from inferred GP
     xvals = np.array(sdata[['x', 'y']]).reshape((-1, 2))
     zvals = np.array([sdata['z']]).reshape((-1, 1))
+    true_loc = np.array([max_loc[0][0], max_loc[0][1]])
+    true_val = max_val[0]
+
+    # Compute the error in x and z from inferred GP
     max_x, max_z = predict_max(xvals, zvals)
-    err_x.append(np.linalg.norm(max_x - np.array([max_loc[0][0], max_loc[0][1]])))
-    err_z.append(np.linalg.norm(max_z - max_val[0]))
-    
+    err_x.append(np.linalg.norm(max_x - true_loc))
+    err_z.append(np.linalg.norm(max_z - true_val))
+
+    # Compute the star heatmap for the current GP
+    d_loc, d_val, entropy_x, entropy_z = star_max_dist(xvals, zvals, true_loc, true_val, PATH = os.path.split(file_names[0])[0])
+    dist_loc.append(d_loc)
+    dist_val.append(d_val)
+    H_x.append(entropy_x)
+    H_z.append(entropy_z)
 
     for i,m in enumerate(file_names[1:]):
         # Read in the next filename data
@@ -125,16 +189,22 @@ def make_samples_df(file_names, column_names, max_loc, max_val, xthresh=1.5, yth
         # Compute the error in x and z from inferred GP
         xvals = np.array(temp_data[['x', 'y']]).reshape((-1, 2))
         zvals = np.array([temp_data['z']]).reshape((-1, 1))
+        true_loc = np.array([max_loc[i+1][0], max_loc[i+1][1]])
+        true_val = max_val[i+1]
+
         max_x, max_z = predict_max(xvals, zvals)
-        err_x.append(np.linalg.norm(max_x - np.array([max_loc[i+1][0], max_loc[i+1][1]])))
-        err_z.append(np.linalg.norm(max_z - max_val[i+1]))
-        # print "Predicted max and val:", max_x, max_z
-        # print "True max and val:", max_loc[i+1], max_val[i+1]
-        # print "Error:", err_x[-1], err_z[-1]
+        err_x.append(np.linalg.norm(max_x - true_loc))
+        err_z.append(np.linalg.norm(max_z - true_val))
+
+        d_loc, d_val, entropy_x, entropy_z = star_max_dist(xvals, zvals, true_loc, true_val, PATH = os.path.split(m)[0])
+        dist_loc.append(d_loc)
+        dist_val.append(d_val)
+        H_x.append(entropy_x)
+        H_z.append(entropy_z)
 
         sdata = sdata.append(temp_data)
 
-    return sdata, prop, propy, err_x, err_z
+    return sdata, prop, propy, err_x, err_z, dist_loc, dist_val, H_x, H_z
 
 def generate_stats(dfs, labels, params, end_time=149, fname='stats.txt'):
     f = open(fname, 'a')
@@ -149,6 +219,7 @@ def generate_stats(dfs, labels, params, end_time=149, fname='stats.txt'):
 def generate_histograms(dfs, props, labels, title, figname='', save_fig=False, ONLY_STATS = False):
     colors = ['b', 'g', 'r', 'c', 'm', 'y', 'b', 'g', 'r', 'c', 'm', 'y']
 
+    print '\n\n ------------------', figname, '------------------'
     print '---- Mean and STD for each proportion ---'
     for q,m in enumerate(props):
         print labels[q] + ': ' + str(np.mean(m)) + ', ' + str(np.std(m)) 
@@ -251,15 +322,50 @@ def make_dist_dfs(data_dfs, sample_dfs, column_names, max_loc, max_val, ythresh 
 
     all_errx = []
     all_errz = []
+    all_distx = []
+    all_distz = []
+    all_hx = []
+    all_hz = []
 
     for f,g,m,v in zip(data_dfs, sample_dfs, max_loc, max_val):
         temp_df = make_df([f], column_names)
 
         # Make samples dataframe and compute stats
-        temp_sdf, temp_prop, temp_propy, temp_xerr, temp_zerr = make_samples_df(file_names = [g], column_names = ['x','y','z'], max_loc = [m], max_val = [v],  xthresh = xthresh, ythresh = ythresh)
+        temp_sdf,  \
+        temp_prop, \
+        temp_propy, \
+        temp_xerr, \
+        temp_zerr, \
+        temp_distx, \
+        temp_distz, \
+        temp_hx, \
+        temp_hz = make_samples_df(file_names = [g], 
+                                  column_names = ['x','y','z'], 
+                                  max_loc = [m], 
+                                  max_val = [v],  
+                                  xthresh = xthresh, 
+                                  ythresh = ythresh)
 
         # Truncate these stats by distance
-        dtemp, dstemp, dprop, dpropy, stats_id, d_xerr, d_zerr = truncate_by_distance(temp_df, temp_sdf, max_loc = [m], max_val = [v], dist_lim = dist_lim, xthresh = xthresh, ythresh = ythresh, lawnmower = lawnmower)
+        dtemp, \
+        dstemp, \
+        dprop, \
+        dpropy, \
+        stats_id, \
+        d_xerr, \
+        d_zerr, \
+        d_distx, \
+        d_distz, \
+        d_hx, \
+        d_hz = truncate_by_distance(temp_df, 
+                                    temp_sdf, 
+                                    max_loc = [m],
+                                    max_val = [v], 
+                                    dist_lim = dist_lim, 
+                                    xthresh = xthresh, 
+                                    ythresh = ythresh, 
+                                    lawnmower = lawnmower,
+                                    file_names = [g])
 
         all_dist = all_dist.append(dtemp)
         all_samps = all_samps.append(dstemp)
@@ -267,15 +373,18 @@ def make_dist_dfs(data_dfs, sample_dfs, column_names, max_loc, max_val, ythresh 
         all_propsy.append(float(dpropy))
         all_statsids.append(stats_id)
 
-        # Don't need to od this for non-lanwmower data, and lawnmower data doesn't require truncation by distance
         all_errx.append(d_xerr)
         all_errz.append(d_zerr)
+        all_distx.append(d_distx)
+        all_distz.append(d_distz)
+        all_hx.append(d_hx)
+        all_hz.append(d_hz)
 
 
-    return all_dist, all_samps, all_props, all_propsy, all_statsids, all_errx, all_errz
+    return all_dist, all_samps, all_props, all_propsy, all_statsids, all_errx, all_errz, all_distx, all_distz, all_hx, all_hz
 
 
-def truncate_by_distance(df, sample_df, max_loc, max_val, dist_lim=250.0, xthresh=1.5, ythresh = 2.50, lawnmower = False):
+def truncate_by_distance(df, sample_df, max_loc, max_val, dist_lim=250.0, xthresh=1.5, ythresh = 2.50, lawnmower = False, file_names = ''):
     temp_df = df[df['distance'] < dist_lim]
     last_samp_x = temp_df['robot_loc_x'].values[-1]
     last_samp_y = temp_df['robot_loc_y'].values[-1]
@@ -308,18 +417,18 @@ def truncate_by_distance(df, sample_df, max_loc, max_val, dist_lim=250.0, xthres
     propy = float(len(temp_sdf[temp_sdf.YDistance < ythresh]))/len(temp_sdf)
 
     # Compute the error in x and z from inferred GP
-    # xvals = np.hstack([temp_sdf['x'], temp_sdf['y']]).reshape((-1, 2))
     xvals = np.array(temp_sdf[['x', 'y']]).reshape((-1, 2))
     zvals = np.array([temp_sdf['z']]).reshape((-1, 1))
+
+    # Predict maxima
     max_x, max_z = predict_max(xvals, zvals)
     err_x = (np.linalg.norm(max_x - np.array(max_loc)))
     err_z = (np.linalg.norm(max_z - max_val))
 
-    # print "Predicted max and val:", max_x, max_z
-    # print "True max and val:", max_loc, max_val
-    # print "Error:", err_x[-1], err_z[-1]
-    
-    return temp_df, temp_sdf, prop, propy, stats_id, err_x, err_z
+    # Predict star distribution 
+    d_loc, d_val, entropy_x, entropy_z = star_max_dist(xvals, zvals, max_loc, max_val, PATH = os.path.split(file_names[0])[0])
+
+    return temp_df, temp_sdf, prop, propy, stats_id, err_x, err_z, d_loc, d_val, entropy_x, entropy_z
 
 
 def generate_dist_stats(dfs, labels, params, ids, fname='stats.txt'):
