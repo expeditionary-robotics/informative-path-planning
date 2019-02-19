@@ -27,7 +27,9 @@ plt.rcParams['figure.figsize'] = (17,10)
 ''' Predict the maxima of a GP model '''
 def predict_max(xvals, zvals, ranges = [0.0, 10.0, 0.0, 10.0], LEN = 1.0, VAR = 100.0, NOISE = 0.5):
     # If no observations have been collected, return default value
+    # if xvals is None or True: # TODO: remeber to change this!
     if xvals is None or True: # TODO: remeber to change this!
+        print "Skipping maxima prediction!"
         return np.array([0., 0.]), 0.
 
     GP = gplib.GPModel(ranges = ranges, lengthscale = LEN, variance = VAR, noise = NOISE)
@@ -58,24 +60,27 @@ def predict_max(xvals, zvals, ranges = [0.0, 10.0, 0.0, 10.0], LEN = 1.0, VAR = 
 ''' Quantify entropy of star distribution and visaulize the star heatmap '''
 def star_max_dist(xvals, zvals, true_loc, true_val, PATH, ranges = [0.0, 10.0, 0.0, 10.0], LEN = 1.0, VAR = 100.0, NOISE = 0.5):
     # If no observations have been collected, return default value
-    if xvals is None:
-        return np.array([0., 0.]), 0.
+    if xvals is None: #TODO: remember to change this
+        print "Skipping star analysis prediction!"
+        return 0.0, 0.0, 0.0, 0.0
 
     GP = gplib.GPModel(ranges = ranges, lengthscale = LEN, variance = VAR, noise = NOISE)
     GP.add_data(xvals, zvals) 
   
     # If files already exist, simply read in. Othrewise, sample maxima
     # and create files.
-    # try:
-    #     sampled_maxes = np.loadtxt(os.path.join(PATH, 'sampled_maxes.csv')).T
-    #     max_locs = sampled_maxes[:, 0:2].reshape((-1, 2))
-    #     max_vals = sampled_maxes[:, 2].reshape((-1, 1))
+    try:
+        sampled_maxes = np.loadtxt(os.path.join(PATH, 'sampled_maxes_dist.csv')).T
+        max_locs = sampled_maxes[:, 0:2].reshape((-1, 2))
+        max_vals = sampled_maxes[:, 2].reshape((-1, 1))
+        SAVE_FLAG = False 
 
-    # except:
-    max_vals, max_locs, func = aqlib.sample_max_vals(GP, t = 0, nK = 100)
-    max_vals = np.array(max_vals).reshape((-1, 1))
-    max_locs = np.array(max_locs).reshape((-1, 2))
-    np.savetxt(os.path.join(PATH, 'sampled_maxes.csv'), np.vstack((max_locs.T, max_vals.T)))
+    except:
+        max_vals, max_locs, func = aqlib.sample_max_vals(GP, t = 0, nK = 20)
+        max_vals = np.array(max_vals).reshape((-1, 1))
+        max_locs = np.array(max_locs).reshape((-1, 2))
+        np.savetxt(os.path.join(PATH, 'sampled_maxes_dist.csv'), np.vstack((max_locs.T, max_vals.T)))
+        SAVE_FLAG = True 
 
     true_loc = np.array(true_loc).reshape((-1, 2))
     true_val = np.array(true_val).reshape((-1, 1))
@@ -84,24 +89,46 @@ def star_max_dist(xvals, zvals, true_loc, true_val, PATH, ranges = [0.0, 10.0, 0
     dist_loc = distance.cdist(max_locs, true_loc, 'euclidean')
     dist_val = distance.cdist(max_vals, true_val, 'euclidean')
 
-    # Create the star heatmap
     NBINS = 50
-    RANGE = np.array([(0, 10), (0, 10)])
-    plt.figure(figsize=(8,8))
-    plt.hist2d(max_locs[:, 0], max_locs[:, 1], bins = NBINS, normed = True, range = RANGE, cmap = 'magma', norm=mcolors.LogNorm())
-    plt.colorbar()
-    plt.savefig(os.path.join(PATH, 'star_heatmap.png'))
-    plt.show()
-    plt.close()
+    RANGE = np.array([(ranges[0], ranges[1]), (ranges[2], ranges[3])])
+
+    # Create the star heatmap
+    if SAVE_FLAG:
+        plt.figure(figsize=(8,8))
+        # plt.hist2d(max_locs[:, 0], max_locs[:, 1], bins = NBINS, normed = True, range = RANGE, cmap = 'magma', norm=mcolors.LogNorm())
+        plt.hist2d(max_locs[:, 0], max_locs[:, 1], bins = NBINS, normed = True, range = RANGE, cmap = 'viridis')
+        plt.colorbar()
+        plt.savefig(os.path.join(PATH, 'star_heatmap.png'))
+        # plt.show()
+        plt.close()
 
     # Compute the histrogram entropy of the star distribution
-    hist, xbins, ybins, _ = plt.hist2d(max_locs[:, 0], max_locs[:, 1], bins = NBINS, normed = True, range = RANGE)
-    entropy_x = -np.mean(np.log(hist[hist > 0.0]))
+    ALPHA = 0.99
+    hist, xbins, ybins = np.histogram2d(max_locs[:, 0], max_locs[:, 1], bins = NBINS, normed = True, range = RANGE)
+    uniform = np.ones(hist.shape) / np.sum(np.ones(hist.shape))
+    histnorm = ALPHA * hist + (1. - ALPHA) * uniform 
+    histnorm = histnorm / np.sum(histnorm)
+    entropy_x = -np.sum(histnorm[histnorm > 0.0] * np.log(histnorm[histnorm > 0.0]))
+    plt.imshow(hist)
+    plt.show()
 
-    hist_z, xbins_z, _ = plt.hist(max_vals, bins = NBINS, density = True)
+    # Uniform santiy check
+    # uniform = np.ones(hist.shape) / np.sum(np.ones(hist.shape))
+    # unifrom_entropy = -np.sum(uniform[uniform > 0.0] * np.log(uniform[uniform > 0.0]))
+    # print "Entropy of a uniform distribution:", unifrom_entropy
+
+    hist_z, xbins_z = np.histogram(max_vals, bins = NBINS, density = True)
+    uniform = np.ones(hist_z.shape) / np.sum(np.ones(hist_z.shape))
+    hist_z = hist_z / np.sum(hist_z)
     entropy_z = -np.mean(np.log(hist_z[hist_z > 0.0]))
 
-    return dist_loc, dist_val, entropy_x, entropy_z
+    # Save statistics
+    if SAVE_FLAG:
+        np.savetxt(os.path.join(PATH, 'star_stats.csv'), np.array([np.mean(dist_loc), np.mean(dist_val), entropy_x, entropy_z]))
+        np.savetxt(os.path.join(PATH, 'star_loc_variance.csv'), np.array(dist_val))
+        np.savetxt(os.path.join(PATH, 'star_val_variance.csv'), np.array(dist_loc))
+
+    return np.mean(dist_loc), np.mean(dist_val), entropy_x, entropy_z
         
 def make_df(file_names, column_names):
     d = file_names[0]
@@ -111,8 +138,6 @@ def make_df(file_names, column_names):
         data = pd.read_table(d, delimiter = " ", header=None, skipfooter = data.shape[1] - len(column_names))
         data = data.T
         data.columns = column_names
-        #data.columns = column_names[0:-2]
-        #column_names = column_names[0:-2]
     else:
         data.columns = column_names
 
@@ -161,12 +186,25 @@ def make_samples_df(file_names, column_names, max_loc, max_val, xthresh=1.5, yth
     true_val = max_val[0]
 
     # Compute the error in x and z from inferred GP
+    # For sim trials 
     max_x, max_z = predict_max(xvals, zvals)
+    # For car trials 
+    # max_x, max_z = predict_max(xvals, zvals, ranges = [-3.15, 3.15, -2.0, 2.0], LEN = 0.8, VAR = 100.0, NOISE = 2.0)
+    # TOOD: fix how these parameters are set
+
     err_x.append(np.linalg.norm(max_x - true_loc))
     err_z.append(np.linalg.norm(max_z - true_val))
 
     # Compute the star heatmap for the current GP
-    d_loc, d_val, entropy_x, entropy_z = star_max_dist(xvals, zvals, true_loc, true_val, PATH = os.path.split(file_names[0])[0])
+    # d_loc, d_val, entropy_x, entropy_z = star_max_dist(xvals, zvals, true_loc, true_val, PATH = os.path.split(file_names[0])[0])
+    # For now, don't need to compute for the entire dataset, since we only care about truncated valued
+
+    # For sim trials 
+    d_loc, d_val, entropy_x, entropy_z = star_max_dist(None, None, true_loc, true_val, PATH = os.path.split(file_names[0])[0])
+    # For car trials 
+    # d_loc, d_val, entropy_x, entropy_z = star_max_dist(xvals, zvals, true_loc, true_val, PATH = os.path.split(file_names[0])[0], ranges = [-3.15, 3.15, -2.0, 2.0], LEN = 0.8, VAR = 100.0, NOISE = 2.0)
+    # TOOD: fix how these parameters are set
+
     dist_loc.append(d_loc)
     dist_val.append(d_val)
     H_x.append(entropy_x)
@@ -192,11 +230,21 @@ def make_samples_df(file_names, column_names, max_loc, max_val, xthresh=1.5, yth
         true_loc = np.array([max_loc[i+1][0], max_loc[i+1][1]])
         true_val = max_val[i+1]
 
+        # For sim trials 
         max_x, max_z = predict_max(xvals, zvals)
+        # For car trials 
+        # max_x, max_z = predict_max(xvals, zvals, ranges = [-3.15, 3.15, -2.0, 2.0], LEN = 0.8, VAR = 100.0, NOISE = 2.0)
+        # TOOD: fix how these parameters are set
+
         err_x.append(np.linalg.norm(max_x - true_loc))
         err_z.append(np.linalg.norm(max_z - true_val))
 
-        d_loc, d_val, entropy_x, entropy_z = star_max_dist(xvals, zvals, true_loc, true_val, PATH = os.path.split(m)[0])
+        # For sim trials 
+        d_loc, d_val, entropy_x, entropy_z = star_max_dist(None, None, true_loc, true_val, PATH = os.path.split(m)[0])
+        # For car trials 
+        # d_loc, d_val, entropy_x, entropy_z = star_max_dist(xvals, zvals, true_loc, true_val, PATH = os.path.split(m)[0], ranges = [-3.15, 3.15, -2.0, 2.0], LEN = 0.8, VAR = 100.0, NOISE = 2.0)
+        # TOOD: fix how these parameters are set
+
         dist_loc.append(d_loc)
         dist_val.append(d_val)
         H_x.append(entropy_x)
@@ -219,7 +267,7 @@ def generate_stats(dfs, labels, params, end_time=149, fname='stats.txt'):
 def generate_histograms(dfs, props, labels, title, figname='', save_fig=False, ONLY_STATS = False):
     colors = ['b', 'g', 'r', 'c', 'm', 'y', 'b', 'g', 'r', 'c', 'm', 'y']
 
-    print '\n\n ------------------', figname, '------------------'
+    print '\n\n ------------------', title, '------------------'
     print '---- Mean and STD for each proportion ---'
     for q,m in enumerate(props):
         print labels[q] + ': ' + str(np.mean(m)) + ', ' + str(np.std(m)) 
@@ -246,26 +294,41 @@ def generate_histograms(dfs, props, labels, title, figname='', save_fig=False, O
         print labels[q] + ': ' + str(float(count)/len(m)) 
 
     fig, axes = plt.subplots(1, len(dfs), sharey = True)
+    hist = [None]*len(dfs)
+    bins = [None]*len(dfs)
     for i in range(0, len(dfs)):
         if title == '200$m$ Budget Y Samples':
-            axes[i].hist(dfs[i]['YDistance'].values, bins = np.linspace(min(dfs[0]['YDistance'].values), max(dfs[0]['YDistance'].values), np.floor(max(dfs[0]['YDistance'].values)-min(dfs[0]['YDistance'].values))), color = colors[i])
+            hist[i], bins[i], _ = axes[i].hist(dfs[i]['YDistance'].values, bins = np.linspace(min(dfs[0]['YDistance'].values), max(dfs[0]['YDistance'].values), np.floor(max(dfs[0]['YDistance'].values)-min(dfs[0]['YDistance'].values))), color = colors[i], density = False)
             axes[i].set_title(labels[i])
         elif title == '200$m$ Budget X Samples':
-            axes[i].hist(dfs[i]['Distance'].values, bins = np.linspace(min(dfs[0]['Distance'].values), max(dfs[0]['Distance'].values), np.floor(max(dfs[0]['Distance'].values)-min(dfs[0]['Distance'].values))), color = colors[i])
+            hist[i], bins[i], _ = axes[i].hist(dfs[i]['Distance'].values, bins = np.linspace(min(dfs[0]['Distance'].values), max(dfs[0]['Distance'].values), np.floor(max(dfs[0]['Distance'].values)-min(dfs[0]['Distance'].values))), color = colors[i], density = False)
             axes[i].set_title(labels[i])
         else:
-            axes[i].hist(dfs[i]['Distance'].values, bins = np.linspace(min(dfs[0]['Distance'].values), max(dfs[0]['Distance'].values), np.floor(max(dfs[0]['Distance'].values)-min(dfs[0]['Distance'].values))), color = colors[i])
+            hist[i], bins[i], _= axes[i].hist(dfs[i]['Distance'].values, bins = np.linspace(min(dfs[0]['Distance'].values), max(dfs[0]['Distance'].values), np.floor(max(dfs[0]['Distance'].values)-min(dfs[0]['Distance'].values))), color = colors[i], density = False)
             axes[i].set_title(labels[i])
 
     axes[0].set_ylabel('Count')
     # axes[].set_xlabel('Distance ($m$) from Global Maximizer')
-    plt.suptitle(title+': Distance ($m$) from Global Maximizer', va='bottom')
+    # plt.suptitle(title+': Distance ($m$) from Global Maximizer', va='bottom')
 
     if save_fig == True:
         plt.savefig(figname+'_agg_samples.png')
 
-    print len(props)
-    print len(labels)
+    fig, axes = plt.subplots(1, 1, sharey = True)
+    for i in range(0, len(dfs)):
+        if title == '200$m$ Budget Y Samples':
+            axes.plot(np.cumsum(hist[i]), color = colors[i], label = labels[i])
+            axes.legend()
+        elif title == '200$m$ Budget X Samples':
+            axes.plot(np.cumsum(hist[i]), color = colors[i], label = labels[i])
+            axes.legend()
+        else:
+            axes.plot(np.cumsum(hist[i]), color = colors[i], label = labels[i])
+            axes.legend()
+
+    axes.set_ylabel('CDF')
+    plt.suptitle(title+': Distance ($m$) from Global Maximizer', va='bottom')
+
     fig = plt.figure()
     plt.boxplot(props, meanline=True, showmeans=True, labels=labels)
     # plt.ylim((0.,1.))
@@ -423,10 +486,11 @@ def truncate_by_distance(df, sample_df, max_loc, max_val, dist_lim=250.0, xthres
     # Predict maxima
     max_x, max_z = predict_max(xvals, zvals)
     err_x = (np.linalg.norm(max_x - np.array(max_loc)))
-    err_z = (np.linalg.norm(max_z - max_val))
+    print "max val:", max_val
+    err_z = (np.linalg.norm(max_z - max_val[0]))
 
     # Predict star distribution 
-    d_loc, d_val, entropy_x, entropy_z = star_max_dist(xvals, zvals, max_loc, max_val, PATH = os.path.split(file_names[0])[0])
+    d_loc, d_val, entropy_x, entropy_z = star_max_dist(xvals, zvals, max_loc, max_val[0], PATH = os.path.split(file_names[0])[0])
 
     return temp_df, temp_sdf, prop, propy, stats_id, err_x, err_z, d_loc, d_val, entropy_x, entropy_z
 

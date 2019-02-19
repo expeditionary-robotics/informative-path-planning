@@ -18,14 +18,14 @@ from analysis_utils import *
 
 ######### MAIN LOOP ###########
 if __name__ == '__main__':
-    seed_numbers = range(5100, 10000, 100)
-    # seed_numbers = range(5100, 5300, 100)
+    # seed_numbers = range(5100, 10000, 100)
+    seed_numbers = range(5100, 5500, 100)
     # seed_numbers.remove(5300)
     print len(seed_numbers)
     # seed_numbers = [0, 100, 200, 400, 500, 700, 800, 900, 1000, 1200, 1300, 1400, 1600, 1700, 1800, 1900]
     seeds = ['seed'+ str(x) + '-' for x in seed_numbers]
 
-    SUFFIX  = 'FREE' # FREE or CLUTTERED
+    SUFFIX  = 'CLUTTERED' # FREE or CLUTTERED
     if SUFFIX == 'FREE':
         fileparams = ['pathsetdubins-nonmyopicTrue-treedpw-' + SUFFIX,
                      'pathsetdubins-nonmyopicTrue-treebelief-' + SUFFIX,
@@ -86,7 +86,7 @@ if __name__ == '__main__':
         print "Adding for:", param, label, trial
         for root, dirs, files in os.walk(path):
             for name in files:
-                if 'metrics' in name and trial in root and param in root and SUFFIX in root:
+                if 'metrics' in name and 'star' not in name and trial in root and param in root and SUFFIX in root:
                    for s in seeds:
                        if s in root:
                            values.append(root+"/"+name)
@@ -144,6 +144,7 @@ if __name__ == '__main__':
         dist_dist_z.append(d_dist_z)
         dist_entropy_x.append(d_hx)
         dist_entropy_z.append(d_hz)
+
         dist_dfs.append(dist_data)
         dist_samples_dfs.append(dist_sdata)
         dist_props.append(d_props)
@@ -167,14 +168,14 @@ if __name__ == '__main__':
     generate_histograms(dist_samples_dfs, dist_props, all_labels, title='200$m$ Budget X Samples', figname=file_start, save_fig=False)
     generate_histograms(dist_samples_dfs, dist_propsy, all_labels, title='200$m$ Budget Y Samples', figname=file_start, save_fig=False)
 
-    generate_histograms(dist_samples_dfs, dist_err_x, all_labels, title='200$m$ Budget X Dist', figname=file_start, save_fig=False, ONLY_STATS = True)
-    generate_histograms(dist_samples_dfs, dist_err_z, all_labels, title='200$m$ Budget Z Dist', figname=file_start, save_fig=False, ONLY_STATS = True)
+    generate_histograms(dist_samples_dfs, dist_err_x, all_labels, title='200$m$ Budget X Error', figname=file_start, save_fig=False, ONLY_STATS = True)
+    generate_histograms(dist_samples_dfs, dist_err_z, all_labels, title='200$m$ Budget Z Error', figname=file_start, save_fig=False, ONLY_STATS = True)
 
-    generate_histograms(dist_samples_dfs, dist_dist_x, all_labels, title='200$m$ Budget X Dist', figname=file_start, save_fig=False, ONLY_STATS = True)
-    generate_histograms(dist_samples_dfs, dist_dist_z, all_labels, title='200$m$ Budget Z Dist', figname=file_start, save_fig=False, ONLY_STATS = True)
+    generate_histograms(dist_samples_dfs, dist_dist_x, all_labels, title='200$m$ Budget X Star Dist', figname=file_start, save_fig=False, ONLY_STATS = True)
+    generate_histograms(dist_samples_dfs, dist_dist_z, all_labels, title='200$m$ Budget Z Star Dist', figname=file_start, save_fig=False, ONLY_STATS = True)
 
-    generate_histograms(dist_samples_dfs, dist_entropy_x, all_labels, title='200$m$ Budget X Dist', figname=file_start, save_fig=False, ONLY_STATS = True)
-    generate_histograms(dist_samples_dfs, dist_entropy_z, all_labels, title='200$m$ Budget Z Dist', figname=file_start, save_fig=False, ONLY_STATS = True)
+    generate_histograms(dist_samples_dfs, dist_entropy_x, all_labels, title='200$m$ Budget X Star Entropy', figname=file_start, save_fig=False, ONLY_STATS = True)
+    generate_histograms(dist_samples_dfs, dist_entropy_z, all_labels, title='200$m$ Budget Z Star Entropy', figname=file_start, save_fig=False, ONLY_STATS = True)
 
     # # def planning_iteration_plots(dfs, labels, param, title, end_time=149, d=20, plot_confidence=False, save_fig=False, fname='')
     # planning_iteration_plots(all_dfs, all_labels, 'MSE', 'Averaged MSE', 149, len(seeds), True, False, file_start+'_avg_mse.png')

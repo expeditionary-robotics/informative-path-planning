@@ -481,7 +481,7 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
         if not os.path.exists('./figures/mes/opt'):
             os.makedirs('./figures/mes/opt')
         fig2.savefig('./figures/mes/opt/globalopt.' + str(filename) + '.png')
-        #plt.show()
+        # plt.show()
         plt.close()
 
     # print res

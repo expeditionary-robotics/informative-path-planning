@@ -56,6 +56,59 @@ def predict_max(GP):
 
     return max_loc, max_val
 
+''' Quantify entropy of star distribution and visaulize the star heatmap '''
+def star_max_dist(GP, true_loc, true_val):
+    # If no observations have been collected, return default value
+    if GP.xvals is None: #TODO: remember to change this
+        print "Skipping star analysis prediction!"
+        return 0.0, 0.0, 0.0, 0.0
+
+    max_vals, max_locs, func = aqlib.sample_max_vals(GP, t = 0, nK = 20)
+    max_vals = np.array(max_vals).reshape((-1, 1))
+    max_locs = np.array(max_locs).reshape((-1, 2))
+    np.savetxt('./sl_sampled_maxes.csv', np.vstack((max_locs.T, max_vals.T)))
+    SAVE_FLAG = True 
+
+    true_loc = np.array(true_loc).reshape((-1, 2))
+    true_val = np.array(true_val).reshape((-1, 1))
+
+    # Compute average distance from stars to true loc
+    dist_loc = distance.cdist(max_locs, true_loc, 'euclidean')
+    dist_val = distance.cdist(max_vals, true_val, 'euclidean')
+
+    NBINS = 50
+    RANGE = np.array([(ranges[0], ranges[1]), (ranges[2], ranges[3])])
+
+    # Create the star heatmap
+    if SAVE_FLAG:
+        plt.figure(figsize=(8,8))
+        # plt.hist2d(max_locs[:, 0], max_locs[:, 1], bins = NBINS, normed = True, range = RANGE, cmap = 'magma', norm=mcolors.LogNorm())
+        plt.hist2d(max_locs[:, 0], max_locs[:, 1], bins = NBINS, normed = True, range = RANGE, cmap = 'viridis')
+        plt.colorbar()
+        plt.savefig('./star_heatmap_test.png')
+        # plt.show()
+        plt.close()
+
+    # Compute the histrogram entropy of the star distribution
+    ALPHA = 0.99
+    hist, xbins, ybins = np.histogram2d(max_locs[:, 0], max_locs[:, 1], bins = NBINS, normed = True, range = RANGE)
+    uniform = np.ones(hist.shape) / np.sum(np.ones(hist.shape))
+    histnorm = ALPHA * hist + (1. - ALPHA) * uniform 
+    histnorm = histnorm / np.sum(histnorm)
+    entropy_x = -np.sum(histnorm[histnorm > 0.0] * np.log(histnorm[histnorm > 0.0]))
+
+    # Uniform santiy check
+    # uniform = np.ones(hist.shape) / np.sum(np.ones(hist.shape))
+    # unifrom_entropy = -np.sum(uniform[uniform > 0.0] * np.log(uniform[uniform > 0.0]))
+    # print "Entropy of a uniform distribution:", unifrom_entropy
+
+    hist_z, xbins_z = np.histogram(max_vals, bins = NBINS, density = True)
+    uniform = np.ones(hist_z.shape) / np.sum(np.ones(hist_z.shape))
+    hist_z = hist_z / np.sum(hist_z)
+    entropy_z = -np.mean(np.log(hist_z[hist_z > 0.0]))
+
+    return np.mean(dist_loc), np.mean(dist_val), entropy_x, entropy_z
+
 
 print "User specified options: SEED, REWARD_FUNCTION, PATHSET, USE_COST, NONMYOPIC, GOAL_ONLY, TREE_TYPE, RUN_REAL"
 # Allow selection of seed world to be consistent, and to run through reward functions
@@ -221,33 +274,36 @@ print "Done creating robot!"
 
 
 if RUN_REAL_EXP:
-    print "Evaluting!"
-    # robot.planner(T = 1)
-
-    loc_guess, val_guess = predict_max(robot.GP)
+    print "Evaluating!"
 
     true_val = np.array(world.max_val).reshape((-1, 1))
     true_loc = np.array(world.max_loc).reshape((-1, 2))
 
-    print "Predicted maxima:", loc_guess, val_guess 
-    print "True maxima:", true_loc, true_val 
-
+    ''' Compute error in maxima prediction '''
+    loc_guess, val_guess = predict_max(robot.GP)
     err_x = np.linalg.norm(loc_guess - true_loc)
     err_z = np.linalg.norm(val_guess - true_val)
-  
     print "Estimation error in x, z:", err_x, err_z
-    # print [x for x in robot.GP.xvals]
-    # distance = [np.sqrt((x[0, 0] - true_loc[0])**2 + (x[0, 1] - true_loc[1])**2) for x in robot.GP.xvals]
-    # print distance
-    # distance_close = (distance < 10.0)
-    # print "Proportion within epsilon:", float(len(distance_close)) / float(len(distance))
 
-    # distance_z = [np.sqrt((float(z[0]) - true_val)**2) for z in robot.GP.zvals]
-    # distance_close_z = (distance_z < 0.5)
-    # print "Proportion within delta:", float(len(distance_close_z)) / float(len(distance_z))
+    ''' Compute entropy of star samples '''
+    dist_err, val_err, h_x, h_z = star_max_dist(robot.GP, true_loc, true_val)
+    print "Star estimation error in x, z:", dist_err, val_err
+    print "Star entropy error in x, z:", h_x, h_z 
 
 
-    max_vals, max_locs, func = aqlib.sample_max_vals(robot.GP, t = 0, nK = 100, obstacles = ow)
+    ''' Compute proportions of data witihin delta-epsilon regions '''
+    samp_dist_loc = distance.cdist(robot.GP.xvals, true_loc, 'euclidean')
+    samp_dist_val = distance.cdist(robot.GP.zvals, true_val, 'euclidean')
+    pdb.set_trace()
+    print samp_dist_loc[samp_dist_loc < 10.0]
+    print samp_dist_val[samp_dist_val < 0.5]
+
+    prop_x = float(len(samp_dist_loc[samp_dist_loc < 10.])) / float(len(samp_dist_loc))
+    prop_z = float(len(samp_dist_val[samp_dist_val < 0.5])) / float(len(samp_dist_val))
+    print "Proportion in x, z:", prop_x, prop_z
+
+
+    max_vals, max_locs, func = aqlib.sample_max_vals(robot.GP, t = 0, nK = 20, obstacles = ow)
 
     max_vals=  np.array(max_vals).reshape((-1, 1))
     max_locs = np.array(max_locs).reshape((-1, 2))
@@ -255,9 +311,6 @@ if RUN_REAL_EXP:
     np.savetxt('./sampled_maxes.csv', np.vstack((max_locs.T, max_vals.T)))
     np.savetxt('./true_maxes.csv', np.vstack((true_loc.T, true_val.T)))
 
-
-    dist_loc = distance.cdist(max_locs, true_loc, 'euclidean')
-    dist_val = distance.cdist(max_vals, true_val, 'euclidean')
 
     print "Distance mean location:", np.mean(dist_loc), "\t Value:", np.mean(dist_val)
 
