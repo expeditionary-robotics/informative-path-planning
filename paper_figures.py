@@ -12,364 +12,28 @@ from matplotlib import cm
 import os
 import pdb
 import copy
+import gpmodel_library as gplib 
 
-plt.rcParams['xtick.labelsize'] = 22
-plt.rcParams['ytick.labelsize'] = 22
-plt.rcParams['axes.labelsize'] = 30
-plt.rcParams['axes.titlesize'] = 30
-plt.rcParams['figure.figsize'] = (17,10)
-
-
-def make_df(file_names, column_names):
-    print file_names
-    d = file_names[0]
-    data = pd.read_table(d, delimiter = " ", header=None)
-    data = data.T
-    if data.shape[1] > len(column_names):
-        data = pd.read_table(d, delimiter = " ", header=None, skipfooter = data.shape[1] - len(column_names))
-        data = data.T
-        data.columns = column_names
-        #data.columns = column_names[0:-2]
-        #column_names = column_names[0:-2]
-    else:
-        data.columns = column_names
-
-    for m in file_names[1:]:
-        temp_data = pd.read_table(m, delimiter = " ", header=None)
-        temp_data = temp_data.T
-
-        # Added because some data now has mes reward printing; we want the dataframe to have the same dimensions for now
-        if temp_data.shape[1] > len(column_names):
-            temp_data = pd.read_table(m, delimiter = " ", header=None, skipfooter = temp_data.shape[1] - len(column_names))
-            temp_data = temp_data.T
-
-        temp_data.columns = column_names
-        data = data.append(temp_data)
-
-    return data
-
-def make_samples_df(file_names, column_names, max_loc, max_val, xthresh=1.5, ythresh = 2.50):
-    prop = []
-    propy = []
-    d = file_names[0]
-    sdata = pd.read_table(d, delimiter = " ", header=None)
-    sdata = sdata.T
-
-    sdata.columns = column_names
-
-    # Compute the nubmer of data points within a threshold of the optmizal x value
-    sdata.loc[:, 'Distance'] = sdata.apply(lambda x: np.sqrt((x['x']-max_loc[0][0])**2+(x['y']-max_loc[0][1])**2), axis=1)
-    prop.append(float(len(sdata[sdata.Distance <= xthresh]))/len(sdata))
-
-    # Compute the number of data points within a threshold of the optimal z value
-    sdata.loc[:, 'YDistance'] = sdata.apply(lambda x: np.sqrt((x['z']-max_val[0])**2), axis=1)
-    # sdata.loc[:, 'YDistance'] = sdata.apply(lambda x: np.sqrt((x['z']-max_val[0])**2), axis=1)
-    # sdata.loc[:, 'YDistance'] = sdata.apply(lambda x: x)
-    propy.append(float(len(sdata[sdata.YDistance <= ythresh]))/len(sdata))
-
-    for i,m in enumerate(file_names[1:]):
-        temp_data = pd.read_table(m, delimiter = " ", header=None)
-        temp_data = temp_data.T
-        temp_data.columns = column_names
-        temp_data.loc[:,'Distance'] = temp_data.apply(lambda x: np.sqrt((x['x']-max_loc[i+1][0])**2+(x['y']-max_loc[i+1][1])**2),axis=1)
-        temp_data.loc[:,'YDistance'] = temp_data.apply(lambda x: np.sqrt((x['z']-max_val[i+1])**2),axis=1)
-        prop.append(float(len(temp_data[temp_data.Distance <= xthresh]))/len(temp_data))
-        propy.append(float(len(temp_data[temp_data.YDistance <= ythresh]))/len(temp_data))
-        sdata = sdata.append(temp_data)
-
-    return sdata, prop, propy
-
-def generate_stats(dfs, labels, params, end_time=149, fname='stats.txt'):
-    f = open(fname, 'a')
-    for p in params:
-        f.write('-------\n')
-        f.write(str(p) + '\n')
-        for df,label in zip(dfs, labels):
-            df_end = df[df.time == end_time]
-            f.write(label + ' ' + str(df_end[p].mean()) + ', ' + str(df_end[p].std()) + '\n')
-    f.close()
-
-def generate_histograms(dfs, props, labels, title, figname='', save_fig=False):
-    dfs[i]['x']
-    
-
-    fig, axes = plt.subplots(1, len(dfs), sharey = True)
-    colors = ['b', 'g', 'r', 'c', 'm', 'y', 'b', 'g', 'r', 'c', 'm', 'y']
-
-    print '---- Mean and STD and Median for each proportion ---'
-    for q,m in enumerate(props):
-        print labels[q] + ': ' + str(np.mean(m)) + ', ' + str(np.std(m)) + ', ' + str(np.median(m))
-    print '---- MIN and MAX for each proportion ---'
-    for q,m in enumerate(props):
-        print labels[q] + ': ' + str(np.min(m)) + ', ' + str(np.max(m))
-    print '---- Sig Test, PLUMES v other ----'
-    for q,m in enumerate(props):
-        print labels[q] + ' v PLUMES: ' + str(stats.ttest_ind(props[0],m, equal_var=False))
-    print '---- Convergence % ----'
-    for q,m in enumerate(props):
-        count = 0
-        for pro in m:
-            if pro >= 0.10:
-                count += 1
-        print labels[q] + ': ' + str(float(count)/len(m))
-
-    for i in range(0, len(dfs)):
-        if title == '200$m$ Budget Y Samples':
-            axes[i].hist(dfs[i]['YDistance'].values, bins = np.linspace(min(dfs[0]['YDistance'].values), max(dfs[0]['YDistance'].values), np.floor(max(dfs[0]['YDistance'].values)-min(dfs[0]['YDistance'].values))), color = colors[i])
-            axes[i].set_title(labels[i])
-        elif title == '200$m$ Budget X Samples':
-            axes[i].hist(dfs[i]['Distance'].values, bins = np.linspace(min(dfs[0]['Distance'].values), max(dfs[0]['Distance'].values), np.floor(max(dfs[0]['Distance'].values)-min(dfs[0]['Distance'].values))), color = colors[i])
-            axes[i].set_title(labels[i])
-        else:
-            axes[i].hist(dfs[i]['Distance'].values, bins = np.linspace(min(dfs[0]['Distance'].values), max(dfs[0]['Distance'].values), np.floor(max(dfs[0]['Distance'].values)-min(dfs[0]['Distance'].values))), color = colors[i])
-            axes[i].set_title(labels[i])
-
-    axes[0].set_ylabel('Count')
-    # axes[].set_xlabel('Distance ($m$) from Global Maximizer')
-    plt.suptitle(title+': Distance ($m$) from Global Maximizer', va='bottom')
-
-    if save_fig == True:
-        plt.savefig(figname+'_agg_samples.png')
-
-    fig = plt.figure()
-    plt.boxplot(props, meanline=True, showmeans=True, labels=labels)
-    # plt.ylim((0.,1.))
-
-    # plt.bar(np.arange(len(dfs)), [np.mean(m) for m in props], yerr = np.array(yerr).T, color = colors[0:len(props)])#yerr=[np.std(m) for m in props], color=colors[0:len(props)])
-    plt.ylabel('Proportion of Samples')
-    # plt.title(title+': Proportion of Samples within $1.5m$ of Global Maximizer', fontsize=32)
-
-    if save_fig == True:
-        plt.savefig(figname+'_prop_samples.png')
-
-def planning_iteration_plots(dfs, labels, param, title, end_time=149, d=20, plot_confidence=False, save_fig=False, fname=''):
-    fig = plt.figure()
-    colors = ['b', 'g', 'r', 'c', 'm', 'y', 'b', 'g', 'r', 'c', 'm', 'y']
-    for k,df in enumerate(dfs):
-        temp = [0 for m in range(end_time)]
-        temp_v = []
-
-        for i in range(d-1):
-            stemp = []
-            for j in range(end_time):
-                stemp.append((df[df.time == j][param].values[i]))
-            temp = [m+n for m,n in zip(temp, stemp)]
-            temp_v.append(stemp)
-
-        vtemp = []
-        for i in range(end_time):
-            temp1 = []
-            for m in temp_v:
-                temp1.append(m[i])
-            vtemp.append(np.std(temp1))
-
-        plt.plot([l/d for l in temp], colors[k], label=labels[k])
-        if plot_confidence:
-            x = [i for i in range(end_time)]
-            y1 = [l/d + m for l,m in zip(temp,vtemp)]
-            y2 = [l/d - m for l,m in zip(temp,vtemp)]
-            plt.fill_between(x, y1, y2, color=colors[k], alpha=0.2)
-
-    plt.legend(fontsize=30)
-    plt.xlabel("Planning Iteration")
-    plt.ylabel(param)
-    
-    if save_fig:
-        plt.savefig(fname)
-    plt.title(title)
-
-def make_dist_dfs(data_dfs, sample_dfs, column_names, max_loc, max_val, ythresh = 2.50, xthresh=1.5, dist_lim=150.0):
-    all_dist = pd.DataFrame()
-    all_samps = pd.DataFrame()
-    all_props = []
-    all_propsy = []
-    all_statsids = []
-    for f,g,m,v in zip(data_dfs, sample_dfs, max_loc, max_val):
-        temp_df = make_df([f], column_names)
-
-        # Make samples df
-        temp_sdf, temp_prop, temp_propy = make_samples_df(file_names = [g], column_names = ['x','y','z'], max_loc = [m], max_val = [v],  xthresh = xthresh, ythresh = ythresh)
-
-        dtemp, dstemp, dprop, dpropy, stats_id = truncate_by_distance(temp_df, temp_sdf, dist_lim = dist_lim, xthresh = xthresh, ythresh = ythresh)
-        all_dist = all_dist.append(dtemp)
-        all_samps = all_samps.append(dstemp)
-        all_props.append(float(dprop))
-        all_propsy.append(float(dpropy))
-        all_statsids.append(stats_id)
-
-    return all_dist, all_samps, all_props, all_propsy, all_statsids
-
-
-'''
-def truncate_by_distance(df, sample_df, dist_lim=250.0, xthresh=1.5, ythresh = 2.50):
-
-    temp_df = df[df['distance'] < dist_lim]
-    last_samp_x = temp_df['robot_loc_x'].values[-1]
-    last_samp_y = temp_df['robot_loc_y'].values[-1]
-
-    stats_id = temp_df.index[-1]
-
-    temp_sidx = sample_df[np.isclose(sample_df['x'], last_samp_x)& \
-                          np.isclose(sample_df['y'], last_samp_y)].index
-
-    print temp_sidx
-
-
-    candidates = []
-    if len(temp_sidx) == 1:
-        candidates = temp_sidx
-    else:
-        for i in temp_sidx:
-            dist = 0
-            disty = 0
-            last = 0
-            for j in range(1, i):
-                dist += np.sqrt((sample_df['x'].values[last]-sample_df['x'].values[j])**2 + (sample_df['y'].values[last]-sample_df['y'].values[j])**2)
-                last = j
-                print "Dist:", dist, "Lim:", dist_lim
-            if dist <= dist_lim:
-                candidates.append(i)
-    idx = candidates[-1]
-    temp_sdf = sample_df[sample_df.index<idx]
-
-    prop = float(len(temp_sdf[temp_sdf.Distance < xthresh]))/len(temp_sdf)
-    propy = float(len(temp_sdf[temp_sdf.YDistance < ythresh]))/len(temp_sdf)
-    return temp_df, temp_sdf, prop, propy, stats_id
-'''
-
-def truncate_by_distance(df, sample_df, dist_lim=250.0, xthresh=1.5, ythresh = 2.50):
-
-    temp_sidx = sample_df[np.isclose(sample_df['x'], last_samp_x)& \
-                          np.isclose(sample_df['y'], last_samp_y)].index
-    candidates = []
-    for i in temp_sidx:
-        print i
-        dist = 0
-        disty = 0
-        last = 0
-        for j in range(1, i):
-            dist += np.sqrt((sample_df['x'].values[last]-sample_df['x'].values[j])**2 + (sample_df['y'].values[last]-sample_df['y'].values[j])**2)
-            last = j
-            print "Dist:", dist, "Lim:", dist_lim
-        if dist <= dist_lim:
-            candidates.append(i)
-    idx = candidates[-1]
-    temp_sdf = sample_df[sample_df.index < idx]
-
-    prop = float(len(temp_sdf[temp_sdf.Distance < xthresh]))/len(temp_sdf)
-    propy = float(len(temp_sdf[temp_sdf.YDistance < ythresh]))/len(temp_sdf)
-    return temp_df, temp_sdf, prop, propy, stats_id
-
-def generate_dist_stats(dfs, labels, params, ids, fname='stats.txt'):
-    f = open(fname, 'a')
-    for p in params:
-        f.write('-------\n')
-        f.write(str(p) + '\n')
-        for df,label,idx in zip(dfs, labels,ids):
-            df_end = []
-            temp_df = df[p].values
-            for j,i in enumerate(idx):
-                df_end.append(temp_df[i])
-                temp_df = temp_df[i+1:]
-            f.write(label + ' ' + str(np.mean(df_end)) + ', ' + str(np.std(df_end)) + '\n')
-    f.close()
-
-def distance_iteration_plots(dfs, trunids, labels, param, title, dist_lim=150., granularity=300, averager=20, plot_confidence=False, save_fig=False, fname=''):
-    fig = plt.figure()
-    colors = ['b', 'g', 'r', 'c', 'm', 'y', 'b', 'g', 'r', 'c', 'm', 'y']
-    interp_granularity = float(dist_lim/granularity) #uniform distance measures on which to interpolate the data for averaging
-    
-    # set interpolation params
-    dist_markers = {'distance':[], 'misc':[]}
-    for i in range(granularity+1):
-        dist_markers['distance'].append(i*interp_granularity)
-        dist_markers['misc'].append(0)
-    interp = pd.DataFrame.from_dict(dist_markers)
-    interp = interp.set_index('distance')
-
-    info = []
-    info2 = []
-    # iterate through each seed group
-    for df,group_sidx in zip(dfs,trunids):
-        extracted = []
-        averaged = {}
-        average = {}
-        errd = {}
-        df2 = copy.copy(df)
-        # seperate out the individual seed
-        for ids in group_sidx:
-            temp = None
-            extracted_temp = None
-            d = df2[0:ids]
-            # extract stuff we care about
-            temp = pd.concat([d['distance'], d[param]],axis=1,keys=['distance',param])
-            temp = temp.set_index('distance')
-            temp = temp.append(interp)
-            temp = temp.sort_index()
-            # interpolate over standard index so that we can do averaging and standard deviation
-            temp = temp.interpolate('index')
-            extract_temp = temp.loc[dist_markers['distance']]
-            extracted.append(extract_temp)
-            df2 = df2[ids+1:]
-        # walk through the interpolation index and find the average and error for each seed at those points
-        for dist in dist_markers['distance']:
-            average[dist] = []
-            for zz,e in enumerate(extracted):
-                average[dist].append(e.loc[dist][param])
-            avge = np.mean(average[dist])
-            stde = np.std(average[dist])
-            averaged[dist] = avge
-            errd[dist] = stde
-        # log the stats for the seed
-        info.append(averaged)
-        info2.append(errd)
-
-    # plot results
-    k = 0
-    for m,n in zip(info,info2):
-        m_ordered = sorted(m)
-        m_vals = [m[v] for v in m_ordered]
-        m_errs = [n[v] for v in m_ordered]
-        plt.plot(m_ordered, m_vals, color=colors[k], label=labels[k])
-
-        if plot_confidence==True:
-            y1 = [l + f for l,f in zip(m_vals,m_errs)]
-            y2 = [l - f for l,f in zip(m_vals,m_errs)]
-            plt.fill_between(m_ordered, y1, y2, color=colors[k], alpha=0.2)
-        k += 1
-
-
-    plt.legend(fontsize=30)
-    plt.xlabel("Distance($m$) Travelled")
-    plt.ylabel(param)
-
-
-    if save_fig:
-        plt.savefig(fname)
-    plt.title(title)
-
+from analysis_utils import *
 
 ######### MAIN LOOP ###########
 if __name__ == '__main__':
-    seed_numbers = range(5100, 10000, 100)
-    # seed_numbers.remove(1300)
-    # seed_numbers.remove(1500)
+    # seed_numbers = range(5100, 10000, 100)
+    seed_numbers = range(5100, 5500, 100)
     # seed_numbers.remove(5300)
     print len(seed_numbers)
     # seed_numbers = [0, 100, 200, 400, 500, 700, 800, 900, 1000, 1200, 1300, 1400, 1600, 1700, 1800, 1900]
     seeds = ['seed'+ str(x) + '-' for x in seed_numbers]
 
-    SUFFIX  = 'FREE'
+    SUFFIX  = 'CLUTTERED' # FREE or CLUTTERED
     if SUFFIX == 'FREE':
         fileparams = ['pathsetdubins-nonmyopicTrue-treedpw-' + SUFFIX,
-                    # 'pathsetdubins-nonmyopicTrue-treebelief-' + SUFFIX,
-                    # 'pathsetdubins-nonmyopicFalse-' + SUFFIX,
+                     'pathsetdubins-nonmyopicTrue-treebelief-' + SUFFIX,
+                     'pathsetdubins-nonmyopicFalse-' + SUFFIX,
                     'lawnmower']
 
-        # trials = ['mes', 'mean', 'mean', '']
-        # labels = ['PLUMES', 'UCB-MCTS', 'UCB-MYOPIC', 'LAWNMOWER']
-        trials = ['mes',  '']
-        labels = ['PLUMES', 'LAWNMOWER']
+        trials = ['mes', 'mean', 'mean', '']
+        labels = ['PLUMES', 'UCB-MCTS', 'UCB-MYOPIC', 'BOUSTRO.']
     else:
         fileparams = ['pathsetdubins-nonmyopicTrue-treedpw-' + SUFFIX,
                     'pathsetdubins-nonmyopicTrue-treebelief-' + SUFFIX,
@@ -401,6 +65,12 @@ if __name__ == '__main__':
     dist_props = []
     dist_propsy = []
     dist_ids = []
+    dist_err_x = []
+    dist_err_z = []
+    dist_dist_x = []
+    dist_dist_z = []
+    dist_entropy_x = []
+    dist_entropy_z = []
 
     max_val = []
     max_loc = []
@@ -416,7 +86,7 @@ if __name__ == '__main__':
         print "Adding for:", param, label, trial
         for root, dirs, files in os.walk(path):
             for name in files:
-                if 'metrics' in name and trial in root and param in root and SUFFIX in root:
+                if 'metrics' in name and 'star' not in name and trial in root and param in root and SUFFIX in root:
                    for s in seeds:
                        if s in root:
                            values.append(root+"/"+name)
@@ -450,7 +120,6 @@ if __name__ == '__main__':
                             except:
                                 max_loc.append((float(ls[0].split(" ")[6].split("[")[1]), float(ls[0].split(" ")[7].split("]")[0])))
        
-    
         if 'dpw' in param:
             old_values = copy.copy(values)
         
@@ -460,23 +129,34 @@ if __name__ == '__main__':
         data = make_df(values, column_names)
         all_dfs.append(data)
 
-        # def make_samples_df(file_names, column_names, max_loc, max_val, xthresh=1.5, ythresh = 2.50):
-        sdata, prop, propy = make_samples_df(samples, ['x', 'y', 'z'], max_loc = max_loc, max_val = max_val, xthresh = 1.5, ythresh = 3.0)
+        sdata, prop, propy, err_x, err_z, dist_x, dist_z, ent_x, ent_z = make_samples_df(samples, ['x', 'y', 'z'], max_loc = max_loc, max_val = max_val, xthresh = 1.5, ythresh = 3.0)
         all_sample_dfs.append(sdata)
         all_props.append(prop)
         all_propsy.append(propy)
         all_labels.append(label)
 
-        dist_data, dist_sdata, d_props, d_propsy, ids = make_dist_dfs(values, samples, column_names, max_loc, max_val, ythresh = 3.0, xthresh = 1.5, dist_lim = 200.0)
+        if 'lawnmower' in param:
+            dist_data, dist_sdata, d_props, d_propsy, ids, d_err_x, d_err_z, d_dist_x, d_dist_z, d_hx, d_hz = make_dist_dfs(values, samples, column_names, max_loc, max_val, ythresh = 3.0, xthresh = 1.5, dist_lim = 200.0, lawnmower = True)
+        else:
+            dist_data, dist_sdata, d_props, d_propsy, ids, d_err_x, d_err_z, d_dist_x, d_dist_z, d_hx, d_hz = make_dist_dfs(values, samples, column_names, max_loc, max_val, ythresh = 3.0, xthresh = 1.5, dist_lim = 200.0)
+
+        dist_dist_x.append(d_dist_x)
+        dist_dist_z.append(d_dist_z)
+        dist_entropy_x.append(d_hx)
+        dist_entropy_z.append(d_hz)
+
         dist_dfs.append(dist_data)
         dist_samples_dfs.append(dist_sdata)
         dist_props.append(d_props)
         dist_propsy.append(d_propsy)
         dist_ids.append(ids)
+        dist_err_x.append(d_err_x)
+        dist_err_z.append(d_err_z)
 
 
     if SUFFIX == 'FREE':
-        all_labels = ['PLUMES', 'UCB-MCTS', 'UCB-MYOPIC', 'LAWNMOWER']#['frpd', 'frgd', 'frgo', 'frpo', 'my', 'plumes']
+        all_labels = ['PLUMES', 'UCB-MCTS', 'UCB-MYOPIC', 'BOUSTRO.']#['frpd', 'frgd', 'frgo', 'frpo', 'my', 'plumes']
+        # all_labels = ['PLUMES', 'LAWNMOWER']#['frpd', 'frgd', 'frgo', 'frpo', 'my', 'plumes']
     else:
         all_labels = ['PLUMES', 'UCB-MCTS', 'UCB-MYOPIC']#['frpd', 'frgd', 'frgo', 'frpo', 'my', 'plumes']
 
@@ -484,8 +164,18 @@ if __name__ == '__main__':
     generate_dist_stats(dist_dfs, all_labels, ['distance', 'MSE', 'max_loc_error', 'max_val_error', 'max_value_info', 'info_regret'], dist_ids, file_start + '_dist_stats.txt')
 
     # generate_histograms(all_sample_dfs, all_props, all_labels, title='All Iterations', figname=file_start, save_fig=False)
+
     generate_histograms(dist_samples_dfs, dist_props, all_labels, title='200$m$ Budget X Samples', figname=file_start, save_fig=False)
     generate_histograms(dist_samples_dfs, dist_propsy, all_labels, title='200$m$ Budget Y Samples', figname=file_start, save_fig=False)
+
+    generate_histograms(dist_samples_dfs, dist_err_x, all_labels, title='200$m$ Budget X Error', figname=file_start, save_fig=False, ONLY_STATS = True)
+    generate_histograms(dist_samples_dfs, dist_err_z, all_labels, title='200$m$ Budget Z Error', figname=file_start, save_fig=False, ONLY_STATS = True)
+
+    generate_histograms(dist_samples_dfs, dist_dist_x, all_labels, title='200$m$ Budget X Star Dist', figname=file_start, save_fig=False, ONLY_STATS = True)
+    generate_histograms(dist_samples_dfs, dist_dist_z, all_labels, title='200$m$ Budget Z Star Dist', figname=file_start, save_fig=False, ONLY_STATS = True)
+
+    generate_histograms(dist_samples_dfs, dist_entropy_x, all_labels, title='200$m$ Budget X Star Entropy', figname=file_start, save_fig=False, ONLY_STATS = True)
+    generate_histograms(dist_samples_dfs, dist_entropy_z, all_labels, title='200$m$ Budget Z Star Entropy', figname=file_start, save_fig=False, ONLY_STATS = True)
 
     # # def planning_iteration_plots(dfs, labels, param, title, end_time=149, d=20, plot_confidence=False, save_fig=False, fname='')
     # planning_iteration_plots(all_dfs, all_labels, 'MSE', 'Averaged MSE', 149, len(seeds), True, False, file_start+'_avg_mse.png')

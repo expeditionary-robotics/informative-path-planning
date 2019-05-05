@@ -152,6 +152,8 @@ class Robot(object):
 
         self.obstacle_world = obstacle_world
 
+        self.visualize_world_model(screen = False, filename = 'FINAL')
+
     def choose_trajectory(self, t):
         ''' Select the best trajectory avaliable to the robot at the current pose, according to the aquisition function.
         Input: 
@@ -303,7 +305,7 @@ class Robot(object):
                 self.visualize_trajectory(screen = False, filename = t, best_path = sampling_path, 
                         maxes = self.max_locs, all_paths = all_paths, all_vals = all_values)            
 
-                self.visualize_reward(screen = True, filename = 'REWARD.' + str(t), t = t)
+                # self.visualize_reward(screen = True, filename = 'REWARD.' + str(t), t = t)
 
             # Update the robot's current location
             self.loc = sampling_path[-1]
@@ -335,19 +337,23 @@ class Robot(object):
         ax.set_xlim(self.ranges[0:2])
         ax.set_ylim(self.ranges[2:])
         if self.MAX_COLOR is not None and self.MIN_COLOR is not None:
-            plot = ax.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = self.MIN_COLOR, vmax = self.MAX_COLOR, levels=np.linspace(self.MIN_COLOR, self.MAX_COLOR, 25))
+            plot = ax.contourf(x1, x2, observations.reshape(x1.shape), 25, cmap = 'viridis', vmin = self.MIN_COLOR, vmax = self.MAX_COLOR)
+            if self.GP.xvals is not None:
+                scatter = ax.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c='k', s = 20.0, cmap = 'viridis', vmin = self.MIN_COLOR, vmax = self.MAX_COLOR)
         else: 
             plot = ax.contourf(x1, x2, observations.reshape(x1.shape), 25, cmap = 'viridis')
+            if self.GP.xvals is not None:
+                scatter = ax.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c='k', s = 20.0, cmap = 'viridis')                
 
-        if self.GP.xvals is not None:
-            scatter = ax.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c='k', s = 20.0, cmap = 'viridis')                
         color = iter(plt.cm.cool(np.linspace(0,1,len(self.trajectory))))
        
         # Plot the current trajectory
-        for i, path in enumerate(self.trajectory):
-            c = next(color)
-            f = np.array(path)
-            plt.plot(f[:,0], f[:,1], c=c)
+        '''
+        if self.trajectory is not None:
+            for i, path in enumerate(self.trajectory):
+                c = next(color)
+                f = np.array(path)
+                plt.plot(f[:,0], f[:,1], c=c)
 
         # If available, plot the current set of options available to robot, colored
         # by their value (red: low, yellow: high)
@@ -366,6 +372,7 @@ class Robot(object):
         if best_path is not None:
             f = np.array(best_path)
             plt.plot(f[:,0], f[:,1], c = 'g')
+        '''
            
         # If available, plot the current location of the maxes for mes
         if maxes is not None:
@@ -459,19 +466,23 @@ class Robot(object):
         ax2.set_ylim(self.ranges[2:])        
         ax2.set_title('Countour Plot of the Robot\'s World Model')     
         if self.MAX_COLOR is not None and self.MIN_COLOR is not None:
-            plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = self.MIN_COLOR, vmax = self.MAX_COLOR, levels=np.linspace(self.MIN_COLOR, self.MAX_COLOR, 25))
+            # plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = self.MIN_COLOR, vmax = self.MAX_COLOR, levels=np.linspace(self.MIN_COLOR, self.MAX_COLOR, 25))
+            plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), 25, cmap = 'viridis', vmin = self.MIN_COLOR, vmax = self.MAX_COLOR)
+            if self.GP.xvals is not None:
+                # scatter = ax2.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c=self.GP.zvals.ravel(), s = 10.0, cmap = 'viridis', vmin = self.MIN_COLOR, vmax = self.MAX_COLOR)        
+                scatter = ax2.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c='k', s = 10.0)        
         else:
             plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), 25, cmap = 'viridis')
+            if self.GP.xvals is not None:
+                scatter = ax2.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c=self.GP.zvals.ravel(), s = 10.0, cmap = 'viridis')        
 
         # Plot the samples taken by the robot
-        if self.GP.xvals is not None:
-            scatter = ax2.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c=self.GP.zvals.ravel(), s = 10.0, cmap = 'viridis')        
         if screen:
             plt.show()           
         else:
             if not os.path.exists('./figures/' + str(self.f_rew)):
                 os.makedirs('./figures/' + str(self.f_rew))
-            fig.savefig('./figures/' + str(self.f_rew)+ '/world_model.' + str(filename) + '.png')
+            fig2.savefig('./figures/' + str(self.f_rew)+ '/world_model.' + str(filename) + '.png')
             plt.close()
     
     def plot_information(self):

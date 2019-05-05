@@ -65,27 +65,48 @@ class Environment:
         if model is not None:
             self.GP = model
 
-            maxind = np.argmax(self.GP.zvals)
-            self.max_val = self.GP.zvals[maxind, :]
-            self.max_loc = self.GP.xvals[maxind, :]
-                
+            # maxind = np.argmax(self.GP.zvals)
+            # self.max_val = self.GP.zvals[maxind, :]
+            # self.max_loc = self.GP.xvals[maxind, :]
+
             # Plot the surface mesh and scatter plot representation of the samples points
             if visualize == True:   
                 # Generate a set of observations from robot model with which to make contour plots
-                x1vals = np.linspace(ranges[0], ranges[1], 40)
-                x2vals = np.linspace(ranges[2], ranges[3], 40)
-                x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
+                # x1vals = np.linspace(ranges[0], ranges[1], 100)
+                # x2vals = np.linspace(ranges[2], ranges[3], 100)
+                x1vals = np.arange(ranges[0], ranges[1], (ranges[1] - ranges[0]) / NUM_PTS)
+                x2vals = np.arange(ranges[2], ranges[3], (ranges[3] - ranges[2]) / NUM_PTS)
+
+                print self.GP.xvals
+                
+                x1, x2 = np.meshgrid(x1vals, x2vals) # dimension: NUM_PTS x NUM_PTS       
+                print x1.shape, x2.shape
+                print x1
+                print x2
                 data = np.vstack([x1.ravel(), x2.ravel()]).T
                 observations, var = self.GP.predict_value(data, include_noise = False)        
+
+                maxind = np.argmax(observations)
+                self.max_val = observations[maxind, :]
+                self.max_loc = data[maxind, :]
+                
                 
                 fig2, ax2 = plt.subplots(figsize=(8, 6))
                 ax2.set_xlim(ranges[0:2])
                 ax2.set_ylim(ranges[2:])        
                 ax2.set_title('Countour Plot of the True World Model')     
                 if MAX_COLOR is not None and MIN_COLOR is not None:
-                    plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), 25, cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR)
+                    MAX_COLOR = np.percentile(observations, 99)
+                    MIN_COLOR = np.percentile(observations, 1)
                 else:
                     plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), 25, cmap = 'viridis')
+                    # scatter = ax2.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c = self.GP.zvals.ravel(), s = 4.0, cmap = 'viridis')
+
+                # print "Maxima at:", self.GP.xvals[maxind, 0], self.GP.xvals[maxind,1]
+                # ax2.scatter(self.GP.xvals[maxind, 0], self.GP.xvals[maxind,1], color = 'k', marker = '*', s = 500)
+
+                print "Maxima at:", data[maxind, 0], data[maxind,1]
+                ax2.scatter(data[maxind, 0], data[maxind,1], color = 'k', marker = '*', s = 500)
 
                 # scatter = ax2.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c = self.GP.zvals.ravel(), s = 4.0, cmap = 'viridis')
                 print "Maxima at:", self.GP.xvals[maxind, 0], self.GP.xvals[maxind,1]
