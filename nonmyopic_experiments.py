@@ -86,7 +86,7 @@ else:
     # LEN = 5.0
     # NOISE = 0.1
     VAR = 100.0
-    LEN = 0.8
+    LEN = 1.0
     NOISE = 1.0
 
 world = envlib.Environment(ranges = ranges,

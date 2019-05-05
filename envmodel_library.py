@@ -83,14 +83,14 @@ class Environment:
                 ax2.set_ylim(ranges[2:])        
                 ax2.set_title('Countour Plot of the True World Model')     
                 if MAX_COLOR is not None and MIN_COLOR is not None:
-                    plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR, levels=np.linspace(MIN_COLOR, MAX_COLOR, 25))
+                    plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), 25, cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR)
                 else:
                     plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), 25, cmap = 'viridis')
 
-                scatter = ax2.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c = self.GP.zvals.ravel(), s = 4.0, cmap = 'viridis')
+                # scatter = ax2.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c = self.GP.zvals.ravel(), s = 4.0, cmap = 'viridis')
                 print "Maxima at:", self.GP.xvals[maxind, 0], self.GP.xvals[maxind,1]
                 ax2.scatter(self.GP.xvals[maxind, 0], self.GP.xvals[maxind,1], color = 'k', marker = '*', s = 500)
-                fig2.colorbar(plot, ax=ax2)
+                # fig2.colorbar(plot, ax=ax2)
 
                 if not os.path.exists('./figures'):
                     os.makedirs('./figures')
@@ -179,14 +179,14 @@ class Environment:
                     ax2 = fig2.add_subplot(111)
                     ax2.set_title('Countour Plot of the Chemical Environment')     
                     if MAX_COLOR is not None and MIN_COLOR is not None:
-                        plot = ax2.contourf(x1vals, x2vals, self.GP.zvals.reshape(x1vals.shape), cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR, levels=np.linspace(MIN_COLOR, MAX_COLOR, 25))
+                        plot = ax2.contourf(x1vals, x2vals, self.GP.zvals.reshape(x1vals.shape), 25, cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR)
                     else: 
                         plot = ax2.contourf(x1vals, x2vals, self.GP.zvals.reshape(x1vals.shape), 25, cmap = 'viridis')
 
-                    scatter = ax2.scatter(data[:, 0], data[:, 1], c = self.GP.zvals.ravel(), s = 4.0, cmap = 'viridis')
+                    # scatter = ax2.scatter(data[:, 0], data[:, 1], c = self.GP.zvals.ravel(), s = 4.0, cmap = 'viridis')
                     maxind = np.argmax(self.GP.zvals)
                     ax2.scatter(self.GP.xvals[maxind, 0], self.GP.xvals[maxind,1], color = 'k', marker = '*', s = 500)
-                    fig2.colorbar(plot, ax=ax2)
+                    # fig2.colorbar(plot, ax=ax2)
 
                     # If available, plot the obstacles in the world
                     if len(self.obstacle_world.get_obstacles()) != 0:
