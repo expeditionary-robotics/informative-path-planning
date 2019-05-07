@@ -427,7 +427,6 @@ class Robot(object):
         x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
         data = np.vstack([x1.ravel(), x2.ravel()]).T
         print "Etnering visualize reward"
-        print data.shape
 
         if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
             param = (self.max_val, self.max_locs, self.target)
@@ -437,9 +436,7 @@ class Robot(object):
             else:
                 param = self.maxes
         elif self.f_rew == "naive" or self.f_rew == "naive_value":
-            param = (self.sample_num, self.sample_radius)
-            param = (aqlib.sample_max_vals(self.GP, t=t, obstacles=self.obstacle_world, visualize=True, f_rew=self.f_rew, nK=int(self.sample_num)), self.sample_radius)
-
+            param = ((self.max_val, self.max_locs, self.target), self.sample_radius)
         else:
             param = None
 
@@ -449,7 +446,6 @@ class Robot(object):
         '''
         
         reward = self.aquisition_function(time = t, xvals = data, robot_model = self.GP, param = param, FVECTOR = True)
-        print "Shape reward:", reward.shape
         
         fig2, ax2 = plt.subplots(figsize=(8, 8))
         ax2.set_xlim(self.ranges[0:2])

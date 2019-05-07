@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-if [ ! -d test_experiments ]; then
-mkdir test_experiments
+if [ ! -d naive_experiments ]; then
+mkdir naive_experiments
 fi
 
-pushd test_experiments
+pushd naive_experiments
     for seed in {0..10000..100}
     do
         for pathset in dubins
@@ -14,9 +14,9 @@ pushd test_experiments
                 do
                     for nonmyopic in True #False 
                     do
-                        for reward_func in naive naive_value mes #mean 
+                        for reward_func in naive naive_value #mes #mean 
                         do
-                          for tree_type in dpw belief
+                          for tree_type in dpw #belief
                           do
                               echo sim_seed${seed}-pathset${pathset}-nonmyopic${nonmyopic}-tree${tree_type}
                               # Dont want to run either cost or goal only

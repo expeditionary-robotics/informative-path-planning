@@ -654,7 +654,8 @@ class cMCTS(MCTS):
         elif self.f_rew == 'exp_improve':
             param = [self.current_max]
         elif self.f_rew == 'naive' or self.f_rew == 'naive_value':
-            param = (sample_max_vals(self.GP, t=t, nK=int(self.aq_param[0]), visualize=True, f_rew=self.f_rew), self.aq_param[1])
+            self.max_val, self.max_locs, self.target  = sample_max_vals(self.GP, t=t, nK=int(self.aq_param[0]), visualize=True, f_rew=self.f_rew)
+            param = ((self.max_val, self.max_locs, self.target), self.aq_param[1])
         else:
             param = None
 

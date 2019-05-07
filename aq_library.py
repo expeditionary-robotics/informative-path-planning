@@ -302,7 +302,10 @@ def naive(time, xvals, robot_model, param, FVECTOR = False):
 
     _, max_locs, _ = param[0]
     if max_locs is None:
-        return 0.0
+        if FVECTOR:
+            return np.zeros((xvals.shape[0], 1))
+        else:
+            return 0.0
 
     data = np.array(xvals)
     x1 = data[:, 0]
@@ -314,8 +317,6 @@ def naive(time, xvals, robot_model, param, FVECTOR = False):
     for i in xrange(max_locs.shape[0]):
         d = np.sqrt(np.square(x1-max_locs[i][0]) + np.square(x2-max_locs[i][1]))
         count = d <= param[1]
-        # print count.shape
-        # pdb.set_trace()
         f += count.astype(float).reshape(f.shape)
     f = f / max_locs.shape[0]
 
@@ -330,7 +331,10 @@ def naive_value(time, xvals, robot_model, param, FVECTOR = False):
 
     max_vals, _, _ = param[0]
     if max_vals is None:
-        return 0.0
+        if FVECTOR:
+            return np.zeros((xvals.shape[0], 1))
+        else:
+            return 0.0
 
     data = np.array(xvals)
     x1 = data[:, 0]
@@ -343,8 +347,8 @@ def naive_value(time, xvals, robot_model, param, FVECTOR = False):
         #simple value distance check between the query point and the maximum
         mean, var = robot_model.predict_value(queries)
         diff = np.fabs(mean - max_vals[i][0])
-        count = np.where(diff <= param[1])
-        f += count 
+        count = diff <= param[1]
+        f += count.astype(float).reshape(f.shape)
 
     f = f / max_vals.shape[0]
     # f is an np array; return scalar value
