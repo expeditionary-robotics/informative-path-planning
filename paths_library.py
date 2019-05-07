@@ -44,6 +44,8 @@ class Path_Generator:
     def generate_frontier_points(self):
         '''From the frontier_size and horizon_length, generate the frontier points to goal'''
         angle = np.linspace(-2.35,2.35,self.fs) #fix the possibilities to 75% of the unit circle, ignoring points directly behind the vehicle
+        # angle = np.linspace(-1.20,1.20,self.fs) #fix the possibilities to 75% of the unit circle, ignoring points directly behind the vehicle
+        # angle = np.linspace(-2.00,2.00,self.fs) #fix the possibilities to 75% of the unit circle, ignoring points directly behind the vehicle
         goals = []
         for a in angle:
             x = self.hl*np.cos(self.cp[2]+a)+self.cp[0]

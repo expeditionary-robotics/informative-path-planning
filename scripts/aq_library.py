@@ -72,18 +72,13 @@ def info_gain(time, xvals, robot_model, param=None):
     #assert(entropy_after - entropy_before - entropy_const > 0)
     return entropy_total - entropy_const
 
-def mean_UCB(time, xvals, robot_model, param=None, FVECTOR = False):
+    
+def mean_UCB(time, xvals, robot_model, param=None):
     ''' Computes the UCB for a set of points along a trajectory '''
     data = np.array(xvals)
     x1 = data[:,0]
     x2 = data[:,1]
     queries = np.vstack([x1, x2]).T   
-    
-    if robot_model.xvals is None:
-        if FVECTOR:
-            return np.ones((data.shape[0], 1))
-        else:
-            return 1.0
                               
     # The GPy interface can predict mean and variance at an array of points; this will be an overestimate
     mu, var = robot_model.predict_value(queries)
@@ -97,12 +92,9 @@ def mean_UCB(time, xvals, robot_model, param=None, FVECTOR = False):
     pit = np.pi**2 * (time + 1)**2 / 6.
     beta_t = 2 * np.log(d * pit / delta)
 
-    if FVECTOR:
-        return mu + np.sqrt(beta_t) * np.fabs(var)
-    else:
-        return np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
+    return np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
 
-    
+
 def hotspot_info_UCB(time, xvals, robot_model, param=None):
     ''' The reward information gathered plus the estimated exploitation value gathered'''
     data = np.array(xvals)
@@ -120,8 +112,55 @@ def hotspot_info_UCB(time, xvals, robot_model, param=None):
 
     return info_gain(time, xvals, robot_model) + LAMBDA * np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
 
+def naive(time, xvals, robot_model, param):
+    ''' The naive reward function for the MSS problem where param is number of samples to draw and range for reward'''
 
-def sample_max_vals(robot_model, t, nK = 20, nFeatures = 200, visualize = False, obstacles=obslib.FreeWorld(), f_rew='mes'):
+    _, max_locs, _ = param[0]
+    if max_locs is None:
+        return 0.0
+
+    data = np.array(xvals)
+    x1 = data[:, 0]
+    x2 = data[:, 1]
+
+    # Initialize f
+    f = 0
+
+    for i in xrange(max_locs.shape[0]):
+        d = np.sqrt(np.square(x1-max_locs[i][0]) + np.square(x2-max_locs[i][1]))
+        count = np.sum(np.where(d <= param[1]))
+        f += (count * 100.)/len(x1)
+    f = f / max_locs.shape[0]
+    # f is an np array; return scalar value
+    return f
+
+def naive_value(time, xvals, robot_model, param):
+    ''' The naive reward function for the MSS problem where param is number of samples to draw and range for reward'''
+
+    max_vals, _, _ = param[0]
+    if max_vals is None:
+        return 0.0
+
+    data = np.array(xvals)
+    x1 = data[:, 0]
+    x2 = data[:, 1]
+    queries = np.vstack([x1, x2]).T
+
+    # Initialize f
+    f = 0
+    for i in xrange(max_vals.shape[0]):
+        #simple value distance check between the query point and the maximum
+        mean, var = robot_model.predict_value(queries)
+        diff = np.fabs(mean - max_vals[i][0])
+        count = np.sum(np.where(diff <= param[1]))
+        f += (count * 100.)/len(x1)
+
+    f = f / max_vals.shape[0]
+    # f is an np array; return scalar value
+    return f
+
+
+def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = False, obstacles=obslib.FreeWorld(), f_rew='mes'):
     ''' The mutual information between a potential set of samples and the local maxima'''
     # If the robot has not samples yet, return a constant value
     if robot_model.xvals is None:
@@ -139,10 +178,9 @@ def sample_max_vals(robot_model, t, nK = 20, nFeatures = 200, visualize = False,
     for i in xrange(nK):
         print "Starting global optimization", i, "of", nK
         logger.info("Starting global optimization {} of {}".format(i, nK))
-
         # Draw the weights for the random features
         # TODO: make sure this formula is correct
-        W = np.random.normal(loc = 0.0, scale = (1./(robot_model.lengthscale)), size = (nFeatures, d))
+        W = np.random.normal(loc = 0.0, scale = np.sqrt(1./(robot_model.lengthscale)), size = (nFeatures, d))
         b = 2 * np.pi * np.random.uniform(low = 0.0, high = 1.0, size = (nFeatures, 1))
         
         # Compute the features for xx
@@ -189,7 +227,6 @@ def sample_max_vals(robot_model, t, nK = 20, nFeatures = 200, visualize = False,
         #def target(x): 
         #    pdb.set_trace()
         #    return np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
-        # target = lambda x: np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
         target = lambda x: np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
         target_vector_n = lambda x: -target(x.reshape(1,2))
         
@@ -198,7 +235,7 @@ def sample_max_vals(robot_model, t, nK = 20, nFeatures = 200, visualize = False,
         #    return np.dot(theta.T * -np.sqrt(2.0 * robot_model.variance / nFeatures), np.sin(np.dot(W, x.reshape((2,1))) + b) * W)
         target_gradient = lambda x: np.dot(theta.T * -np.sqrt(2.0 * robot_model.variance / nFeatures), np.sin(np.dot(W, x.reshape((2,1))) + b) * W)
         target_vector_gradient_n = lambda x: -np.asarray(target_gradient(x).reshape(2,))
-                                                     
+                                                                    
         # Optimize the function
         status = False
         count = 0
@@ -211,11 +248,11 @@ def sample_max_vals(robot_model, t, nK = 20, nFeatures = 200, visualize = False,
             delete_locs.append(i)
             continue
         
-        samples[i] = np.array(max_val).reshape((1,1))
+        samples[i] = max_val
         funcs.append(target)
         print "Max Value in Optimization \t \t", samples[i]
         logger.info("Max Value in Optimization \t {}".format(samples[i]))
-        locs[i, :] = maxima.reshape((1,2))
+        locs[i, :] = maxima
         
         #if max_val < np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise) or \
         #    maxima[0] == robot_model.ranges[0] or maxima[0] == robot_model.ranges[1] or \
@@ -229,7 +266,6 @@ def sample_max_vals(robot_model, t, nK = 20, nFeatures = 200, visualize = False,
             locs[i, :] = robot_model.xvals[np.argmax(robot_model.zvals)]
         '''
 
-    print "Deleting values at:", delete_locs
     samples = np.delete(samples, delete_locs, axis = 0)
     locs = np.delete(locs, delete_locs, axis = 0)
 
@@ -237,22 +273,18 @@ def sample_max_vals(robot_model, t, nK = 20, nFeatures = 200, visualize = False,
     if len(delete_locs) == nK:
         samples[0] = np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise)
         locs[0, :] = robot_model.xvals[np.argmax(robot_model.zvals)]
-  
-
-    print "Returning:", samples.shape, locs.shape
+   
     return samples, locs, funcs
+      
 
-def mves(time, xvals, robot_model, param, FVECTOR = False):
+def mves(time, xvals, robot_model, param):
     ''' Define the Acquisition Function and the Gradient of MES'''
     # Compute the aquisition function value f and garident g at the queried point x using MES, given samples
     # function maxes and a previous set of functino maxes
     maxes = param[0]
     # If no max values are provided, return default value
     if maxes is None:
-        if FVECTOR:
-            return np.ones((xvals.shape[0], 1))
-        else:
-            return 1.0
+        return 1.0
 
     data = np.array(xvals)
     x1 = data[:,0]
@@ -262,11 +294,7 @@ def mves(time, xvals, robot_model, param, FVECTOR = False):
     d = queries.shape[1] # The dimension of the points (should be 2D)     
 
     # Initialize f, g
-    if FVECTOR:
-        f = np.zeros((data.shape[0], 1))
-    else:
-        f = 0
-
+    f = 0
     for i in xrange(maxes.shape[0]):
         # Compute the posterior mean/variance predictions and gradients.
         #[meanVector, varVector, meangrad, vargrad] = mean_var(x, xx, ...
@@ -278,11 +306,10 @@ def mves(time, xvals, robot_model, param, FVECTOR = False):
         pdfgamma = sp.stats.norm.pdf(gamma)
         cdfgamma = sp.stats.norm.cdf(gamma)
         utility = gamma * pdfgamma / (2.0 * cdfgamma) - np.log(cdfgamma)
-        
-        if FVECTOR:
-            f += utility
-        else:
-            f += sum(utility)
+
+        # Alternative formulation, less stable
+        #utility = entropy_of_n(var) - entropy_of_tn(a = None, b = maxes[i], mu = mean, var = var)
+        #utility /= entropy_of_n(var) 
 
         #if np.sum(utility) == 0.000:
         #    pdb.set_trace()
@@ -291,69 +318,52 @@ def mves(time, xvals, robot_model, param, FVECTOR = False):
     # Average f
     f = f / maxes.shape[0]
     # f is an np array; return scalar value
-    if FVECTOR:
-        return f # TODO: make this better! Dummy retrun
-    else:
-        # f is an np array; return scalar value
-        return f[0]
+    return f[0]
 
-def naive(time, xvals, robot_model, param, FVECTOR = False):
-    ''' The naive reward function for the MSS problem where param is number of samples to draw and range for reward'''
+'''
+def mves_maximal_set(time, xvals, robot_model, param):
+    #Define the Acquisition Function for maximal-set information gain param is tuple (maxima, target)
+    max_vals = param[0]
+    max_locs = param[1]
+    target = param[2]
 
-    _, max_locs, _ = param[0]
-    if max_locs is None:
-        return 0.0
-
-    data = np.array(xvals)
-    x1 = data[:, 0]
-    x2 = data[:, 1]
-
-    # Initialize f
-    f = np.zeros((xvals.shape[0], 1))
-
-    for i in xrange(max_locs.shape[0]):
-        d = np.sqrt(np.square(x1-max_locs[i][0]) + np.square(x2-max_locs[i][1]))
-        count = d <= param[1]
-        # print count.shape
-        # pdb.set_trace()
-        f += count.astype(float).reshape(f.shape)
-    f = f / max_locs.shape[0]
-
-    if FVECTOR:
-        return f # TODO: make this better! Dummy retrun
-    else:
-        # f is an np array; return scalar value
-        return np.sum(f)
-
-def naive_value(time, xvals, robot_model, param, FVECTOR = False):
-    ''' The naive reward function for the MSS problem where param is number of samples to draw and range for reward'''
-
-    max_vals, _, _ = param[0]
     if max_vals is None:
-        return 0.0
+        return 1.0
 
     data = np.array(xvals)
-    x1 = data[:, 0]
-    x2 = data[:, 1]
-    queries = np.vstack([x1, x2]).T
+    x1 = data[:,0]
+    x2 = data[:,1]
+    queries = np.vstack([x1, x2]).T        
+    d = queries.shape[1] # The dimension of the points (should be 2D)     
 
-    # Initialize f
-    f = np.zeros((xvals.shape[0], 1))
+    # Initialize f, g
+    f = 0
     for i in xrange(max_vals.shape[0]):
-        #simple value distance check between the query point and the maximum
-        mean, var = robot_model.predict_value(queries)
-        diff = np.fabs(mean - max_vals[i][0])
-        count = np.where(diff <= param[1])
-        f += count 
+        # Compute the posterior mean/variance predictions and gradients.
+        mean_before, var_before = robot_model.predict_value(queries)
+     
+        radius = 2.0
+        radius_steps = 0
+        angle_steps = 0
+        ball_data = np.zeros(((radius_steps) * (angle_steps) + 1, queries .shape[1]))
+        for ii, dist in enumerate(np.linspace(0., radius, radius_steps)):
+            for jj, angle in enumerate(np.linspace(0., 2. * np.pi, angle_steps)):
+                ball_data[ii*angle_steps + jj, :] = np.reshape(max_locs[i] + np.array([dist * np.cos(angle), dist * np.sin(angle)]), (1,2))
+                #ball_data[ii*angle_steps + jj, :] = np.reshape(np.array([3., 3.]) + np.array([dist * np.cos(angle), dist * np.sin(angle)]), (1,2))
+        ball_data[-1, :] = np.reshape(max_locs[i], (1,2))
 
+        observations = target[i](ball_data)
+        temp_model = robot_model.add_data_to_temp_model(ball_data, observations)
+        
+        mean_after, var_after = robot_model.predict_value(queries, TEMP = True)
+        utility = entropy_of_n(var_before) - entropy_of_tn(a = None, b = max_vals[i], mu = mean_after, var = var_after)
+        f += sum(utility)
+
+    # Average f
     f = f / max_vals.shape[0]
     # f is an np array; return scalar value
-    if FVECTOR:
-        return f
-    else:
-        # f is an np array; return scalar value
-        return np.sum(f)
-
+    return f[0] 
+'''
     
 def entropy_of_n(var):    
     return np.log(np.sqrt(2.0 * np.pi * var))
@@ -382,7 +392,7 @@ def entropy_of_tn(a, b, mu, var):
     
     return np.log(Z * np.sqrt(2.0 * np.pi * var)) + (alpha * phi_alpha - beta * phi_beta) / (2.0 * Z)
 
-def global_maximization(target, target_vector_n, target_grad, target_vector_gradient_n, ranges, guesses, visualize, filename, obstacles, f_rew):
+def global_maximization(target, target_vector_n, target_grad, target_vector_gradient_n, ranges, guesses, visualize, filename, obstacles, f_rew='mes'):
     MIN_COLOR = -25.
     MAX_COLOR = 25.
 
@@ -390,7 +400,7 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
     gridSize = 300
     # Create a buffer around the boundary so the optmization doesn't always concentrate there
     hold_ranges = ranges
-    bb = ((ranges[1] - ranges[0])*0.10, (ranges[3] - ranges[2]) * 0.10)
+    bb = ((ranges[1] - ranges[0])*0.05, (ranges[3] - ranges[2]) * 0.05)
     ranges = (ranges[0] + bb[0], ranges[1] - bb[0], ranges[2] + bb[1], ranges[3] - bb[1])
     
     # Uniformly sample gridSize number of points in interval xmin to xmax
@@ -399,13 +409,10 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
     x1, x2 = np.meshgrid(x1, x2, sparse = False, indexing = 'xy')
     Xgrid_sample = np.vstack([x1.ravel(), x2.ravel()]).T    
     Xgrid = np.vstack([Xgrid_sample, guesses])   
-    print "Xgrid shape:", Xgrid.shape
     
     # Get the function value at Xgrid locations
     y = target(Xgrid)
-    print "y shape:", y.shape
     max_index = np.argmax(y)   
-    print "Max index:", max_index
     start = np.asarray(Xgrid[max_index, :])
 
     # If the highest sample point seen is ouside of the boundary, find the highest inside the boundary
@@ -438,16 +445,16 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
     
     if visualize:
         # Generate a set of observations from robot model with which to make contour plots
-        x1vals = np.linspace(hold_ranges[0], hold_ranges[1], 100)
-        x2vals = np.linspace(hold_ranges[2], hold_ranges[3], 100)
+        x1vals = np.linspace(ranges[0], ranges[1], 100)
+        x2vals = np.linspace(ranges[2], ranges[3], 100)
         x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
         data = np.vstack([x1.ravel(), x2.ravel()]).T
         observations = target(data)
-        fig2, ax2 = plt.subplots(figsize=(8, 8))
+        fig2, ax2 = plt.subplots(figsize=(8, 6))
         ax2.set_xlim(hold_ranges[0:2])
         ax2.set_ylim(hold_ranges[2:])        
-        ax2.set_title('Countour Plot of the Sampled World Model')     
-        plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), 25, cmap = 'viridis')
+        ax2.set_title('Countour Plot of the Approximated World Model')     
+        plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR, levels=np.linspace(MIN_COLOR, MAX_COLOR, 15))
 
     res = sp.optimize.minimize(fun = target_vector_n, x0 = start, method = 'SLSQP', \
             jac = target_vector_gradient_n, bounds = ((ranges[0], ranges[1]), (ranges[2], ranges[3])))
@@ -462,12 +469,12 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
     if visualize:
         # Generate a set of observations from robot model with which to make contour plots
         scatter = ax2.scatter(guesses[:, 0], guesses[:, 1], color = 'k', s = 20.0)
-        scatter = ax2.scatter(res['x'][0], res['x'][1], marker = '*', color = 'r', s = 500)      
-
+        scatter = ax2.scatter(res['x'][0], res['x'][1], color = 'r', s = 100.0)      
+        print f_rew
         if not os.path.exists('./figures/'+str(f_rew)+'/opt'):
             os.makedirs('./figures/'+str(f_rew)+'/opt')
         fig2.savefig('./figures/'+str(f_rew)+'/opt/globalopt.' + str(filename) + '.png')
-        # plt.show()
+        #plt.show()
         plt.close()
 
     # print res

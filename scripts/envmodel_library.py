@@ -21,7 +21,6 @@ logger = logging.getLogger('robot')
 from gpmodel_library import GPModel
 from gpmodel_library import OnlineGPModel
 import obstacles as obslib
-from scipy.stats import norm
 
 
 
@@ -29,7 +28,7 @@ class Environment:
     '''The Environment class, which represents a retangular Gaussian world.
     ''' 
     def __init__(self, ranges, NUM_PTS, variance, lengthscale, noise = 0.0001, 
-            visualize = True, seed = None, dim = 2, model = None, MIN_COLOR = None, MAX_COLOR = None, 
+            visualize = True, seed = None, dim = 2, model = None, MIN_COLOR=-25.0, MAX_COLOR=25.0, 
             obstacle_world = obslib.FreeWorld()):
         ''' Initialize a random Gaussian environment using the input kernel, 
             assuming zero mean function.
@@ -64,63 +63,31 @@ class Environment:
 
         if model is not None:
             self.GP = model
-
-            # maxind = np.argmax(self.GP.zvals)
-            # self.max_val = self.GP.zvals[maxind, :]
-            # self.max_loc = self.GP.xvals[maxind, :]
-
             # Plot the surface mesh and scatter plot representation of the samples points
             if visualize == True:   
                 # Generate a set of observations from robot model with which to make contour plots
-                # x1vals = np.linspace(ranges[0], ranges[1], 100)
-                # x2vals = np.linspace(ranges[2], ranges[3], 100)
-                x1vals = np.arange(ranges[0], ranges[1], (ranges[1] - ranges[0]) / NUM_PTS)
-                x2vals = np.arange(ranges[2], ranges[3], (ranges[3] - ranges[2]) / NUM_PTS)
-
-                print self.GP.xvals
-                
-                x1, x2 = np.meshgrid(x1vals, x2vals) # dimension: NUM_PTS x NUM_PTS       
-                print x1.shape, x2.shape
-                print x1
-                print x2
+                x1vals = np.linspace(ranges[0], ranges[1], 40)
+                x2vals = np.linspace(ranges[2], ranges[3], 40)
+                x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
                 data = np.vstack([x1.ravel(), x2.ravel()]).T
                 observations, var = self.GP.predict_value(data, include_noise = False)        
-
-                maxind = np.argmax(observations)
-                self.max_val = observations[maxind, :]
-                self.max_loc = data[maxind, :]
-                
                 
                 fig2, ax2 = plt.subplots(figsize=(8, 6))
                 ax2.set_xlim(ranges[0:2])
                 ax2.set_ylim(ranges[2:])        
                 ax2.set_title('Countour Plot of the True World Model')     
+                plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR, levels=np.linspace(MIN_COLOR, MAX_COLOR, 15))
 
-                if MAX_COLOR is not None and MIN_COLOR is not None:
-                    MAX_COLOR = np.percentile(observations, 99)
-                    MIN_COLOR = np.percentile(observations, 1)
-                else:
-                    plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), 25, cmap = 'viridis')
-                    # scatter = ax2.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c = self.GP.zvals.ravel(), s = 4.0, cmap = 'viridis')
-
-                # print "Maxima at:", self.GP.xvals[maxind, 0], self.GP.xvals[maxind,1]
-                # ax2.scatter(self.GP.xvals[maxind, 0], self.GP.xvals[maxind,1], color = 'k', marker = '*', s = 500)
-
-                print "Maxima at:", data[maxind, 0], data[maxind,1]
-                ax2.scatter(data[maxind, 0], data[maxind,1], color = 'k', marker = '*', s = 500)
-
-                # scatter = ax2.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c = self.GP.zvals.ravel(), s = 4.0, cmap = 'viridis')
-                print "Maxima at:", self.GP.xvals[maxind, 0], self.GP.xvals[maxind,1]
+                scatter = ax2.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c = self.GP.zvals.ravel(), s = 4.0, cmap = 'viridis')
+                maxind = np.argmax(self.GP.zvals)
                 ax2.scatter(self.GP.xvals[maxind, 0], self.GP.xvals[maxind,1], color = 'k', marker = '*', s = 500)
-                # fig2.colorbar(plot, ax=ax2)
+                fig2.colorbar(plot, ax=ax2)
 
-                if not os.path.exists('./figures'):
-                    os.makedirs('./figures')
                 fig2.savefig('./figures/world_model_countour.png')
                 #plt.show()           
                 plt.close()
         else:
-	    # Generate a set of discrete grid points, uniformly spread across the environment
+            # Generate a set of discrete grid points, uniformly spread across the environment
             x1 = np.linspace(self.x1min, self.x1max, NUM_PTS)
             x2 = np.linspace(self.x2min, self.x2max, NUM_PTS)
             # dimension: NUM_PTS x NUM_PTS
@@ -142,8 +109,7 @@ class Environment:
                 logger.warning("Current environment in violation of boundary constraint. Regenerating!")
 
                 # Intialize a GP model of the environment
-                # self.GP = OnlineGPModel(ranges = ranges, lengthscale = lengthscale, variance = variance)         
-                self.GP = GPModel(ranges = ranges, lengthscale = lengthscale, variance = variance)         
+                self.GP = OnlineGPModel(ranges = ranges, lengthscale = lengthscale, variance = variance)         
                 data = np.vstack([x1vals.ravel(), x2vals.ravel()]).T 
 
                 # Take an initial sample in the GP prior, conditioned on no other data
@@ -190,8 +156,8 @@ class Environment:
                     # the 3D surface
                     fig = plt.figure(figsize=(8, 6))
                     ax = fig.add_subplot(111, projection = '3d')
-                    ax.set_title('Surface of the Chemical Environment')
-                    surf = ax.plot_surface(x1vals, x2vals, self.GP.zvals.reshape(x1vals.shape), cmap = cm.viridis, linewidth = 1)
+                    ax.set_title('Surface of the Simulated Environment')
+                    surf = ax.plot_surface(x1vals, x2vals, self.GP.zvals.reshape(x1vals.shape), cmap = cm.coolwarm, linewidth = 1)
                     if not os.path.exists('./figures'):
                         os.makedirs('./figures')
                     fig.savefig('./figures/world_model_surface.png')
@@ -199,17 +165,12 @@ class Environment:
                     # the contour map            
                     fig2 = plt.figure(figsize=(8, 6))
                     ax2 = fig2.add_subplot(111)
-
-                    ax2.set_title('Countour Plot of the Chemical Environment')     
-                    if MAX_COLOR is not None and MIN_COLOR is not None:
-                        plot = ax2.contourf(x1vals, x2vals, self.GP.zvals.reshape(x1vals.shape), 25, cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR)
-                    else: 
-                        plot = ax2.contourf(x1vals, x2vals, self.GP.zvals.reshape(x1vals.shape), 25, cmap = 'viridis')
-
-                    # scatter = ax2.scatter(data[:, 0], data[:, 1], c = self.GP.zvals.ravel(), s = 4.0, cmap = 'viridis')
+                    ax2.set_title('Countour Plot of the Simulated Environment')     
+                    plot = ax2.contourf(x1vals, x2vals, self.GP.zvals.reshape(x1vals.shape), cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR, levels=np.linspace(MIN_COLOR, MAX_COLOR, 15))
+                    scatter = ax2.scatter(data[:, 0], data[:, 1], c = self.GP.zvals.ravel(), s = 4.0, cmap = 'viridis')
                     maxind = np.argmax(self.GP.zvals)
                     ax2.scatter(self.GP.xvals[maxind, 0], self.GP.xvals[maxind,1], color = 'k', marker = '*', s = 500)
-                    # fig2.colorbar(plot, ax=ax2)
+                    fig2.colorbar(plot, ax=ax2)
 
                     # If available, plot the obstacles in the world
                     if len(self.obstacle_world.get_obstacles()) != 0:
@@ -217,16 +178,10 @@ class Environment:
                             x,y = o.exterior.xy
                             ax2.plot(x,y,'r',linewidth=3)
 
-                    if not os.path.exists('./figures'):
-                        os.makedirs('./figures')
                     fig2.savefig('./figures/world_model_countour.png')
                     #plt.show()           
                     plt.close()
         
-            maxind = np.argmax(self.GP.zvals)
-            self.max_val = self.GP.zvals[maxind, :]
-            self.max_loc = self.GP.xvals[maxind, :]
-
             print "Environment initialized with bounds X1: (", self.x1min, ",", self.x1max, ")  X2:(", self.x2min, ",", self.x2max, ")"
             logger.info("Environment initialized with bounds X1: ({}, {})  X2: ({}, {})".format(self.x1min, self.x1max, self.x2min, self.x2max)) 
 

@@ -307,17 +307,19 @@ def playback(playback_locs, playback_samples, max_val, column_names):
 
 ######### MAIN LOOP ###########
 if __name__ == '__main__':
-    seed_numbers = range(0, 3000, 100)
+    seed_numbers = range(5000, 10000, 100)
     seeds = ['seed'+ str(x) + '-' for x in seed_numbers]
     print seeds
 
     #fileparams = 'pathsetfully_reachable_goal-costTrue-nonmyopicFalse-goalFalse'
     #fileparams = 'pathsetdubins-costFalse-nonmyopicTrue-goalFalse_BUGTRAP'
-    fileparams = 'pathsetdubins-costFalse-nonmyopicTrue-goalFalse'
-    file_start = 'dubins-nonmyopic'
+    # fileparams = 'pathsetdubins-costFalse-nonmyopicTrue-goalFalse'
+    file_start = 'freeworld-dubins-nonmyopic'
+    fileparams= 'pathsetdubins-nonmyopicTrue-FREE'
 
 
-    path= '/home/genevieve/mit-whoi/informative-path-planning/experiments/'
+    # path= '/home/genevieve/mit-whoi/informative-path-planning/experiments/'
+    path = '/media/genevieve/WINDOWS_COM/IROS_2019/experiments/'
     #path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/'
 
     #get the data files
@@ -394,7 +396,6 @@ if __name__ == '__main__':
 
     # make_histograms(mean_sdata, mes_sdata, ei_sdata)
     make_histograms(mean_sdata, mes_sdata, None, figname=file_start)
-
 
     # ######### Looking at Mission Progression ######
     make_plots(mean_data, mes_data, None, 'max_val_error', 'Averaged Maximum Value Error, Conf', len(seeds), True, True, fname=file_start+'_avg_valerr_conf')
