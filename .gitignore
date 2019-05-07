@@ -22,3 +22,6 @@ figures_and_experiments/*
 experiments*/*
 *.mp4
 hold*/*
+iros_figures/*
+process*
+
