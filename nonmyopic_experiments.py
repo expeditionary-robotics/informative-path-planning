@@ -41,8 +41,8 @@ if RUN_REAL_EXP:
     MAX_COLOR = 1.50
     MIN_COLOR = -1.80
 else:
-    MAX_COLOR = 35.0
-    MIN_COLOR = -35.0
+    MAX_COLOR = 25.0
+    MIN_COLOR = -25.0
 # MAX_COLOR = None
 # MIN_COLOR = None
 
@@ -55,7 +55,7 @@ logger = logging.getLogger('robot')
 
 # Create a random enviroment sampled from a GP with an RBF kernel and specified hyperparameters, mean function 0 
 # The enviorment will be constrained by a set of uniformly distributed  sample points of size NUM_PTS x NUM_PTS
-ranges = (-2.0, 2.0, -3.15, 3.15)
+ranges = (0.0, 10.0, 0.0, 10.0)
 
 # Create obstacle world
 ow = obslib.FreeWorld()
@@ -86,7 +86,7 @@ else:
     # LEN = 5.0
     # NOISE = 0.1
     VAR = 100.0
-    LEN = 0.8
+    LEN = 1.0
     NOISE = 1.0
 
 world = envlib.Environment(ranges = ranges,
@@ -115,15 +115,15 @@ observations = world.sample_value(data)
 
 # Create the point robot
 robot = roblib.Robot(sample_world = world.sample_value, #function handle for collecting observations
-                     start_loc = (0.0, 0.0, 0.0), #where robot is instantiated
+                     start_loc = (1.0, 1.0, 0.0), #where robot is instantiated
                      extent = ranges, #extent of the explorable environment
                      MAX_COLOR = MAX_COLOR,
                      MIN_COLOR = MIN_COLOR,
                      kernel_file = None,
                      kernel_dataset = None,
                      # prior_dataset =  (data, observations), 
-                     prior_dataset =  (xobs, zobs), 
-                     # prior_dataset = None,
+                     # prior_dataset =  (xobs, zobs), 
+                     prior_dataset = None,
                      init_lengthscale = LEN,
                      init_variance = VAR,
                      noise = NOISE,

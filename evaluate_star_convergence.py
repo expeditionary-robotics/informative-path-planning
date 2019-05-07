@@ -1,6 +1,10 @@
 # !/usr/bin/python
 
-''' Script for running myopic experiments using the run_sim bash script.  Generally a function of convenience in the event of parallelizing simulation runs.  Note: some of the parameters may need to be set prior to running the bash script.
+'''
+Script for running myopic experiments using the run_sim bash script.
+Generally a function of convenience in the event of parallelizing simulation runs.
+Note: some of the parameters may need to be set prior to running the bash script.
+=======
 
 License: MIT
 Maintainers: Genevieve Flaspohler and Victoria Preston
@@ -25,6 +29,7 @@ import obstacles as obslib
 import bag_utils as baglib
 
 from scipy.spatial import distance
+
 import matplotlib.pyplot as plt
 
 ''' Predict the maxima of a GP model '''
@@ -161,12 +166,12 @@ if RUN_REAL_EXP:
     xseed, zseed = baglib.read_bagfile(seed_bag, 20)
    
     # PLUMES trials
-    # seed_bag = '/home/genevieve/mit-whoi/barbados/rosbag_16Jan_slicklizard/slicklizard_2019-01-17-03-01-44.bag'
-    # xobs, zobs = baglib.read_bagfile(seed_bag, 1)
-    # trunc_index = baglib.truncate_by_distance(xobs, dist_lim = 1000.0)
-    # print "PLUMES trunc:", trunc_index
-    # xobs = xobs[0:trunc_index, :]
-    # zobs = zobs[0:trunc_index, :]
+    seed_bag = '/home/genevieve/mit-whoi/barbados/rosbag_16Jan_slicklizard/slicklizard_2019-01-17-03-01-44.bag'
+    xobs, zobs = baglib.read_bagfile(seed_bag, 1)
+    trunc_index = baglib.truncate_by_distance(xobs, dist_lim = 1000.0)
+    print "PLUMES trunc:", trunc_index
+    xobs = xobs[0:trunc_index, :]
+    zobs = zobs[0:trunc_index, :]
 
     # Myopic trials
     # seed_bag = '/home/genevieve/mit-whoi/barbados/rosbag_16Jan_slicklizard/slicklizard_2019-01-17-03-43-09.bag'
@@ -200,6 +205,9 @@ if RUN_REAL_EXP:
     # LEN = 4.0543111858072445
     # NOISE = 0.0862445597387173
 
+    LEN = 2.0122 
+    VAR = 5.3373 / 10.0
+    NOISE = 0.19836 / 10.0
 else:
     gp_world = None
     # VAR = 50.0
@@ -308,6 +316,8 @@ if RUN_REAL_EXP:
     max_vals=  np.array(max_vals).reshape((-1, 1))
     max_locs = np.array(max_locs).reshape((-1, 2))
 
+    dist_loc = distance.cdist(max_locs, true_loc, 'euclidean')
+    dist_val = distance.cdist(max_vals, true_val, 'euclidean')
     np.savetxt('./sampled_maxes.csv', np.vstack((max_locs.T, max_vals.T)))
     np.savetxt('./true_maxes.csv', np.vstack((true_loc.T, true_val.T)))
 
@@ -331,7 +341,6 @@ if RUN_REAL_EXP:
     entropy_val = -np.mean(np.log(density_val))
     print "Entropy of star value:", entropy_val
 
-    pdb.set_trace()
 else:
     robot.planner(T = 150)
 
