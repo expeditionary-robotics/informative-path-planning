@@ -58,9 +58,11 @@ class Robot(object):
 
         # Parameterization for the robot
         self.ranges = kwargs['extent']
+        self.dimension = kwargs['dimension']
         self.create_animation = kwargs['create_animation']
         self.eval = kwargs['evaluation']
         self.loc = kwargs['start_loc']
+        self.time = kwargs['start_time']
         self.sample_world = kwargs['sample_world']
         self.f_rew = kwargs['f_rew']
         self.frontier_size = kwargs['frontier_size']
@@ -106,8 +108,8 @@ class Robot(object):
             raise ValueError('Only \'hotspot_info\' and \'mean\' and \'info_gain\' and \'mes\' and \'exp_improve\' reward fucntions supported.')
 
         # Initialize the robot's GP model with the initial kernel parameters
-        self.GP = gplib.OnlineGPModel(ranges = self.ranges, lengthscale = kwargs['init_lengthscale'], variance = kwargs['init_variance'], noise = self.noise)
-        # self.GP = gplib.GPModel(ranges = self.ranges, lengthscale = kwargs['init_lengthscale'], variance = kwargs['init_variance'], noise = self.noise)
+        self.GP = gplib.OnlineGPModel(ranges = self.ranges, lengthscale = kwargs['init_lengthscale'], variance = kwargs['init_variance'], noise = self.noise, dimension = self.dimension)
+        # self.GP = gplib.GPModel(ranges = self.ranges, lengthscale = kwargs['init_lengthscale'], variance = kwargs['init_variance'], noise = self.noise, dimension = self.dimension)
                 
         # If both a kernel training dataset and a prior dataset are provided, train the kernel using both
         if  kwargs['kernel_dataset'] is not None and kwargs['prior_dataset'] is not None:
@@ -217,9 +219,14 @@ class Robot(object):
         x1vals = np.linspace(self.ranges[0], self.ranges[1], 30)
         x2vals = np.linspace(self.ranges[2], self.ranges[3], 30)
         x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') 
-        data = np.vstack([x1.ravel(), x2.ravel()]).T
+
+        if self.dimension == 2:
+            data = np.vstack([x1.ravel(), x2.ravel()]).T
+        elif self.dimension == 3:
+            data = np.vstack([x1.ravel(), x2.ravel(), self.time * np.ones(len(x1.ravel()))]).T
         observations, var = self.GP.predict_value(data)        
 
+        '''
         if t > 50:
             fig2, ax2 = plt.subplots(figsize=(8, 6))
             ax2.set_xlim(self.ranges[0:2])
@@ -228,6 +235,7 @@ class Robot(object):
             plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis')
             plot = ax2.scatter(x1, x2, observations.reshape(x1.shape), cmap = 'viridis')
             plt.show()
+        '''
 
 
         return data[np.argmax(observations), :], np.max(observations)
@@ -241,7 +249,8 @@ class Robot(object):
         
         for t in xrange(T):
             # Select the best trajectory according to the robot's aquisition function
-            print "[", t, "] Current Location:  ", self.loc
+            self.time = t
+            print "[", t, "] Current Location:  ", self.loc, "Current Time:", self.time
             logger.info("[{}] Current Location: {}".format(t, self.loc))
 
             # Let's figure out where the best point is in our world
@@ -275,11 +284,18 @@ class Robot(object):
             data = np.array(sampling_path)
             x1 = data[:,0]
             x2 = data[:,1]
-            xlocs = np.vstack([x1, x2]).T           
+            if self.dimension == 2:
+                xlocs = np.vstack([x1, x2]).T           
+            elif self.dimension == 3:
+                # Collect observations at the current time
+                xlocs = np.vstack([x1, x2, t*np.ones(len(x1))]).T           
+            else:
+                raise ValueError('Only 2D or 3D worlds supported!')
             
             self.collect_observations(xlocs)
             if t < T/3 and self.learn_params == True:
                 self.GP.train_kernel()
+
             self.trajectory.append(best_path)
             
             if self.create_animation:
@@ -311,9 +327,13 @@ class Robot(object):
         x1vals = np.linspace(self.ranges[0], self.ranges[1], 100)
         x2vals = np.linspace(self.ranges[2], self.ranges[3], 100)
         x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') 
-        data = np.vstack([x1.ravel(), x2.ravel()]).T
-        observations, var = self.GP.predict_value(data)        
+
+        if self.dimension == 2:
+            data = np.vstack([x1.ravel(), x2.ravel()]).T
+        elif self.dimension == 3:
+            data = np.vstack([x1.ravel(), x2.ravel(), self.time*np.ones(len(x1.ravel()))]).T
         
+        observations, var = self.GP.predict_value(data)        
        
         # Plot the current robot model of the world
         fig, ax = plt.subplots(figsize=(8, 6))
@@ -377,7 +397,12 @@ class Robot(object):
         x1vals = np.linspace(self.ranges[0], self.ranges[1], 100)
         x2vals = np.linspace(self.ranges[2], self.ranges[3], 100)
         x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
-        data = np.vstack([x1.ravel(), x2.ravel()]).T
+
+        if self.dimension == 2:
+            data = np.vstack([x1.ravel(), x2.ravel()]).T
+        elif self.dimension == 3:
+            data = np.vstack([x1.ravel(), x2.ravel(), self.time * np.ones(len(x1.ravel()))]).T
+
         print "Etnering visualize reward"
         print data.shape
 
@@ -442,7 +467,11 @@ class Robot(object):
         x1vals = np.linspace(self.ranges[0], self.ranges[1], 100)
         x2vals = np.linspace(self.ranges[2], self.ranges[3], 100)
         x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
-        data = np.vstack([x1.ravel(), x2.ravel()]).T
+
+        if self.dimension == 2:
+            data = np.vstack([x1.ravel(), x2.ravel()]).T
+        elif self.dimension == 3:
+            data = np.vstack([x1.ravel(), x2.ravel(), self.time * np.ones(len(x1.ravel()))]).T
         observations, var = self.GP.predict_value(data)        
         
         fig2, ax2 = plt.subplots(figsize=(8, 6))

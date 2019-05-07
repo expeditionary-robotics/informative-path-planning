@@ -25,7 +25,7 @@ import pdb
 class GPModel(object):
     '''The GPModel class, which is a wrapper on top of GPy.'''     
     
-    def __init__(self, ranges, lengthscale, variance, noise = 0.0001, dimension = 2, kernel = 'rbf'):
+    def __init__(self, ranges, lengthscale, variance, noise = 0.0001, dimension = 2, kernel = 'rbf', period = None):
         '''Initialize a GP regression model with given kernel parameters. 
         Inputs:
             ranges (list of floats) the bounds of the world
@@ -49,12 +49,30 @@ class GPModel(object):
         
         # The dimension of the evironment
         if dimension == 2:
-            self.dim = dimension
-        else:
-            raise ValueError('Environment must have dimension 2 \'rbf\'')
+            self.dimension = dimension
+            self.asymmetric = False
 
-        if kernel == 'rbf':
-            self.kern = GPy.kern.RBF(input_dim = self.dim, lengthscale = lengthscale, variance = variance, useGPU = True) 
+        elif dimension == 3:
+            if len(lengthscale) < dimension:
+                raise ValueError('Lengthscale vector must have same length as dimension.')
+            self.dimension = dimension
+            self.asymmetric = True;
+        else:
+            print dimension
+            raise ValueError('Environment must have dimension 2 or 3')
+
+        if kernel == 'rbf' and False:
+            self.kern = GPy.kern.RBF(input_dim = self.dimension, lengthscale = lengthscale, variance = variance, ARD = self.asymmetric) 
+        elif kernel == 'rbf-period' or True:
+            # ARD1 corresponds to periods
+            # ARD2 correponds to lengthscales
+            period = (100, 100, 5);
+            lengthscale = (2.5, 2.5, 0.0001);
+            
+            # self.kern = GPy.kern.RBF(input_dim = self.dimension, lengthscale = lengthscale, variance = variance, ARD = self.asymmetric) 
+            # self.kern = GPy.kern.StdPeriodic(input_dim = self.dimension, period = period, lengthscale = lengthscale, variance = variance, ARD1 = True, ARD2 = True) 
+            self.kern = GPy.kern.StdPeriodic(input_dim = self.dimension, period = period, lengthscale = lengthscale, variance = variance, ARD1 = True, ARD2 = True) \
+                + GPy.kern.RBF(input_dim = self.dimension, lengthscale = lengthscale, variance = variance, ARD = self.asymmetric) 
         else:
             raise ValueError('Kernel type must by \'rbf\'')
             
@@ -72,7 +90,7 @@ class GPModel(object):
         '''        
 
         assert(xvals.shape[0] >= 1)            
-        assert(xvals.shape[1] == self.dim)    
+        assert(xvals.shape[1] == self.dimension)    
         
         n_points, input_dim = xvals.shape
 
@@ -285,7 +303,7 @@ class OnlineGPModel(GPModel):
     def predict_value(self, xvals, include_noise = True, full_cov = False):
         # Calculate for the test point
         assert(xvals.shape[0] >= 1)            
-        assert(xvals.shape[1] == self.dim)    
+        assert(xvals.shape[1] == self.dimension)    
 	n_points, input_dim = xvals.shape
 
         # With no observations, predict 0 mean everywhere and prior variance
@@ -527,7 +545,7 @@ class SpatialGPModel(GPModel):
     def predict_value(self, xvals, include_noise = True, full_cov = False):
         # Calculate for the test point
         assert(xvals.shape[0] >= 1)            
-        assert(xvals.shape[1] == self.dim)    
+        assert(xvals.shape[1] == self.dimension)    
 	n_points, input_dim = xvals.shape
 
         # With no observations, predict 0 mean everywhere and prior variance

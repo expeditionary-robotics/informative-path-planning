@@ -404,12 +404,12 @@ class Tree(object):
                     nqueries = [node.nqueries for node in current_node.children]
                     child = random.choice([node for node in current_node.children if node.nqueries == min(nqueries)])
 
-                    if False:
+                    if True:
                         belief.add_data(xobs, child.zvals)
                     #print "Selcted child:", child.nqueries
                     return self.leaf_helper(child, reward + r, belief)
 
-            if False:
+            if True:
                 if belief.model is None:
                     n_points, input_dim = xobs.shape
                     zmean, zvar = np.zeros((n_points, )), np.eye(n_points) * belief.variance
@@ -512,7 +512,7 @@ class BeliefTree(Tree):
             else:
                 r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief)
 
-            if False:
+            if True:
                 # ''Simulate'' the maximum likelihood observation
                 if belief.model is None:
                     n_points, input_dim = xobs.shape
@@ -577,7 +577,7 @@ class BeliefTree(Tree):
             else:
                 r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief)
 
-            if False:
+            if True:
                 # ''Simulate'' the maximum likelihood observation
                 if belief.model is None:
                     n_points, input_dim = xobs.shape
@@ -672,7 +672,7 @@ class cMCTS(MCTS):
         while i < self.comp_budget:#time.time() - time_start < self.comp_budget:
             i += 1
             self.tree.get_next_leaf(gp)
-            if False:
+            if True:
                 gp = copy.copy(self.GP)
         time_end = time.time()
         print "Rollouts completed in", str(time_end - time_start) +  "s"
