@@ -34,7 +34,12 @@ def info_gain(time, xvals, robot_model, param=None):
     data = np.array(xvals)
     x1 = data[:,0]
     x2 = data[:,1]
-    queries = np.vstack([x1, x2]).T   
+
+    # TODO: time will be constant during all simulations? 
+    if robot_model.dimension == 2:
+        queries = np.vstack([x1, x2]).T   
+    elif robot_model.dimension == 3:
+        queries = np.vstack([x1, x2, time * np.ones(len(x1))]).T   
     xobs = robot_model.xvals
 
     # If the robot hasn't taken any observations yet, simply return the entropy of the potential set
@@ -77,7 +82,11 @@ def mean_UCB(time, xvals, robot_model, param=None, FVECTOR = False):
     data = np.array(xvals)
     x1 = data[:,0]
     x2 = data[:,1]
-    queries = np.vstack([x1, x2]).T   
+    # TODO: time will be constant during all simulations? 
+    if robot_model.dimension == 2:
+        queries = np.vstack([x1, x2]).T   
+    elif robot_model.dimension == 3:
+        queries = np.vstack([x1, x2, time * np.ones(len(x1))]).T   
     
     if robot_model.xvals is None:
         if FVECTOR:
@@ -108,7 +117,10 @@ def hotspot_info_UCB(time, xvals, robot_model, param=None):
     data = np.array(xvals)
     x1 = data[:,0]
     x2 = data[:,1]
-    queries = np.vstack([x1, x2]).T   
+    if robot_model.dimension == 2:
+        queries = np.vstack([x1, x2]).T   
+    elif robot_model.dimension == 3:
+        queries = np.vstack([x1, x2, time * np.ones(len(x1))]).T   
                               
     LAMBDA = 1.0 # TOOD: should depend on time
     mu, var = robot_model.predict_value(queries)
@@ -132,7 +144,7 @@ def sample_max_vals(robot_model, t, nK = 20, nFeatures = 200, visualize = False,
     ''' Sample Maximum values i.e. return sampled max values for the posterior GP, conditioned on 
     current observations. Construct random freatures and optimize functions drawn from posterior GP.'''
     samples = np.zeros((nK, 1))
-    locs = np.zeros((nK, 2))
+    locs = np.zeros((nK, d))
     funcs = []
     delete_locs = []
 
@@ -142,10 +154,15 @@ def sample_max_vals(robot_model, t, nK = 20, nFeatures = 200, visualize = False,
 
         # Draw the weights for the random features
         # TODO: make sure this formula is correct
-        W = np.random.normal(loc = 0.0, scale = (1./(robot_model.lengthscale)), size = (nFeatures, d))
+        if robot_model.dimension == 2:
+            W = np.random.normal(loc = 0.0, scale = np.sqrt(1./(robot_model.lengthscale)), size = (nFeatures, d))
+        elif robot_model.dimension == 3:
+            W = np.random.normal(loc = 0.0, scale = np.sqrt(1./(robot_model.lengthscale[0])), size = (nFeatures, d))
+
         b = 2 * np.pi * np.random.uniform(low = 0.0, high = 1.0, size = (nFeatures, 1))
         
         # Compute the features for xx
+
         Z = np.sqrt(2 * robot_model.variance / nFeatures) * np.cos(np.dot(W, robot_model.xvals.T) + b)
         
         # Draw the coefficient theta
@@ -191,21 +208,30 @@ def sample_max_vals(robot_model, t, nK = 20, nFeatures = 200, visualize = False,
         #    return np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
         # target = lambda x: np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
         target = lambda x: np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
-        target_vector_n = lambda x: -target(x.reshape(1,2))
+        target_vector_n = lambda x: -target(x.reshape(1, d))
         
         # Can only take a 1D input
         #def target_gradient(x): 
         #    return np.dot(theta.T * -np.sqrt(2.0 * robot_model.variance / nFeatures), np.sin(np.dot(W, x.reshape((2,1))) + b) * W)
-        target_gradient = lambda x: np.dot(theta.T * -np.sqrt(2.0 * robot_model.variance / nFeatures), np.sin(np.dot(W, x.reshape((2,1))) + b) * W)
-        target_vector_gradient_n = lambda x: -np.asarray(target_gradient(x).reshape(2,))
-                                                     
+        target_gradient = lambda x: np.dot(theta.T * -np.sqrt(2.0 * robot_model.variance / nFeatures), np.sin(np.dot(W, x.reshape((d, 1))) + b) * W)
+        target_vector_gradient_n = lambda x: -np.asarray(target_gradient(x).reshape(d,))
+                                                                    
         # Optimize the function
         status = False
         count = 0
         # Retry optimization up to 5 times; if hasn't converged, give up on this simulated world
         while status == False and count < 5:
-            maxima, max_val, max_inv_hess, status = global_maximization(target, target_vector_n, target_gradient, 
-                target_vector_gradient_n, robot_model.ranges, robot_model.xvals, visualize, 't' + str(t) + '.nK' + str(i), obstacles, f_rew=f_rew)
+            maxima, max_val, max_inv_hess, status = global_maximization(target,
+                                                                        target_vector_n,
+                                                                        target_gradient, 
+                                                                        target_vector_gradient_n,
+                                                                        robot_model.ranges,
+                                                                        robot_model.xvals, 
+                                                                        visualize, 
+                                                                        't' + str(t) + '.nK' + str(i),
+                                                                        obstacles,
+                                                                        f_rew=f_rew,
+                                                                        time=t)
             count += 1
         if status == False:
             delete_locs.append(i)
@@ -257,7 +283,10 @@ def mves(time, xvals, robot_model, param, FVECTOR = False):
     data = np.array(xvals)
     x1 = data[:,0]
     x2 = data[:,1]
-    queries = np.vstack([x1, x2]).T        
+    if robot_model.dimension == 2:
+        queries = np.vstack([x1, x2]).T   
+    elif robot_model.dimension == 3:
+        queries = np.vstack([x1, x2, time * np.ones(len(x1))]).T   
     
     d = queries.shape[1] # The dimension of the points (should be 2D)     
 
@@ -309,7 +338,7 @@ def naive(time, xvals, robot_model, param, FVECTOR = False):
 
     data = np.array(xvals)
     x1 = data[:, 0]
-    x2 = data[:, 1]
+    x2 = data[:, 1] 
 
     # Initialize f
     f = np.zeros((xvals.shape[0], 1))
@@ -339,7 +368,10 @@ def naive_value(time, xvals, robot_model, param, FVECTOR = False):
     data = np.array(xvals)
     x1 = data[:, 0]
     x2 = data[:, 1]
-    queries = np.vstack([x1, x2]).T
+    if robot_model.dimension == 2:
+        queries = np.vstack([x1, x2]).T   
+    elif robot_model.dimension == 3:
+        queries = np.vstack([x1, x2, time * np.ones(len(x1))]).T   
 
     # Initialize f
     f = np.zeros((xvals.shape[0], 1))
@@ -386,7 +418,8 @@ def entropy_of_tn(a, b, mu, var):
     
     return np.log(Z * np.sqrt(2.0 * np.pi * var)) + (alpha * phi_alpha - beta * phi_beta) / (2.0 * Z)
 
-def global_maximization(target, target_vector_n, target_grad, target_vector_gradient_n, ranges, guesses, visualize, filename, obstacles, f_rew):
+
+def global_maximization(target, target_vector_n, target_grad, target_vector_gradient_n, ranges, guesses, visualize, filename, obstacles, f_rew, time = None):
     MIN_COLOR = -25.
     MAX_COLOR = 25.
 
@@ -397,13 +430,24 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
     bb = ((ranges[1] - ranges[0])*0.10, (ranges[3] - ranges[2]) * 0.10)
     ranges = (ranges[0] + bb[0], ranges[1] - bb[0], ranges[2] + bb[1], ranges[3] - bb[1])
     
+    dim = guesses.shape[1]
+
     # Uniformly sample gridSize number of points in interval xmin to xmax
     x1 = np.random.uniform(ranges[0], ranges[1], size = gridSize)
     x2 = np.random.uniform(ranges[2], ranges[3], size = gridSize)
     x1, x2 = np.meshgrid(x1, x2, sparse = False, indexing = 'xy')
-    Xgrid_sample = np.vstack([x1.ravel(), x2.ravel()]).T    
-    Xgrid = np.vstack([Xgrid_sample, guesses])   
-    print "Xgrid shape:", Xgrid.shape
+
+    if dim == 2:
+        Xgrid_sample = np.vstack([x1.ravel(), x2.ravel()]).T    
+        Xgrid = np.vstack([Xgrid_sample, guesses[:, 0:-1]])   
+    elif dim == 3:
+        Xgrid_sample = np.vstack([x1.ravel(), x2.ravel(), time * np.ones(len(x1.ravel()))]).T    
+        Xgrid = Xgrid_sample
+        # TODO: could potentially add previously sampled points back in if fix time component; unclear if necessary
+        # Xgrid = np.vstack([Xgrid_sample, guesses[:, ]])   
+   
+    # Care only about the locations of the maxima guesses
+    # TODO: need to care less about previous maxima
     
     # Get the function value at Xgrid locations
     y = target(Xgrid)
@@ -445,16 +489,24 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
         x1vals = np.linspace(hold_ranges[0], hold_ranges[1], 100)
         x2vals = np.linspace(hold_ranges[2], hold_ranges[3], 100)
         x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
-        data = np.vstack([x1.ravel(), x2.ravel()]).T
+        if dim == 2: 
+            data = np.vstack([x1.ravel(), x2.ravel()]).T
+        elif dim == 3:
+            data = np.vstack([x1.ravel(), x2.ravel(), time * np.ones(len(x1.ravel()))]).T
+
         observations = target(data)
         fig2, ax2 = plt.subplots(figsize=(8, 8))
         ax2.set_xlim(hold_ranges[0:2])
         ax2.set_ylim(hold_ranges[2:])        
-        ax2.set_title('Countour Plot of the Sampled World Model')     
+        ax2.set_title('Countour Plot of the Approximated World Model')     
         plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), 25, cmap = 'viridis')
 
-    res = sp.optimize.minimize(fun = target_vector_n, x0 = start, method = 'SLSQP', \
-            jac = target_vector_gradient_n, bounds = ((ranges[0], ranges[1]), (ranges[2], ranges[3])))
+    if dim == 2:
+        res = sp.optimize.minimize(fun = target_vector_n, x0 = start, method = 'SLSQP', \
+                jac = target_vector_gradient_n, bounds = ((ranges[0], ranges[1]), (ranges[2], ranges[3]), (time, time)))
+    elif dim == 3:
+        res = sp.optimize.minimize(fun = target_vector_n, x0 = start, method = 'SLSQP', \
+                jac = target_vector_gradient_n, bounds = ((ranges[0], ranges[1]), (ranges[2], ranges[3]), (time, time)))
 
     if res['success'] == False:
         print "Failed to converge!"
@@ -473,6 +525,7 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
         fig2.savefig('./figures/'+str(f_rew)+'/opt/globalopt.' + str(filename) + '.png')
         # plt.show()
         plt.close()
+        plt.close('all')
 
     # print res
     return res['x'], -res['fun'], res['jac'], True
@@ -483,7 +536,10 @@ def exp_improvement(time, xvals, robot_model, param = None):
     data = np.array(xvals)
     x1 = data[:,0]
     x2 = data[:,1]
-    queries = np.vstack([x1,x2]).T
+    if robot_model.dimension == 2:
+        queries = np.vstack([x1, x2]).T   
+    elif robot_model.dimension == 3:
+        queries = np.vstack([x1, x2, time * np.ones(len(x1))]).T   
 
     mu, var = robot_model.predict_value(queries)
     avg_reward = 0

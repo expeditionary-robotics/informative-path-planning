@@ -408,15 +408,22 @@ class Tree(object):
                     child = random.choice(current_node.children)
                     nqueries = [node.nqueries for node in current_node.children]
                     child = random.choice([node for node in current_node.children if node.nqueries == min(nqueries)])
-                    belief.add_data(xobs, child.zvals)
+
+                    if True:
+                        belief.add_data(xobs, child.zvals)
                     #print "Selcted child:", child.nqueries
                     return self.leaf_helper(child, reward + r, belief)
 
-            if belief.model is None:
-                n_points, input_dim = xobs.shape
-                zmean, zvar = np.zeros((n_points, )), np.eye(n_points) * belief.variance
-                zobs = np.random.multivariate_normal(mean = zmean, cov = zvar)
-                zobs = np.reshape(zobs, (n_points, 1))
+            if True:
+                if belief.model is None:
+                    n_points, input_dim = xobs.shape
+                    zmean, zvar = np.zeros((n_points, )), np.eye(n_points) * belief.variance
+                    zobs = np.random.multivariate_normal(mean = zmean, cov = zvar)
+                    zobs = np.reshape(zobs, (n_points, 1))
+                else:
+                    zobs = belief.posterior_samples(xobs, full_cov = False, size = 1)
+
+                belief.add_data(xobs, zobs)
             else:
                 zobs = belief.posterior_samples(xobs, full_cov = False, size = 1)
 
@@ -515,11 +522,16 @@ class BeliefTree(Tree):
             else:
                 r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief)
 
-            # ''Simulate'' the maximum likelihood observation
-            if belief.model is None:
-                n_points, input_dim = xobs.shape
-                zobs = np.zeros((n_points, ))
-                zobs = np.reshape(zobs, (n_points, 1))
+            if True:
+                # ''Simulate'' the maximum likelihood observation
+                if belief.model is None:
+                    n_points, input_dim = xobs.shape
+                    zobs = np.zeros((n_points, ))
+                    zobs = np.reshape(zobs, (n_points, 1))
+                else:
+                    zobs, _= belief.predict_value(xobs)
+
+                belief.add_data(xobs, zobs)
             else:
                 zobs, _= belief.predict_value(xobs)
 
@@ -581,11 +593,16 @@ class BeliefTree(Tree):
             else:
                 r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief)
 
-            # ''Simulate'' the maximum likelihood observation
-            if belief.model is None:
-                n_points, input_dim = xobs.shape
-                zobs = np.zeros((n_points, ))
-                zobs = np.reshape(zobs, (n_points, 1))
+            if True:
+                # ''Simulate'' the maximum likelihood observation
+                if belief.model is None:
+                    n_points, input_dim = xobs.shape
+                    zobs = np.zeros((n_points, ))
+                    zobs = np.reshape(zobs, (n_points, 1))
+                else:
+                    zobs, _= belief.predict_value(xobs)
+
+                belief.add_data(xobs, zobs)
             else:
                 zobs, _= belief.predict_value(xobs)
 
@@ -676,6 +693,9 @@ class cMCTS(MCTS):
             i += 1
             gp = copy.copy(self.GP)
             self.tree.get_next_leaf(gp)
+
+            if True:
+                gp = copy.copy(self.GP)
         time_end = time.time()
         print "Rollouts completed in", str(time_end - time_start) +  "s"
         print "Number of rollouts:", i

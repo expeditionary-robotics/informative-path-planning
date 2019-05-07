@@ -30,11 +30,17 @@ class Evaluation:
         world (Environment object): an environment object that represents the ground truth environment
         f_rew (string): the reward function. One of {hotspot_info, mean, info_gain, mes, exp_improve} 
     '''
-    def __init__(self, world, reward_function = 'mean', num_stars=3):
+    def __init__(self, world, reward_function = 'mean', num_stars = 3):
         ''' Initialize the evaluation module and select reward function'''
         self.world = world
-        self.max_val = np.max(world.GP.zvals)
-        self.max_loc = world.GP.xvals[np.argmax(world.GP.zvals), :]
+
+        if world.dim == 2:
+            self.max_loc = world.GP.xvals[np.argmax(world.GP.zvals), :]
+            self.max_val = np.max(world.GP.zvals)
+        elif world.dim == 3:
+            self.max_loc = self.world.models[0].xvals[np.argmax(self.world.models[0].zvals), 0:-1]
+            self.max_val = np.max(self.world.models[0].zvals)
+
         self.reward_function = reward_function
         self.num_stars = num_stars
 
@@ -109,10 +115,14 @@ class Evaluation:
         data = np.array(xvals)
         x1 = data[:,0]
         x2 = data[:,1]
-        queries = np.vstack([x1, x2]).T   
-        
-        mu, var = self.world.GP.predict_value(queries)
-        return np.sum(mu)
+        if self.world.dim == 2:
+            queries = np.vstack([x1, x2]).T   
+            mu, var = self.world.GP.predict_value(queries)
+        elif self.world.dim == 3:
+            queries = np.vstack([x1, x2, time * np.ones(len(x1))]).T   
+            mu, var = self.world.models[time].predict_value(queries)
+       
+        return np.sum(mu)     
 
     def naive_reward(self, time, xvals, robot_model):
         ''' Predcited mean (true) reward function'''
@@ -124,13 +134,17 @@ class Evaluation:
 
     def hotspot_info_reward(self, time, xvals, robot_model):
         ''' The reward information gathered plus the exploitation value gathered'''    
-        LAMBDA = 1.0# TOOD: should depend on time
+        LAMBDA = 1.0 # TOOD: should depend on time
         data = np.array(xvals)
         x1 = data[:,0]
         x2 = data[:,1]
-        queries = np.vstack([x1, x2]).T   
+        if self.world.dim == 2:
+            queries = np.vstack([x1, x2]).T   
+            mu, var = self.world.GP.predict_value(queries)    
+        elif self.world.dim == 3:
+            queries = np.vstack([x1, x2, time * np.ones(len(x1))]).T   
+            mu, var = self.world.models[time].predict_value(queries)
         
-        mu, var = self.world.GP.predict_value(queries)    
         return self.info_gain_reward(time, xvals, robot_model) + LAMBDA * np.sum(mu)
     
     def info_gain_reward(self, time, xvals, robot_model):
@@ -165,6 +179,7 @@ class Evaluation:
             max_loc (nparray 1 x 2)
         '''
         error = 0.0
+        # Need to fix this to repsect the current time's maxima
         for point in xvals:
             error += np.linalg.norm(np.array(point[0:-1]) -  self.max_loc)
         error /= float(len(xvals))
@@ -174,10 +189,14 @@ class Evaluation:
     def sample_regret(self, robot_model):
         if robot_model.xvals is None:
             return 0., 0.
-
+    
+        dim = self.world.dim;
         global_max_val = np.reshape(np.array(self.max_val), (1,1))
         global_max_loc = np.reshape(np.array(self.max_loc), (1,2))
-        avg_loc_dist = sp.spatial.distance.cdist(global_max_loc, robot_model.xvals)
+
+        # TODO: need to fix this to not include time in the maxima prediction
+        # However, should think about how close we are to the current maxima in each timestep
+        avg_loc_dist = sp.spatial.distance.cdist(global_max_loc, robot_model.xvals[:, 0:-1])
         avg_val_dist = sp.spatial.distance.cdist(global_max_val, robot_model.zvals)
         return np.mean(avg_loc_dist), np.mean(avg_val_dist)
     
@@ -187,24 +206,31 @@ class Evaluation:
             max_loc (nparray 1 x 2)
             max_val (float)
         '''
-        return np.linalg.norm(max_loc - self.max_loc), np.linalg.norm(max_val - self.max_val)
+        # TOOD: make sure you're doing this right
+        return np.linalg.norm(max_loc[0:-1] - self.max_loc), np.linalg.norm(max_val - self.max_val)
 
-    def hotspot_error(self, robot_model, NTEST = 100, NHS = 100):
+    def hotspot_error(self, time, robot_model, NTEST = 100, NHS = 100):
         ''' Compute the hotspot error on a set of test points, randomly distributed throughout the environment'''
         x1 = np.random.random_sample((NTEST, 1)) * (self.world.x1max - self.world.x1min) + self.world.x1min
         x2 = np.random.random_sample((NTEST, 1)) * (self.world.x2max - self.world.x2min) + self.world.x2min
-        data = np.hstack((x1, x2))
+        x1 = x1.reshape((NTEST,))
+        x2 = x2.reshape((NTEST,))
+
+        if self.world.dim == 2:
+            data = np.vstack([x1, x2]).T   
+            pred_world, var_world = self.world.GP.predict_value(data)
+            pred_robot, var_robot = robot_model.predict_value(data)      
+        elif self.world.dim == 3:
+            data = np.vstack([x1, x2, time * np.ones(NTEST)]).T   
+            pred_world, var_world = self.world.models[time].predict_value(data)
+            pred_robot, var_robot = robot_model.predict_value(data)      
         
-        pred_world, var_world = self.world.GP.predict_value(data)
-        pred_robot, var_robot = robot_model.predict_value(data)      
 
         # Get the NHOTSPOT most "valuable" points
-        #print pred_world
         order = np.argsort(pred_world, axis = None)
         pred_world = pred_world[order[0:NHS]]
         pred_robot = pred_robot[order[0:NHS]]
 
-        #print pred_world
         #print pred_robot
         #print order
         
@@ -213,14 +239,20 @@ class Evaluation:
     def regret_bound(self, t, T):
         pass
         
-    def MSE(self, robot_model, NTEST = 100):
+    def MSE(self, time, robot_model, NTEST = 100):
         ''' Compute the MSE on a set of test points, randomly distributed throughout the environment'''
         x1 = np.random.random_sample((NTEST, 1)) * (self.world.x1max - self.world.x1min) + self.world.x1min
         x2 = np.random.random_sample((NTEST, 1)) * (self.world.x2max - self.world.x2min) + self.world.x2min
-        data = np.hstack((x1, x2))
-        
-        pred_world, var_world = self.world.GP.predict_value(data)
-        pred_robot, var_robot = robot_model.predict_value(data)      
+        x1 = x1.reshape((NTEST,))
+        x2 = x2.reshape((NTEST,))
+        if self.world.dim == 2:
+            data = np.vstack([x1, x2]).T   
+            pred_world, var_world = self.world.GP.predict_value(data)
+            pred_robot, var_robot = robot_model.predict_value(data)      
+        elif self.world.dim == 3:
+            data = np.vstack([x1, x2, time * np.ones(NTEST)]).T   
+            pred_world, var_world = self.world.models[time].predict_value(data)
+            pred_robot, var_robot = robot_model.predict_value(data)      
         
         return ((pred_world - pred_robot) ** 2).mean()
     
@@ -230,6 +262,12 @@ class Evaluation:
         ''' Function to update avaliable metrics'''    
         #self.metrics['hotspot_info_reward'][t] = self.hotspot_info_reward(t, selected_path, robot_model, max_val)
         #self.metrics['mean_reward'][t] = self.mean_reward(t, selected_path, robot_model)
+
+        # Update with this timestamps max value and location (only spatial location)
+        if self.world.dim == 3:
+            self.max_loc = self.world.models[t].xvals[np.argmax(self.world.models[t].zvals), 0:-1]
+            self.max_val = np.max(self.world.models[t].zvals)
+
         self.metrics['aquisition_function'][t] = value
 
         self.metrics['simple_regret'][t] = self.simple_regret(selected_path)
@@ -257,8 +295,8 @@ class Evaluation:
                 self.metrics['star_obs_loc_y_'+str(i)][t] = params[3][i][1]
 
         self.metrics['info_gain_reward'][t] = self.info_gain_reward(t, selected_path, robot_model)
-        self.metrics['MSE'][t] = self.MSE(robot_model, NTEST = 200)
-        self.metrics['hotspot_error'][t] = self.hotspot_error(robot_model, NTEST = 200, NHS = 100)
+        self.metrics['MSE'][t] = self.MSE(t, robot_model, NTEST = 200)
+        self.metrics['hotspot_error'][t] = self.hotspot_error(t, robot_model, NTEST = 200, NHS = 100)
 
         self.metrics['current_highest_obs'][t] = params[0]
         self.metrics['current_highest_obs_loc_x'][t] = params[1][0]

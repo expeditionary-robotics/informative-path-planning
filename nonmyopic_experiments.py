@@ -13,6 +13,7 @@ import time
 import sys
 import logging
 import numpy as np
+import argparse
 
 import aq_library as aqlib
 import mcts_library as mctslib
@@ -23,15 +24,29 @@ import envmodel_library as envlib
 import robot_library as roblib
 import obstacles as obslib
 
-print "User specified options: SEED, REWARD_FUNCTION, PATHSET, USE_COST, NONMYOPIC, GOAL_ONLY"
-# Allow selection of seed world to be consistent, and to run through reward functions
-SEED =  int(sys.argv[1])
-REWARD_FUNCTION = str(sys.argv[2])
-PATHSET = sys.argv[3]
-USE_COST = (sys.argv[4] == "True")
-NONMYOPIC = (sys.argv[5] == "True")
-GOAL_ONLY = (sys.argv[6] == "True")
-TREE_TYPE = sys.argv[7] # one of dpw or belief
+
+# Initialize command line options
+parser = argparse.ArgumentParser()
+parser.add_argument("-s", "--seed", action="store", type=int, help="Random seed for environment generation.", default = 0)
+parser.add_argument("-r", "--reward", action="store", help="Reward function. Should be mes, ei, or info_gain.", default = 'mes')
+parser.add_argument("-p", "--pathset", action="store", help="Action set type. Should be dubins, ...", default = 'dubins')
+parser.add_argument("-t", "--tree", action="store", help="If using nonmyopic planner, what kind of tree serach. Should be dpw or belief.", default = 'dpw')
+parser.add_argument("-n", "--nonmyopic", action="store_true", help="Run planner in nonmyopic mode if flag set.", default = False)
+parser.add_argument("-c", "--cost", action="store_true", help="Divide reward of action by cost if flag set.", default = False)
+parser.add_argument("-g", "--goal", action="store_true", help="Consider the reward of final point only if flag set.", default = False)
+
+
+# Parse command line options
+parse = parser.parse_args()
+
+# Read command line options
+SEED =  parse.seed
+REWARD_FUNCTION = parse.reward
+PATHSET = parse.pathset
+USE_COST = parse.cost
+NONMYOPIC = parse.nonmyopic
+GOAL_ONLY = parse.goal
+TREE_TYPE = parse.tree
 
 # SEED =  1000#int(sys.argv[1])
 # REWARD_FUNCTION = 'naive'#sys.argv[2]
@@ -80,37 +95,47 @@ world = envlib.Environment(ranges = ranges,
 # Create the evaluation class used to quantify the simulation metrics
 evaluation = evalib.Evaluation(world = world, reward_function = REWARD_FUNCTION)
 
+# Generate a prior dataset
+x1observe = np.linspace(ranges[0], ranges[1], 20)
+x2observe = np.linspace(ranges[2], ranges[3], 20)
+x1observe, x2observe = np.meshgrid(x1observe, x2observe, sparse = False, indexing = 'xy')  
+data = np.vstack([x1observe.ravel(), x2observe.ravel()]).T
+observations = world.sample_value(data)
+
+# Define the algorithm parameters
+kwargs = {  'sample_world': world.sample_value,
+            'start_loc': (5.0, 5.0, 0.0), #where robot is instantiated
+            'extent': ranges, #extent of the explorable environment
+            'kernel_file': None,
+            'kernel_dataset': None,
+            #'prior_dataset':  (data, observations), 
+            'prior_dataset': None,
+            'init_lengthscale': 1.0, 
+            'init_variance': 100.0, 
+            'noise': 0.5000,
+            'path_generator': PATHSET, #options: default, dubins, equal_dubins, fully_reachable_goal, fully_reachable_step
+            'goal_only': GOAL_ONLY, #select only if using fully reachable step and you want the reward of the step to only be the goal
+            'frontier_size': 15,
+            'horizon_length': 1.5, 
+            'turning_radius': 0.05,
+            'sample_step': 0.5,
+            'evaluation': evaluation, 
+            'f_rew': REWARD_FUNCTION, 
+            'create_animation': True, #logs images to the file folder
+            'learn_params': False, #if kernel params should be trained online
+            'nonmyopic': NONMYOPIC,
+            'discretization': (20, 20), #parameterizes the fully reachable sets
+            'use_cost': USE_COST, #select if you want to use a cost heuristic
+            'MIN_COLOR': MIN_COLOR,
+            'MAX_COLOR': MAX_COLOR,
+            'computation_budget': 200,
+            'rollout_length': 7,
+            'obstacle_world' : ow, 
+            'tree_type': TREE_TYPE }
+
+
 # Create the point robot
-robot = roblib.Robot(sample_world = world.sample_value, #function handle for collecting observations
-                     start_loc = (5.0, 5.0, 0.0), #where robot is instantiated
-                     extent = ranges, #extent of the explorable environment
-                     kernel_file = None,
-                     kernel_dataset = None,
-                     #prior_dataset =  (data, observations), 
-                     prior_dataset = None,
-                     init_lengthscale = 1.0, 
-                     init_variance = 100.0, 
-                     noise = 1.0,#10.0001,
-                     #noise = 0.5000,
-                     path_generator = PATHSET, #options: default, dubins, equal_dubins, fully_reachable_goal, fully_reachable_step
-                     goal_only = GOAL_ONLY, #select only if using fully reachable step and you want the reward of the step to only be the goal
-                     frontier_size = 15,
-                     horizon_length = 1.5, 
-                     turning_radius = 0.05,
-                     sample_step = 0.5,
-                     evaluation = evaluation, 
-                     f_rew = REWARD_FUNCTION, 
-                     create_animation = True, #logs images to the file folder
-                     learn_params = False, #if kernel params should be trained online
-                     nonmyopic = NONMYOPIC,
-                     discretization = (20, 20), #parameterizes the fully reachable sets
-                     use_cost = USE_COST, #select if you want to use a cost heuristic
-                     MIN_COLOR = MIN_COLOR,
-                     MAX_COLOR = MAX_COLOR,
-                     computation_budget = 250.0,
-                     rollout_length = 5,
-                     obstacle_world = ow, 
-                     tree_type = TREE_TYPE) 
+robot = roblib.Robot(**kwargs) 
 
 robot.planner(T = 150)
 # robot.visualize_world_model(screen = False)
