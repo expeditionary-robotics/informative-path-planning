@@ -196,7 +196,10 @@ class Evaluation:
 
         # TODO: need to fix this to not include time in the maxima prediction
         # However, should think about how close we are to the current maxima in each timestep
-        avg_loc_dist = sp.spatial.distance.cdist(global_max_loc, robot_model.xvals[:, 0:-1])
+        if robot_model.dimension == 2:
+            avg_loc_dist = sp.spatial.distance.cdist(global_max_loc, robot_model.xvals)
+        elif robot_model.dimension == 3:
+            avg_loc_dist = sp.spatial.distance.cdist(global_max_loc, robot_model.xvals[:, 0:-1])
         avg_val_dist = sp.spatial.distance.cdist(global_max_val, robot_model.zvals)
         return np.mean(avg_loc_dist), np.mean(avg_val_dist)
     

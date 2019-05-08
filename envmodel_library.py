@@ -131,7 +131,7 @@ class Environment:
             data = np.vstack([x1vals.ravel(), x2vals.ravel()]).T 
 
             # Create a buffer around the boundary, to ensure that maxima aren't on the edges
-            bb = ((ranges[1] - ranges[0])*0.03, (ranges[3] - ranges[2]) * 0.03)
+            bb = ((ranges[1] - ranges[0])*0.05, (ranges[3] - ranges[2]) * 0.05)
             ranges = (ranges[0] + bb[0], ranges[1] - bb[0], ranges[2] + bb[1], ranges[3] - bb[1])
           
             # A dictionary to hold the GP model for each time stamp
@@ -157,11 +157,15 @@ class Environment:
                     logger.warning("Current environment in violation of boundary constraint. Regenerating!")
 
                     # Intialize a GP model of the environment
-                    # self.GP = OnlineGPModel(ranges = ranges, lengthscale = lengthscale, variance = variance)         
-                    self.GP = GPModel(ranges = ranges, lengthscale = lengthscale, variance = variance, noise = noise, dimension = self.dim)         
+                    # self.GP = OnlineGPModel(ranges = ranges, lengthscale = lengthscale, variance = variance) 
+                    # TODO add noise into instantiation       
+                    self.GP = GPModel(ranges = ranges, lengthscale = lengthscale, variance = variance, dimension = self.dim)         
 
                     # Initialize points at time T
-                    data = np.vstack([x1vals.ravel(), x2vals.ravel(), T*np.ones(len(x1vals.ravel()))]).T 
+                    if self.dim == 2:
+                        data = np.vstack([x1vals.ravel(), x2vals.ravel()]).T 
+                    elif self.dim == 3:
+                        data = np.vstack([x1vals.ravel(), x2vals.ravel(), T*np.ones(len(x1vals.ravel()))]).T 
 
                     # Take an initial sample in the GP prior, conditioned on no other data
 
@@ -172,7 +176,7 @@ class Environment:
                             np.random.seed(seed)
                             seed += 1
 
-                        zsamples = np.random.normal(loc = mean, scale = np.sqrt(var))
+                        zsamples = np.random.normal(loc = 0, scale = np.sqrt(var))
                         zsamples = np.reshape(zsamples, (1,1)) # dimension: 1 x 1 
                                         
                         # Add initial sample data point to the GP model
@@ -187,7 +191,7 @@ class Environment:
                         self.GP.add_data(data, observations)                            
                 
                     maxima = self.GP.xvals[np.argmax(self.GP.zvals), :]
-                    seed += 1
+                    # seed += 1
 
                     # Plot the surface mesh and scatter plot representation of the samples points
                     if visualize == True:   
@@ -242,7 +246,6 @@ class Environment:
         Returns:
             mean (float array): an nparray of floats representing predictive mean, with dimension NUM_PTS x 1 
         '''
-
         assert(xvals.shape[0] >= 1)            
         assert(xvals.shape[1] == self.dim)        
 

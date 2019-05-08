@@ -12,9 +12,9 @@ pushd naive_experiments
             do
                 for cost in False 
                 do
-                    for nonmyopic in True #False 
+                    for nonmyopic in True False 
                     do
-                        for reward_func in naive naive_value #mes #mean 
+                        for reward_func in naive #naive_value #mes #mean 
                         do
                           for tree_type in dpw #belief
                           do
@@ -60,7 +60,14 @@ pushd naive_experiments
                               if [ ! -d $workdir ]; then mkdir $workdir; fi
 
                               pushd $workdir
-                              cmd="python ../../nonmyopic_experiments.py ${seed} ${reward_func} ${pathset} ${cost} ${nonmyopic} ${goal_only} ${tree_type}"
+                              if [ ${nonmyopic} = False ]; then
+                                cmd="python ../../nonmyopic_experiments.py -s ${seed} -r ${reward_func} -p ${pathset}"
+                              fi
+
+                              if [ ${nonmyopic} = True ]; then 
+                                cmd="python ../../nonmyopic_experiments.py -s ${seed} -r ${reward_func} -p ${pathset} -n -t ${tree_type}"
+                              fi
+
                               echo $cmd
                               $cmd
                               popd

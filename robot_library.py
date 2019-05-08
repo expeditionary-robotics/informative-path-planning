@@ -104,11 +104,11 @@ class Robot(object):
             self.aquisition_function = aqlib.mves_maximal_set
         elif self.f_rew == 'exp_improve':
             self.aquisition_function = aqlib.exp_improvement
-        elif f_rew == 'naive':
+        elif self.f_rew == 'naive':
             self.aquisition_function = aqlib.naive
             self.sample_num = 3
             self.sample_radius = 1.5
-        elif f_rew == 'naive_value':
+        elif self.f_rew == 'naive_value':
             self.aquisition_function = aqlib.naive_value
             self.sample_num = 3
             self.sample_radius = 3.0
@@ -166,8 +166,8 @@ class Robot(object):
         if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
             self.max_val, self.max_locs, self.target = aqlib.sample_max_vals(self.GP, t = t, visualize=True, f_rew=self.f_rew, obstacles = self.obstacle_world)
         elif self.f_rew == 'naive' or self.f_rew == 'naive_value':
-                param = (self.sample_num, self.sample_radius)
-                param = (aqlib.sample_max_vals(self.GP, t=t, obstacles=self.obstacle_world, visualize=True, f_rew=self.f_rew, nK=int(self.sample_num)), self.sample_radius)
+                self.max_val, self.max_locs, self.target = aqlib.sample_max_vals(self.GP, t=t, obstacles=self.obstacle_world, visualize=True, f_rew=self.f_rew, nK=int(self.sample_num))
+                param = ((self.max_val, self.max_locs, self.target), self.sample_radius)
         pred_loc, pred_val = self.predict_max(t = t)
             
         paths, true_paths = self.path_generator.get_path_set(self.loc)
@@ -274,17 +274,19 @@ class Robot(object):
             # If myopic planner
             if self.nonmyopic == False:
                 sampling_path, best_path, best_val, all_paths, all_values, max_locs = self.choose_trajectory(t = t)
-            elif self.f_rew == "naive" or self.f_rew == "naive_value":
-                    param = (self.sample_num, self.sample_radius)
             else:
-                # set params
-                if self.f_rew == "exp_improve":
-                    param = self.current_max
+
+                if self.f_rew == "naive" or self.f_rew == "naive_value":
+                    param = (self.sample_num, self.sample_radius)
                 else:
-                    param = None
-            # create the tree search
-            mcts = mctslib.cMCTS(self.comp_budget, self.GP, self.loc, self.roll_length, self.path_generator, self.aquisition_function, self.f_rew, t, aq_param = param, use_cost = self.use_cost, tree_type = self.tree_type)
-            sampling_path, best_path, best_val, all_paths, all_values, self.max_locs, self.max_val = mcts.choose_trajectory(t = t)
+                    # set params
+                    if self.f_rew == "exp_improve":
+                        param = self.current_max
+                    else:
+                        param = None
+                # create the tree search
+                mcts = mctslib.cMCTS(self.comp_budget, self.GP, self.loc, self.roll_length, self.path_generator, self.aquisition_function, self.f_rew, t, aq_param = param, use_cost = self.use_cost, tree_type = self.tree_type)
+                sampling_path, best_path, best_val, all_paths, all_values, self.max_locs, self.max_val = mcts.choose_trajectory(t = t)
             
             ''' Update eval metrics '''
             # Compute distance traveled
@@ -441,7 +443,7 @@ class Robot(object):
         elif self.dimension == 3:
             data = np.vstack([x1.ravel(), x2.ravel(), self.time * np.ones(len(x1.ravel()))]).T
 
-        print "Etnering visualize reward"
+        print "Entering visualize reward"
 
         if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
             param = (self.max_val, self.max_locs, self.target)

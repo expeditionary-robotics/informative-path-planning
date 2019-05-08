@@ -21,6 +21,7 @@ import scipy as sp
 import math
 import os
 import GPy as GPy
+import copy
 import dubins
 import time
 from itertools import chain
@@ -133,7 +134,7 @@ def hotspot_info_UCB(time, xvals, robot_model, param=None):
     return info_gain(time, xvals, robot_model) + LAMBDA * np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
 
 
-def sample_max_vals(robot_model, t, nK = 20, nFeatures = 200, visualize = False, obstacles=obslib.FreeWorld(), f_rew='mes'):
+def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = False, obstacles=obslib.FreeWorld(), f_rew='mes'):
     ''' The mutual information between a potential set of samples and the local maxima'''
     # If the robot has not samples yet, return a constant value
     if robot_model.xvals is None:
@@ -207,7 +208,11 @@ def sample_max_vals(robot_model, t, nK = 20, nFeatures = 200, visualize = False,
         #    pdb.set_trace()
         #    return np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
         # target = lambda x: np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
-        target = lambda x: np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
+        def target(x, W=W, theta=theta):
+            W = copy.deepcopy(W)
+            theta = copy.deepcopy(theta)
+            return np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
+        # target = lambda x: np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
         target_vector_n = lambda x: -target(x.reshape(1, d))
         
         # Can only take a 1D input
@@ -238,10 +243,10 @@ def sample_max_vals(robot_model, t, nK = 20, nFeatures = 200, visualize = False,
             continue
         
         samples[i] = np.array(max_val).reshape((1,1))
-        funcs.append(target)
+        funcs.append(copy.deepcopy(target))
         print "Max Value in Optimization \t \t", samples[i]
         logger.info("Max Value in Optimization \t {}".format(samples[i]))
-        locs[i, :] = maxima.reshape((1,2))
+        locs[i, :] = maxima.reshape((1,d))
         
         #if max_val < np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise) or \
         #    maxima[0] == robot_model.ranges[0] or maxima[0] == robot_model.ranges[1] or \
@@ -338,10 +343,11 @@ def naive(time, xvals, robot_model, param, FVECTOR = False):
 
     data = np.array(xvals)
     x1 = data[:, 0]
-    x2 = data[:, 1] 
+    x2 = data[:, 1]
 
     # Initialize f
-    f = np.zeros((xvals.shape[0], 1))
+    # pdb.set_trace()
+    f = np.zeros((data.shape[0], 1))
 
     for i in xrange(max_locs.shape[0]):
         d = np.sqrt(np.square(x1-max_locs[i][0]) + np.square(x2-max_locs[i][1]))
@@ -358,7 +364,9 @@ def naive(time, xvals, robot_model, param, FVECTOR = False):
 def naive_value(time, xvals, robot_model, param, FVECTOR = False):
     ''' The naive reward function for the MSS problem where param is number of samples to draw and range for reward'''
 
-    max_vals, _, _ = param[0]
+    max_vals, _, funcs = param[0]
+    # if time > 0:
+    #     pdb.set_trace()
     if max_vals is None:
         if FVECTOR:
             return np.zeros((xvals.shape[0], 1))
@@ -374,15 +382,24 @@ def naive_value(time, xvals, robot_model, param, FVECTOR = False):
         queries = np.vstack([x1, x2, time * np.ones(len(x1))]).T   
 
     # Initialize f
-    f = np.zeros((xvals.shape[0], 1))
+    f = np.zeros((data.shape[0], 1))
     for i in xrange(max_vals.shape[0]):
         #simple value distance check between the query point and the maximum
-        mean, var = robot_model.predict_value(queries)
+        # mean, var = robot_model.predict_value(queries)
+        mean = funcs[i](queries)
+        if FVECTOR:
+            plt.imshow(mean.reshape((100,100)))
+            plt.show()
+            plt.close()
         diff = np.fabs(mean - max_vals[i][0])
         count = diff <= param[1]
         f += count.astype(float).reshape(f.shape)
+        if FVECTOR:
+            plt.imshow(f.reshape((100,100)))
+            plt.show()
+            plt.close()
 
-    f = f / max_vals.shape[0]
+    f = f / float(max_vals.shape[0])
     # f is an np array; return scalar value
     if FVECTOR:
         return f
@@ -438,8 +455,8 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
     x1, x2 = np.meshgrid(x1, x2, sparse = False, indexing = 'xy')
 
     if dim == 2:
-        Xgrid_sample = np.vstack([x1.ravel(), x2.ravel()]).T    
-        Xgrid = np.vstack([Xgrid_sample, guesses[:, 0:-1]])   
+        Xgrid_sample = np.vstack([x1.ravel(), x2.ravel()]).T 
+        Xgrid = np.vstack([Xgrid_sample, guesses])   
     elif dim == 3:
         Xgrid_sample = np.vstack([x1.ravel(), x2.ravel(), time * np.ones(len(x1.ravel()))]).T    
         Xgrid = Xgrid_sample
@@ -503,7 +520,7 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
 
     if dim == 2:
         res = sp.optimize.minimize(fun = target_vector_n, x0 = start, method = 'SLSQP', \
-                jac = target_vector_gradient_n, bounds = ((ranges[0], ranges[1]), (ranges[2], ranges[3]), (time, time)))
+                jac = target_vector_gradient_n, bounds = ((ranges[0], ranges[1]), (ranges[2], ranges[3])))
     elif dim == 3:
         res = sp.optimize.minimize(fun = target_vector_n, x0 = start, method = 'SLSQP', \
                 jac = target_vector_gradient_n, bounds = ((ranges[0], ranges[1]), (ranges[2], ranges[3]), (time, time)))

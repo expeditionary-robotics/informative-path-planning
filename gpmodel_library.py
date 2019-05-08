@@ -56,7 +56,7 @@ class GPModel(object):
             if len(lengthscale) < dimension:
                 raise ValueError('Lengthscale vector must have same length as dimension.')
             self.dimension = dimension
-            self.asymmetric = True;
+            self.asymmetric = True
         else:
             print dimension
             raise ValueError('Environment must have dimension 2 or 3')
