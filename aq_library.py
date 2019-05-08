@@ -372,7 +372,7 @@ def naive_value(time, xvals, robot_model, param, FVECTOR = False):
     max_vals, _, funcs = param[0]
     # if time > 0:
     #     pdb.set_trace()
-    if max_vals is None:
+    if max_vals is None or funcs is None:
         if FVECTOR:
             return np.zeros((xvals.shape[0], 1))
         else:

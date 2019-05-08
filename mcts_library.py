@@ -710,7 +710,7 @@ class cMCTS(MCTS):
             all_vals[i] = child.reward / float(child.nqueries)
 
         paths, dense_paths = self.path_generator.get_path_set(self.cp)
-        return best_child.action, best_child.dense_path, best_child.reward/float(best_child.nqueries), paths, all_vals, self.max_locs, self.max_val
+        return best_child.action, best_child.dense_path, best_child.reward/float(best_child.nqueries), paths, all_vals, self.max_locs, self.max_val, self.target
 
         # get the best action to take with most promising futures, base best on whether to
         # consider cost

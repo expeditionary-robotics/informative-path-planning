@@ -286,7 +286,7 @@ class Robot(object):
                         param = None
                 # create the tree search
                 mcts = mctslib.cMCTS(self.comp_budget, self.GP, self.loc, self.roll_length, self.path_generator, self.aquisition_function, self.f_rew, t, aq_param = param, use_cost = self.use_cost, tree_type = self.tree_type)
-                sampling_path, best_path, best_val, all_paths, all_values, self.max_locs, self.max_val = mcts.choose_trajectory(t = t)
+                sampling_path, best_path, best_val, all_paths, all_values, self.max_locs, self.max_val, self.target = mcts.choose_trajectory(t = t)
             
             ''' Update eval metrics '''
             # Compute distance traveled
