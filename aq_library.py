@@ -17,6 +17,7 @@ from sklearn import mixture
 from IPython.display import display
 from scipy.stats import multivariate_normal
 import numpy as np
+from functools import partial
 import scipy as sp
 import math
 import os
@@ -134,6 +135,9 @@ def hotspot_info_UCB(time, xvals, robot_model, param=None):
     return info_gain(time, xvals, robot_model) + LAMBDA * np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
 
 
+def general_target(x, robot_model, nFeatures, W, theta, b):
+    return np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
+
 def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = False, obstacles=obslib.FreeWorld(), f_rew='mes'):
     ''' The mutual information between a potential set of samples and the local maxima'''
     # If the robot has not samples yet, return a constant value
@@ -208,11 +212,12 @@ def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = False, 
         #    pdb.set_trace()
         #    return np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
         # target = lambda x: np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
-        def target(x, W=W, theta=theta):
-            W = copy.deepcopy(W)
-            theta = copy.deepcopy(theta)
-            return np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
+        # def target(x, W=W, theta=theta):
+        #     W = copy.deepcopy(W)
+        #     theta = copy.deepcopy(theta)
+        #     return np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
         # target = lambda x: np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
+        target = partial(general_target, robot_model=robot_model, nFeatures=nFeatures, theta=theta, W=W, b=b)
         target_vector_n = lambda x: -target(x.reshape(1, d))
         
         # Can only take a 1D input
@@ -387,17 +392,17 @@ def naive_value(time, xvals, robot_model, param, FVECTOR = False):
         #simple value distance check between the query point and the maximum
         # mean, var = robot_model.predict_value(queries)
         mean = funcs[i](queries)
-        if FVECTOR:
-            plt.imshow(mean.reshape((100,100)))
-            plt.show()
-            plt.close()
+        # if FVECTOR:
+        #     plt.imshow(mean.reshape((100,100)))
+        #     plt.show()
+        #     plt.close()
         diff = np.fabs(mean - max_vals[i][0])
         count = diff <= param[1]
         f += count.astype(float).reshape(f.shape)
-        if FVECTOR:
-            plt.imshow(f.reshape((100,100)))
-            plt.show()
-            plt.close()
+        # if FVECTOR:
+        #     plt.imshow(f.reshape((100,100)))
+        #     plt.show()
+        #     plt.close()
 
     f = f / float(max_vals.shape[0])
     # f is an np array; return scalar value

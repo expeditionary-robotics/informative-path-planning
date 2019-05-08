@@ -27,7 +27,7 @@ import obstacles as obslib
 # Initialize command line options
 parser = argparse.ArgumentParser()
 parser.add_argument("-s", "--seed", action="store", type=int, help="Random seed for environment generation.", default = 0)
-parser.add_argument("-r", "--reward", action="store", help="Reward function. Should be mes, ei, or info_gain.", default = 'naive')
+parser.add_argument("-r", "--reward", action="store", help="Reward function. Should be mes, ei, or info_gain.", default = 'naive_value')
 parser.add_argument("-p", "--pathset", action="store", help="Action set type. Should be dubins, ...", default = 'dubins')
 parser.add_argument("-t", "--tree", action="store", help="If using nonmyopic planner, what kind of tree serach. Should be dpw or belief.", default = 'dpw')
 parser.add_argument("-n", "--nonmyopic", action="store_true", help="Run planner in nonmyopic mode if flag set.", default = False)

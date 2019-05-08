@@ -14,7 +14,7 @@ pushd naive_experiments
                 do
                     for nonmyopic in True False 
                     do
-                        for reward_func in naive #naive_value #mes #mean 
+                        for reward_func in naive naive_value #mes #mean 
                         do
                           for tree_type in dpw #belief
                           do
