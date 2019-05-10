@@ -19,21 +19,36 @@ from analysis_utils import *
 ######### MAIN LOOP ###########
 if __name__ == '__main__':
     # seed_numbers = range(5100, 10000, 100)
-    seed_numbers = range(5100, 5500, 100)
+    # seed_numbers = range(0, 2400, 100)
+    seed_numbers = range(0, 5000, 100)
     # seed_numbers.remove(5300)
     print len(seed_numbers)
     # seed_numbers = [0, 100, 200, 400, 500, 700, 800, 900, 1000, 1200, 1300, 1400, 1600, 1700, 1800, 1900]
     seeds = ['seed'+ str(x) + '-' for x in seed_numbers]
 
-    SUFFIX  = 'CLUTTERED' # FREE or CLUTTERED
-    if SUFFIX == 'FREE':
+    SUFFIX  = 'FREE' # FREE or CLUTTERED
+    if SUFFIX == 'NOISE':
+        fileparams = ['pathsetdubins-nonmyopicTrue-treedpw-' + SUFFIX,
+                     'pathsetdubins-nonmyopicTrue-treedpw-' + SUFFIX,
+                     'pathsetdubins-nonmyopicFalse-' + SUFFIX,
+                     'pathsetdubins-nonmyopicFalse-' + SUFFIX]
+
+        trials = ['naive', 'naive_value', 'naive', 'naive_value']
+        labels = ['LOC-MCTS', 'VAL-MCTS', 'LOC-Myopic', 'VAL-Myopic.']
+    elif SUFFIX == 'FREE':
         fileparams = ['pathsetdubins-nonmyopicTrue-treedpw-' + SUFFIX,
                      'pathsetdubins-nonmyopicTrue-treebelief-' + SUFFIX,
-                     'pathsetdubins-nonmyopicFalse-' + SUFFIX,
-                    'lawnmower']
+                     # 'pathsetdubins-nonmyopicFalse-' + SUFFIX,
+                     'lawnmower']
+                     # 'pathsetdubins-nonmyopicTrue-treedpw-' + SUFFIX,
+                     # 'pathsetdubins-nonmyopicTrue-treedpw-' + SUFFIX,
+                     # 'pathsetdubins-nonmyopicFalse-' + SUFFIX,
+                     # 'pathsetdubins-nonmyopicFalse-' + SUFFIX]
 
-        trials = ['mes', 'mean', 'mean', '']
-        labels = ['PLUMES', 'UCB-MCTS', 'UCB-MYOPIC', 'BOUSTRO.']
+        trials = ['mes', 'mean', 'lawnmower']
+        labels = ['PLUMES', 'UCB-MCTS','BOUSTRO.']
+        # trials = ['mes', 'mean', 'mes', 'lawnmower', 'naive', 'naive_value', 'naive', 'naive_value']
+        # labels = ['PLUMES', 'UCB-MCTS', 'UCB-MYOPIC', 'BOUSTRO.', 'LOC-MCTS', 'VAL-MCTS', 'LOC-Myopic', 'VAL-Myopic.']
     else:
         fileparams = ['pathsetdubins-nonmyopicTrue-treedpw-' + SUFFIX,
                     'pathsetdubins-nonmyopicTrue-treebelief-' + SUFFIX,
@@ -41,12 +56,13 @@ if __name__ == '__main__':
         trials = ['mes', 'mean', 'mean']
         labels = ['PLUMES', 'UCB-MCTS', 'UCB-MYOPIC']
 
-    file_start = 'iros_free_trials'
+    file_start = 'ral-naive-trials'
 
     # path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/'
     # path= '/home/genevieve/mit-whoi/informative-path-planning/experiments/'
     # path = '/media/genevieve/WINDOWS_COM/IROS_2019/cluttered_experiments/experiments/'
     path = '/media/genevieve/WINDOWS_COM/IROS_2019/experiments/'
+    # path= '/home/genevieve/mit-whoi/informative-path-planning/final_naive_experiments/'
 
     # variables for making dataframes
     column_names = ['time', 'info_gain','aqu_fun', 'MSE', 'hotspot_error','max_loc_error', 'max_val_error', 
@@ -83,15 +99,23 @@ if __name__ == '__main__':
         # p_mean_samples = []
         # p_mes_samples = []
 
+        print trial == 'naive'
+        if trial == 'naive':
+            other_trial = 'naive_value'
+        else:
+            other_trial = "xxx"
+
         print "Adding for:", param, label, trial
         for root, dirs, files in os.walk(path):
             for name in files:
-                if 'metrics' in name and 'star' not in name and trial in root and param in root and SUFFIX in root:
+                if 'metrics' in name and 'star' not in name and trial in root and other_trial not in root and param in root and SUFFIX in root or (('lawnmower' in param and 'lawnmower' in root)):
                    for s in seeds:
                        if s in root:
                            values.append(root+"/"+name)
+                # else:
+                #     print "Not adding:", root 
 
-                if 'robot_model' in name and ((trial in root and param in root and SUFFIX in root) or ('lawnmower' in param and 'lawnmower' in root)):
+                if 'robot_model' in name and ((trial in root and other_trial not in root and param in root and SUFFIX in root) or ('lawnmower' in param and 'lawnmower' in root)):
                     if 'lawnmower' in root:
                         for s in seed_numbers:
                             if str(s) in root:
@@ -104,7 +128,7 @@ if __name__ == '__main__':
                                 print root+'/'+name
 
                 # if 'log' in name and (('mean' in root and 'UCB-MCTS' in param) or ('mes' in root and 'COMPOSIT' in param)) and param in root and 'FREE' in root:
-                if 'log' in name and 'mes' in trial and param in root and SUFFIX in root:
+                if 'log' in name and param in root and SUFFIX in root:
                     for s in seeds:
                         if s in root:
                             ls = []
@@ -126,19 +150,20 @@ if __name__ == '__main__':
         if 'lawnmower' in param:
             values = copy.copy(old_values)
 
+        print max_loc
         data = make_df(values, column_names)
         all_dfs.append(data)
 
-        sdata, prop, propy, err_x, err_z, dist_x, dist_z, ent_x, ent_z = make_samples_df(samples, ['x', 'y', 'z'], max_loc = max_loc, max_val = max_val, xthresh = 1.5, ythresh = 3.0)
+        sdata, prop, propy, err_x, err_z, dist_x, dist_z, ent_x, ent_z = make_samples_df(samples, ['x', 'y', 'z'], max_loc = max_loc, max_val = max_val, xthresh = 1.5, ythresh = 1.0)
         all_sample_dfs.append(sdata)
         all_props.append(prop)
         all_propsy.append(propy)
         all_labels.append(label)
 
         if 'lawnmower' in param:
-            dist_data, dist_sdata, d_props, d_propsy, ids, d_err_x, d_err_z, d_dist_x, d_dist_z, d_hx, d_hz = make_dist_dfs(values, samples, column_names, max_loc, max_val, ythresh = 3.0, xthresh = 1.5, dist_lim = 200.0, lawnmower = True)
+            dist_data, dist_sdata, d_props, d_propsy, ids, d_err_x, d_err_z, d_dist_x, d_dist_z, d_hx, d_hz = make_dist_dfs(values, samples, column_names, max_loc, max_val, ythresh = 1.0, xthresh = 1.5, dist_lim = 200.0, lawnmower = True)
         else:
-            dist_data, dist_sdata, d_props, d_propsy, ids, d_err_x, d_err_z, d_dist_x, d_dist_z, d_hx, d_hz = make_dist_dfs(values, samples, column_names, max_loc, max_val, ythresh = 3.0, xthresh = 1.5, dist_lim = 200.0)
+            dist_data, dist_sdata, d_props, d_propsy, ids, d_err_x, d_err_z, d_dist_x, d_dist_z, d_hx, d_hz = make_dist_dfs(values, samples, column_names, max_loc, max_val, ythresh = 1.0, xthresh = 1.5, dist_lim = 200.0)
 
         dist_dist_x.append(d_dist_x)
         dist_dist_z.append(d_dist_z)
@@ -155,8 +180,13 @@ if __name__ == '__main__':
 
 
     if SUFFIX == 'FREE':
-        all_labels = ['PLUMES', 'UCB-MCTS', 'UCB-MYOPIC', 'BOUSTRO.']#['frpd', 'frgd', 'frgo', 'frpo', 'my', 'plumes']
+        # all_labels = ['PLUMES', 'UCB-MCTS', 'UCB-MYOPIC', 'BOUSTRO.', 'LOC-MCTS', 'VAL-MCTS', 'LOC-Myopic', 'VAL-Myopic.']#['frpd', 'frgd', 'frgo', 'frpo', 'my', 'plumes']
+        labels = labels
         # all_labels = ['PLUMES', 'LAWNMOWER']#['frpd', 'frgd', 'frgo', 'frpo', 'my', 'plumes']
+    elif SUFFIX == 'NOISE':
+        labels = ['LOC-MCTS', 'VAL-MCTS', 'LOC-Myopic', 'VAL-Myopic.']
+        # labels = ['LOC-MCTS', 'VAL-MCTS', 'LOC-Myopic', 'VAL-Myopic.']
+        labels = labels
     else:
         all_labels = ['PLUMES', 'UCB-MCTS', 'UCB-MYOPIC']#['frpd', 'frgd', 'frgo', 'frpo', 'my', 'plumes']
 

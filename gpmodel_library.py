@@ -61,18 +61,40 @@ class GPModel(object):
             print dimension
             raise ValueError('Environment must have dimension 2 or 3')
 
-        if kernel == 'rbf':
+        if self.dimension== 2:
             self.kern = GPy.kern.RBF(input_dim = self.dimension, lengthscale = lengthscale, variance = variance, ARD = self.asymmetric) 
-        elif kernel == 'rbf-period':
+        elif self.dimension == 3:
             # ARD1 corresponds to periods
             # ARD2 correponds to lengthscales
-            period = (100, 100, 5);
-            lengthscale = (2.5, 2.5, 0.0001);
-            
-            # self.kern = GPy.kern.RBF(input_dim = self.dimension, lengthscale = lengthscale, variance = variance, ARD = self.asymmetric) 
+            # period = 3.0
+            # period = 100
+
+            # lengthscale = 1.0;
+
+            # time_lengthscale = 100.000
+            # time_variance = 100
+
+            # test_period = (0.01, 0.01, 5)
+            # test_lengthscale = (1, 1, 1)
+
+            # lengthscale = (1.0, 1.0, 10.0);
+            # period = (5, 5/np.pi, 3/np.pi);
+           
+            self.kern = GPy.kern.RBF(input_dim = self.dimension, lengthscale = lengthscale, variance = variance, ARD = self.asymmetric) 
+
             # self.kern = GPy.kern.StdPeriodic(input_dim = self.dimension, period = period, lengthscale = lengthscale, variance = variance, ARD1 = True, ARD2 = True) 
-            self.kern = GPy.kern.StdPeriodic(input_dim = self.dimension, period = period, lengthscale = lengthscale, variance = variance, ARD1 = True, ARD2 = True) \
-                + GPy.kern.RBF(input_dim = self.dimension, lengthscale = lengthscale, variance = variance, ARD = self.asymmetric) 
+
+            # self.kern = GPy.kern.StdPeriodic(input_dim = self.dimension, period = test_period, lengthscale = test_lengthscale, variance = variance, ARD1 = True, ARD2 = True, active_dims = [0, 1, 2]) 
+
+            # self.kern = GPy.kern.StdPeriodic(input_dim = 1, active_dims = [self.dimension - 1], period = time_period, lengthscale = time_lengthscale, variance = time_variance) \
+            #      + GPy.kern.RBF(input_dim = self.dimension - 1, active_dims = range(self.dimension-1), lengthscale = lengthscale, variance = variance, ARD = False) 
+
+            # self.kern = GPy.kern.RBF(input_dim = self.dimension - 1, active_dims = range(self.dimension-1), lengthscale = lengthscale, variance = variance, ARD = self.asymmetric) 
+
+            # self.kern = GPy.kern.RBF(input_dim = 1, active_dims = self.dimension - 1, lengthscale = time_lengthscale, variance = time_variance) \
+            #      + GPy.kern.RBF(input_dim = self.dimension - 1, active_dims = range(self.dimension-1), lengthscale = lengthscale, variance = variance) 
+
+            # self.kern.plot()
         else:
             raise ValueError('Kernel type must by \'rbf\'')
             

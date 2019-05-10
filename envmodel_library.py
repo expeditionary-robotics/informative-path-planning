@@ -23,6 +23,7 @@ from gpmodel_library import OnlineGPModel
 import obstacles as obslib
 from scipy.stats import norm
 import copy
+import pickle
 
 class Environment:
     '''The Environment class, which represents a retangular Gaussian world.
@@ -77,19 +78,13 @@ class Environment:
                 x1vals = np.arange(ranges[0], ranges[1], (ranges[1] - ranges[0]) / NUM_PTS)
                 x2vals = np.arange(ranges[2], ranges[3], (ranges[3] - ranges[2]) / NUM_PTS)
 
-                print self.GP.xvals
-                
                 x1, x2 = np.meshgrid(x1vals, x2vals) # dimension: NUM_PTS x NUM_PTS       
-                print x1.shape, x2.shape
-                print x1
-                print x2
                 data = np.vstack([x1.ravel(), x2.ravel()]).T
                 observations, var = self.GP.predict_value(data, include_noise = False)        
 
                 maxind = np.argmax(observations)
                 self.max_val = observations[maxind, :]
                 self.max_loc = data[maxind, :]
-                
                 
                 fig2, ax2 = plt.subplots(figsize=(8, 6))
                 ax2.set_xlim(ranges[0:2])
@@ -137,100 +132,112 @@ class Environment:
             # A dictionary to hold the GP model for each time stamp
             self.models = {}
 
-            # If we ahve a static model
+            # If we have a static model
             if self.time_duration is None:
                 self.time_duration = 1;
 
-            for T in xrange(self.time_duration):
-                print "Generating environment for time", T
-                logger.warning("Generating environemnt for time %d", T)
-                # Initialize maxima arbitrarily to violate boundary constraints
-                maxima = [self.x1min, self.x2min]
+            # If a set of previously generated environments already exists, load
+            if os.path.isfile('./figures/environment_model.pickle'):
+                with open('./figures/environment_model.pickle', 'rb') as handle:
+                    print handle
+                    self.models = pickle.load(handle)
+                self.GP = self.models[time_duration-1]
+            else:
+                for T in xrange(self.time_duration):
+                    print "Generating environment for time", T
+                    logger.warning("Generating environemnt for time %d", T)
+                    # Initialize maxima arbitrarily to violate boundary constraints
+                    maxima = [self.x1min, self.x2min]
 
-                # Continue to generate random environments until the global maximia 
-                # lives within the boundary constraints
-                while maxima[0] < ranges[0] or maxima[0] > ranges[1] or \
-                    maxima[1] < ranges[2] or maxima[1] > ranges[3] or \
-                    self.obstacle_world.in_obstacle(maxima, buff = 0.0):
+                    # Continue to generate random environments until the global maximia 
+                    # lives within the boundary constraints
+                    while maxima[0] < ranges[0] or maxima[0] > ranges[1] or \
+                        maxima[1] < ranges[2] or maxima[1] > ranges[3] or \
+                        self.obstacle_world.in_obstacle(maxima, buff = 0.0):
 
-                    print "Current environment in violation of boundary constraint. Regenerating!"
-                    logger.warning("Current environment in violation of boundary constraint. Regenerating!")
+                        print "Current environment in violation of boundary constraint. Regenerating!"
+                        logger.warning("Current environment in violation of boundary constraint. Regenerating!")
 
-                    # Intialize a GP model of the environment
-                    # self.GP = OnlineGPModel(ranges = ranges, lengthscale = lengthscale, variance = variance) 
-                    # TODO add noise into instantiation       
-                    self.GP = GPModel(ranges = ranges, lengthscale = lengthscale, variance = variance, dimension = self.dim)         
+                        # Intialize a GP model of the environment
+                        # self.GP = OnlineGPModel(ranges = ranges, lengthscale = lengthscale, variance = variance, dimension = self.dim, noise = self.noise) 
+                        # TODO add noise into instantiation       
+                        self.GP = GPModel(ranges = ranges, lengthscale = lengthscale, variance = variance, dimension = self.dim, noise = self.noise)         
 
-                    # Initialize points at time T
-                    if self.dim == 2:
-                        data = np.vstack([x1vals.ravel(), x2vals.ravel()]).T 
-                    elif self.dim == 3:
-                        data = np.vstack([x1vals.ravel(), x2vals.ravel(), T*np.ones(len(x1vals.ravel()))]).T 
+                        # Initialize points at time T
+                        if self.dim == 2:
+                            data = np.vstack([x1vals.ravel(), x2vals.ravel()]).T 
+                        elif self.dim == 3:
+                            data = np.vstack([x1vals.ravel(), x2vals.ravel(), T*np.ones(len(x1vals.ravel()))]).T 
 
-                    # Take an initial sample in the GP prior, conditioned on no other data
+                        # Take an initial sample in the GP prior, conditioned on no other data
 
-                    if T == 0:
-                        xsamples = np.reshape(np.array(data[0, :]), (1, dim)) # dimension: 1 x dim
-                        mean, var = self.GP.predict_value(xsamples, include_noise = False)   
-                        if seed is not None:
-                            np.random.seed(seed)
-                            seed += 1
+                        if T == 0:
+                            xsamples = np.reshape(np.array(data[0, :]), (1, dim)) # dimension: 1 x dim
+                            mean, var = self.GP.predict_value(xsamples, include_noise = False)   
+                            if seed is not None:
+                                np.random.seed(seed)
+                                seed += 1
 
-                        zsamples = np.random.normal(loc = 0, scale = np.sqrt(var))
-                        zsamples = np.reshape(zsamples, (1,1)) # dimension: 1 x 1 
-                                        
-                        # Add initial sample data point to the GP model
-                        self.GP.add_data(xsamples, zsamples)                            
-                    
-                        np.random.seed(seed)
-                        observations = self.GP.posterior_samples(data[1:, :], full_cov = True, size=1)
-                        self.GP.add_data(data[1:, :], observations)                            
-                    else:
-                        np.random.seed(seed)
-                        observations = self.models[T-1].posterior_samples(data, full_cov = True, size=1)
-                        self.GP.add_data(data, observations)                            
-                
-                    maxima = self.GP.xvals[np.argmax(self.GP.zvals), :]
-                    # seed += 1
-
-                    # Plot the surface mesh and scatter plot representation of the samples points
-                    if visualize == True:   
-                        # the 3D surface
-                        fig = plt.figure(figsize=(8, 6))
-                        ax = fig.add_subplot(111, projection = '3d')
-                        ax.set_title('Surface of the Simulated Environment')
-                        surf = ax.plot_surface(x1vals, x2vals, self.GP.zvals.reshape(x1vals.shape), cmap = cm.coolwarm, linewidth = 1)
-                        if not os.path.exists('./figures'):
-                            os.makedirs('./figures')
-                        fig.savefig('./figures/world_model_surface.'+ str(T) + '.png')
-                        plt.close('all')
+                            zsamples = np.random.normal(loc = 0, scale = np.sqrt(var))
+                            zsamples = np.reshape(zsamples, (1,1)) # dimension: 1 x 1 
+                                            
+                            # Add initial sample data point to the GP model
+                            self.GP.add_data(xsamples, zsamples)                            
                         
-                        # the contour map            
-                        fig2 = plt.figure(figsize=(8, 6))
-                        ax2 = fig2.add_subplot(111)
-                        ax2.set_title('Countour Plot of the Simulated Environment')     
-                        # plot = ax2.contourf(x1vals, x2vals, self.GP.zvals.reshape(x1vals.shape), cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR, levels=np.linspace(MIN_COLOR, MAX_COLOR, 15))
-                        # plot = ax2.contourf(x1vals, x2vals, self.GP.zvals.reshape(x1vals.shape), 25, cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR)
-                        plot = ax2.contourf(x1vals, x2vals, self.GP.zvals.reshape(x1vals.shape), 25, cmap = 'viridis')
-                        # scatter = ax2.scatter(data[:, 0], data[:, 1], c = self.GP.zvals.ravel(), s = 4.0, cmap = 'viridis')
-                        maxind = np.argmax(self.GP.zvals)
-                        ax2.scatter(self.GP.xvals[maxind, 0], self.GP.xvals[maxind,1], color = 'k', marker = '*', s = 500)
-                        fig2.colorbar(plot, ax=ax2)
+                            np.random.seed(seed)
+                            observations = self.GP.posterior_samples(data[1:, :], full_cov = True, size=1)
+                            self.GP.add_data(data[1:, :], observations)                            
+                        else:
+                            np.random.seed(seed)
+                            observations = self.models[T-1].posterior_samples(data, full_cov = True, size=1)
+                            self.GP.add_data(data, observations)                            
+                    
+                        maxima = self.GP.xvals[np.argmax(self.GP.zvals), :]
+                        seed += 1
 
-                        # If available, plot the obstacles in the world
-                        if len(self.obstacle_world.get_obstacles()) != 0:
-                            for o in self.obstacle_world.get_obstacles():
-                                x,y = o.exterior.xy
-                                ax2.plot(x,y,'r',linewidth=3)
+                        # Plot the surface mesh and scatter plot representation of the samples points
+                        if visualize == True:   
+                            # the 3D surface
+                            fig = plt.figure(figsize=(8, 6))
+                            ax = fig.add_subplot(111, projection = '3d')
+                            ax.set_title('Surface of the Simulated Environment')
+                            surf = ax.plot_surface(x1vals, x2vals, self.GP.zvals.reshape(x1vals.shape), cmap = cm.coolwarm, linewidth = 1)
+                            if not os.path.exists('./figures'):
+                                os.makedirs('./figures')
+                            fig.savefig('./figures/world_model_surface.'+ str(T) + '.png')
+                            plt.close('all')
+                            
+                            # the contour map            
+                            fig2 = plt.figure(figsize=(8, 6))
+                            ax2 = fig2.add_subplot(111)
+                            ax2.set_title('Countour Plot of the Simulated Environment')     
+                            # plot = ax2.contourf(x1vals, x2vals, self.GP.zvals.reshape(x1vals.shape), cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR, levels=np.linspace(MIN_COLOR, MAX_COLOR, 15))
+                            # plot = ax2.contourf(x1vals, x2vals, self.GP.zvals.reshape(x1vals.shape), 25, cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR)
+                            plot = ax2.contourf(x1vals, x2vals, self.GP.zvals.reshape(x1vals.shape), 25, cmap = 'viridis')
+                            # scatter = ax2.scatter(data[:, 0], data[:, 1], c = self.GP.zvals.ravel(), s = 4.0, cmap = 'viridis')
+                            maxind = np.argmax(self.GP.zvals)
+                            ax2.scatter(self.GP.xvals[maxind, 0], self.GP.xvals[maxind,1], color = 'k', marker = '*', s = 500)
+                            fig2.colorbar(plot, ax=ax2)
 
-                        fig2.savefig('./figures/world_model_countour.'+ str(T) + '.png')
-                        #plt.show()           
-                        plt.close()
-                        plt.close('all')
+                            # If available, plot the obstacles in the world
+                            if len(self.obstacle_world.get_obstacles()) != 0:
+                                for o in self.obstacle_world.get_obstacles():
+                                    x,y = o.exterior.xy
+                                    ax2.plot(x,y,'r',linewidth=3)
 
-                # World with satisfactory maxima generated
-                self.models[T] = copy.deepcopy(self.GP)
-        
+                            fig2.savefig('./figures/world_model_countour.'+ str(T) + '.png')
+                            # plt.show()           
+                            plt.close()
+
+                    # World with satisfactory maxima generated
+                    self.models[T] = copy.deepcopy(self.GP)
+
+            # Dump the GP models, for later evaluation
+            with open('./figures/environment_model.pickle', 'wb') as handle:
+                print "Dumping!:", 
+                print self.models
+                pickle.dump(self.models, handle, protocol = pickle.HIGHEST_PROTOCOL)
+
             maxind = np.argmax(self.GP.zvals)
             self.max_val = self.GP.zvals[maxind, :]
             self.max_loc = self.GP.xvals[maxind, :]

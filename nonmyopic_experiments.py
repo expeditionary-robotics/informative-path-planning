@@ -27,7 +27,7 @@ import obstacles as obslib
 # Initialize command line options
 parser = argparse.ArgumentParser()
 parser.add_argument("-s", "--seed", action="store", type=int, help="Random seed for environment generation.", default = 0)
-parser.add_argument("-r", "--reward", action="store", help="Reward function. Should be mes, ei, or info_gain.", default = 'naive_value')
+parser.add_argument("-r", "--reward", action="store", help="Reward function. Should be mes, ei, or info_gain.", default = 'mes')
 parser.add_argument("-p", "--pathset", action="store", help="Action set type. Should be dubins, ...", default = 'dubins')
 parser.add_argument("-t", "--tree", action="store", help="If using nonmyopic planner, what kind of tree serach. Should be dpw or belief.", default = 'dpw')
 parser.add_argument("-n", "--nonmyopic", action="store_true", help="Run planner in nonmyopic mode if flag set.", default = False)
@@ -46,9 +46,15 @@ USE_COST = parse.cost
 NONMYOPIC = parse.nonmyopic
 GOAL_ONLY = parse.goal
 TREE_TYPE = parse.tree
-DIM = 2 #2
-DURATION = 1
-LENGTHSCALE = 1# (2.5, 2.5, 30) #1
+DIM = 3 #2
+if DIM == 2:
+    LENGTHSCALE = 1# (2.5, 2.5, 30) #1
+    DURATION = 1
+elif DIM == 3:
+    LENGTHSCALE = (1.5, 1.5, 100) #1
+    # LENGTHSCALE = (1.0, 1.0, 75) #1
+    DURATION = 250
+    # DURATION = 2
 
 # Parameters for plotting based on the seed world information
 MIN_COLOR = -25.
@@ -135,7 +141,10 @@ kwargs = {  'sample_world': world.sample_value,
 # Create the point robot
 robot = roblib.Robot(**kwargs) 
 
-robot.planner(T = 150)
+if DIM == 2:
+    robot.planner(T = 150)
+elif DIM == 3:
+    robot.planner(T = DURATION)
 #robot.visualize_world_model(screen = True)
 robot.visualize_trajectory(screen = False) #creates a summary trajectory image
 robot.plot_information() #plots all of the metrics of interest

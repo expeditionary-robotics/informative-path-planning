@@ -383,7 +383,6 @@ class Robot(object):
         color = iter(plt.cm.cool(np.linspace(0,1,len(self.trajectory))))
        
         # Plot the current trajectory
-        '''
         if self.trajectory is not None:
             for i, path in enumerate(self.trajectory):
                 c = next(color)
@@ -407,7 +406,6 @@ class Robot(object):
         if best_path is not None:
             f = np.array(best_path)
             plt.plot(f[:,0], f[:,1], c = 'g')
-        '''
            
         # If available, plot the current location of the maxes for mes
         if maxes is not None:

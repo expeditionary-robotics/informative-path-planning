@@ -207,7 +207,12 @@ class MCTS(object):
 
         for s in samples:
             obs = np.array(s)
-            xobs = np.vstack([obs[:,0], obs[:,1]]).T
+
+            if belief.dimension == 2:
+                xobs = np.vstack([obs[:,0], obs[:,1]]).T
+            elif belief.dimension == 3:
+                xobs = np.vstack([obs[:,0], obs[:,1], (self.t + current_node.depth)*np.ones(obs.shape[0])]).T
+
             if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
                 reward += self.aquisition_function(time = self.t, xvals = xobs, robot_model = sim_world, param = (self.max_val, self.max_locs, self.target))
             elif self.f_rew == 'exp_improve':
@@ -381,7 +386,10 @@ class Tree(object):
             # Sample a new set of observations and form a new belief
             #xobs = current_node.action
             obs = np.array(current_node.action)
-            xobs = np.vstack([obs[:,0], obs[:,1]]).T
+            if belief.dimension == 2:
+                xobs = np.vstack([obs[:,0], obs[:,1]]).T
+            elif belief.dimension == 3:
+                xobs = np.vstack([obs[:,0], obs[:,1], (self.t + current_node.depth)*np.ones(obs.shape[0])]).T
 
             if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
                 r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief, param = self.param)
@@ -509,7 +517,11 @@ class BeliefTree(Tree):
             #select a random action
             a = np.random.randint(0, len(actions) - 1)
             obs = np.array(actions[keys[a]])
-            xobs = np.vstack([obs[:,0], obs[:,1]]).T
+            # xobs = np.vstack([obs[:,0], obs[:,1]]).T
+            if belief.dimension == 2:
+                xobs = np.vstack([obs[:,0], obs[:,1]]).T
+            elif belief.dimension == 3:
+                xobs = np.vstack([obs[:,0], obs[:,1], (self.t + current_node.depth)*np.ones(obs.shape[0])]).T
 
             if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
                 r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief, param = self.param)
@@ -580,7 +592,11 @@ class BeliefTree(Tree):
             # Sample a new set of observations and form a new belief
             #xobs = current_node.action
             obs = np.array(current_node.action)
-            xobs = np.vstack([obs[:,0], obs[:,1]]).T
+            # xobs = np.vstack([obs[:,0], obs[:,1]]).T
+            if belief.dimension == 2:
+                xobs = np.vstack([obs[:,0], obs[:,1]]).T
+            elif belief.dimension == 3:
+                xobs = np.vstack([obs[:,0], obs[:,1], (self.t + current_node.depth)*np.ones(obs.shape[0])]).T
 
             if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
                 r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief, param = self.param)

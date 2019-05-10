@@ -162,7 +162,8 @@ def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = False, 
         if robot_model.dimension == 2:
             W = np.random.normal(loc = 0.0, scale = np.sqrt(1./(robot_model.lengthscale)), size = (nFeatures, d))
         elif robot_model.dimension == 3:
-            W = np.random.normal(loc = 0.0, scale = np.sqrt(1./(robot_model.lengthscale[0])), size = (nFeatures, d))
+            # W = np.random.normal(loc = [0.0, 0.0, 0,0], scale = np.sqrt(1./np.array(robot_model.lengthscale)), size = (nFeatures, d))
+            W = np.random.multivariate_normal(mean = np.zeros((d,)), cov = np.diag((1./(np.array(robot_model.lengthscale)**2 ))), size = nFeatures)
 
         b = 2 * np.pi * np.random.uniform(low = 0.0, high = 1.0, size = (nFeatures, 1))
         
@@ -265,7 +266,7 @@ def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = False, 
             locs[i, :] = robot_model.xvals[np.argmax(robot_model.zvals)]
         '''
 
-    print "Deleting values at:", delete_locs
+    # print "Deleting values at:", delete_locs
     samples = np.delete(samples, delete_locs, axis = 0)
     locs = np.delete(locs, delete_locs, axis = 0)
 
@@ -275,7 +276,7 @@ def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = False, 
         locs[0, :] = robot_model.xvals[np.argmax(robot_model.zvals)]
   
 
-    print "Returning:", samples.shape, locs.shape
+    # print "Returning:", samples.shape, locs.shape
     return samples, locs, funcs
 
 def mves(time, xvals, robot_model, param, FVECTOR = False):
@@ -473,9 +474,9 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
     
     # Get the function value at Xgrid locations
     y = target(Xgrid)
-    print "y shape:", y.shape
     max_index = np.argmax(y)   
-    print "Max index:", max_index
+    # print "y shape:", y.shape
+    # print "Max index:", max_index
     start = np.asarray(Xgrid[max_index, :])
 
     # If the highest sample point seen is ouside of the boundary, find the highest inside the boundary

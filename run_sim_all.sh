@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-if [ ! -d naive_experiments ]; then
-mkdir naive_experiments
+if [ ! -d spacetime_experiments ]; then
+mkdir spacetime_experiments
 fi
 
-pushd naive_experiments
-    for seed in {0..10000..100}
+pushd spacetime_experiments
+    for seed in {250..10000..100}
     do
         for pathset in dubins
         do
@@ -14,18 +14,12 @@ pushd naive_experiments
                 do
                     for nonmyopic in True False 
                     do
-                        for reward_func in naive naive_value #mes #mean 
+                        for reward_func in mes mean naive naive_value #mes #mean 
                         do
-                          for tree_type in dpw #belief
+                          for tree_type in dpw belief
                           do
                               echo sim_seed${seed}-pathset${pathset}-nonmyopic${nonmyopic}-tree${tree_type}
                               # Dont want to run either cost or goal only
-                              if [ ${pathset} = dubins ] && [ ${goal_only} = True ]; then
-                                  continue
-                              fi
-                              if [ ${pathset} = dubins ] && [ ${cost} = True ]; then
-                                  continue
-                              fi
                               #  Don't want to run myopic UCB
                               #if [ ${reward_func} = mean ] && [ ${nonmyopic} = False ]; then
                               #    continue
@@ -42,17 +36,19 @@ pushd naive_experiments
                               if [ ${nonmyopic} = True ] && [ ${reward_func} = naive_value ] && [ ${tree_type} = belief ]; then
                                  continue
                               fi
+                              if [ ${nonmyopic} = True ] && [ ${reward_func} = mes ] && [ ${tree_type} = belief ]; then
+                                 continue
+                              fi
+                              if [ ${nonmyopic} = True ] && [ ${reward_func} = mean ] && [ ${tree_type} = dpw ]; then
+                                 continue
+                              fi
 
                               if [ ${nonmyopic} = False ]; then
-                                workdir=sim_seed${seed}-pathset${pathset}-nonmyopic${nonmyopic}-NOISE
+                                workdir=sim_seed${seed}-pathset${pathset}-nonmyopic${nonmyopic}
                               else
-                                workdir=sim_seed${seed}-pathset${pathset}-nonmyopic${nonmyopic}-tree${tree_type}-NOISE
+                                workdir=sim_seed${seed}-pathset${pathset}-nonmyopic${nonmyopic}-tree${tree_type}
                               fi
                               
-                              if [ -d $workdir ] && [ -f ${workdir}/figures/${reward_func}/trajectory-N.SUMMARY.png ] ; then 
-                                continue
-                              fi
-
                               if [ -d $workdir ] && [ -f ${workdir}/figures/${reward_func}/trajectory-N.SUMMARY.png ] ; then 
                                 continue
                               fi

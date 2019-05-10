@@ -27,7 +27,6 @@ plt.rcParams['figure.figsize'] = (17,10)
 ''' Predict the maxima of a GP model '''
 def predict_max(xvals, zvals, ranges = [0.0, 10.0, 0.0, 10.0], LEN = 1.0, VAR = 100.0, NOISE = 0.5):
     # If no observations have been collected, return default value
-    # if xvals is None or True: # TODO: remeber to change this!
     if xvals is None or True: # TODO: remeber to change this!
         print "Skipping maxima prediction!"
         return np.array([0., 0.]), 0.
@@ -60,7 +59,7 @@ def predict_max(xvals, zvals, ranges = [0.0, 10.0, 0.0, 10.0], LEN = 1.0, VAR = 
 ''' Quantify entropy of star distribution and visaulize the star heatmap '''
 def star_max_dist(xvals, zvals, true_loc, true_val, PATH, ranges = [0.0, 10.0, 0.0, 10.0], LEN = 1.0, VAR = 100.0, NOISE = 0.5):
     # If no observations have been collected, return default value
-    if xvals is None: #TODO: remember to change this
+    if xvals is None or True: #TODO: remember to change this
         print "Skipping star analysis prediction!"
         return 0.0, 0.0, 0.0, 0.0
 
@@ -267,6 +266,7 @@ def generate_stats(dfs, labels, params, end_time=149, fname='stats.txt'):
 def generate_histograms(dfs, props, labels, title, figname='', save_fig=False, ONLY_STATS = False):
     colors = ['b', 'g', 'r', 'c', 'm', 'y', 'b', 'g', 'r', 'c', 'm', 'y']
 
+    print labels
     print '\n\n ------------------', title, '------------------'
     print '---- Mean and STD for each proportion ---'
     for q,m in enumerate(props):
@@ -334,7 +334,7 @@ def generate_histograms(dfs, props, labels, title, figname='', save_fig=False, O
     # plt.ylim((0.,1.))
 
     # plt.bar(np.arange(len(dfs)), [np.mean(m) for m in props], yerr = np.array(yerr).T, color = colors[0:len(props)])#yerr=[np.std(m) for m in props], color=colors[0:len(props)])
-    plt.ylabel('Proportion of Samples')
+    plt.ylabel('Proportion of Samples' + title)
     # plt.title(title+': Proportion of Samples within $1.5m$ of Global Maximizer', fontsize=32)
 
     if save_fig == True:
