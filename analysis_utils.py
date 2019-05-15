@@ -24,67 +24,87 @@ plt.rcParams['axes.labelsize'] = 30
 plt.rcParams['axes.titlesize'] = 30
 plt.rcParams['figure.figsize'] = (17,10)
 
-''' Predict the maxima of a GP model '''
-def predict_max(xvals, zvals, ranges = [0.0, 10.0, 0.0, 10.0], LEN = 1.0, VAR = 100.0, NOISE = 0.5):
-    # If no observations have been collected, return default value
-    if xvals is None or True: # TODO: remeber to change this!
+def predict_max(xvals, zvals, ranges=(0.0, 10.0, 0.0, 10.0), LEN=1.0, VAR=100.0, NOISE=0.5, SKIP_MAXIMA=False):
+    ''' Predict the maxima of a GP model.
+    Input:
+    - xvals (locations)
+    - zvals (observation values)
+    - ranges (world extent)
+    - LEN (lengthscale)
+    - VAR (variance)
+    - NOISE (noise)
+    - SKIP_MAXIMA (boolean, whether or not to sample the maxima)
+    Output:
+    - max_loc (list of sampled maxima locations)
+    - max_val (list of sampled maxima values)
+    '''
+
+    # If no observations have been collected or we would like to skip the calculation,
+    # and return default value
+    if xvals is None or SKIP_MAXIMA:
         print "Skipping maxima prediction!"
         return np.array([0., 0.]), 0.
 
-    GP = gplib.GPModel(ranges = ranges, lengthscale = LEN, variance = VAR, noise = NOISE)
-    GP.add_data(xvals, zvals) 
-    ''' First option, return the max value observed so far '''
-    #return self.GP.xvals[np.argmax(GP.zvals), :], np.max(GP.zvals)
+    GP = gplib.GPModel(ranges=ranges, lengthscale=LEN, variance=VAR, noise=NOISE)
+    GP.add_data(xvals, zvals)
 
-    ''' Second option: generate a set of predictions from model and return max '''
     # Generate a set of observations from robot model with which to predict mean
     x1vals = np.linspace(ranges[0], ranges[1], 100)
     x2vals = np.linspace(ranges[2], ranges[3], 100)
-    x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') 
+    x1, x2 = np.meshgrid(x1vals, x2vals, sparse=False, indexing='xy')
 
     data = np.vstack([x1.ravel(), x2.ravel()]).T
-    observations, var = GP.predict_value(data)        
+    observations, var = GP.predict_value(data)
     max_loc, max_val = data[np.argmax(observations), :], np.max(observations)
-
-    # fig2, ax2 = plt.subplots(figsize=(8, 8))
-    # plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), 25, cmap = 'viridis')
-    # scatter = ax2.scatter(GP.xvals[:, 0], GP.xvals[:, 1], c='k', s = 20.0, cmap = 'viridis')
-
-    # scatter = ax2.scatter(data[:, 0], data[:, 1], c='b', s = 10.0, cmap = 'viridis')
-    # scatter = ax2.scatter(max_loc[0], max_loc[1], c='r', s = 20.0, cmap = 'viridis')
-    # plt.show()
 
     return max_loc, max_val
 
-''' Quantify entropy of star distribution and visaulize the star heatmap '''
-def star_max_dist(xvals, zvals, true_loc, true_val, PATH, ranges = [0.0, 10.0, 0.0, 10.0], LEN = 1.0, VAR = 100.0, NOISE = 0.5):
+
+def star_max_dist(xvals, zvals, true_loc, true_val, PATH, ranges =(0.0, 10.0, 0.0, 10.0), LEN=1.0, VAR=100.0, NOISE=0.5, SKIP_MAXIMA=False):
+    ''' Quantify entropy of star distribution and visaulize the star heatmap
+    Input:
+    - xvals (locations)
+    - zvals (values)
+    - true_loc (actual location of the maximum)
+    - true_val (actual value of the maximum)
+    - PATH (filepath to the sampled maximas)
+    - range (world extent)
+    - LEN (lengthscale)
+    - VAR (variance)
+    - NOISE (noise)
+    - SKIP_MAXIMA (boolean, flag for whether to return default values)
+    Output:
+    - mean error in sample location and true
+    - mean value error of samples and true
+    - entropy in location
+    - entropy in value
+    '''
     # If no observations have been collected, return default value
-    if xvals is None or True: #TODO: remember to change this
+    if xvals is None or SKIP_MAXIMA:
         print "Skipping star analysis prediction!"
         return 0.0, 0.0, 0.0, 0.0
 
-    GP = gplib.GPModel(ranges = ranges, lengthscale = LEN, variance = VAR, noise = NOISE)
-    GP.add_data(xvals, zvals) 
-  
-    # If files already exist, simply read in. Othrewise, sample maxima
+    GP = gplib.GPModel(ranges=ranges, lengthscale=LEN, variance=VAR, noise=NOISE)
+    GP.add_data(xvals, zvals)
+
+    # If files already exist, simply read in. Otherwise, sample maxima
     # and create files.
     try:
         sampled_maxes = np.loadtxt(os.path.join(PATH, 'sampled_maxes_dist.csv')).T
         max_locs = sampled_maxes[:, 0:2].reshape((-1, 2))
         max_vals = sampled_maxes[:, 2].reshape((-1, 1))
-        SAVE_FLAG = False 
-
+        SAVE_FLAG = False
     except:
-        max_vals, max_locs, func = aqlib.sample_max_vals(GP, t = 0, nK = 20)
+        max_vals, max_locs, func = aqlib.sample_max_vals(GP, t=0, nK=20)
         max_vals = np.array(max_vals).reshape((-1, 1))
         max_locs = np.array(max_locs).reshape((-1, 2))
         np.savetxt(os.path.join(PATH, 'sampled_maxes_dist.csv'), np.vstack((max_locs.T, max_vals.T)))
-        SAVE_FLAG = True 
+        SAVE_FLAG = True
 
     true_loc = np.array(true_loc).reshape((-1, 2))
     true_val = np.array(true_val).reshape((-1, 1))
 
-    # Compute average distance from stars to true loc
+    # Compute distance from stars to true loc
     dist_loc = distance.cdist(max_locs, true_loc, 'euclidean')
     dist_val = distance.cdist(max_vals, true_val, 'euclidean')
 
@@ -93,62 +113,65 @@ def star_max_dist(xvals, zvals, true_loc, true_val, PATH, ranges = [0.0, 10.0, 0
 
     # Create the star heatmap
     if SAVE_FLAG:
-        plt.figure(figsize=(8,8))
-        # plt.hist2d(max_locs[:, 0], max_locs[:, 1], bins = NBINS, normed = True, range = RANGE, cmap = 'magma', norm=mcolors.LogNorm())
-        plt.hist2d(max_locs[:, 0], max_locs[:, 1], bins = NBINS, normed = True, range = RANGE, cmap = 'viridis')
+        plt.figure(figsize=(8, 8))
+        plt.hist2d(max_locs[:, 0], max_locs[:, 1], bins=NBINS, normed=True, range=RANGE, cmap='viridis')
         plt.colorbar()
         plt.savefig(os.path.join(PATH, 'star_heatmap.png'))
-        # plt.show()
         plt.close()
 
     # Compute the histrogram entropy of the star distribution
     ALPHA = 0.99
-    hist, xbins, ybins = np.histogram2d(max_locs[:, 0], max_locs[:, 1], bins = NBINS, normed = True, range = RANGE)
+    hist, xbins, ybins = np.histogram2d(max_locs[:, 0], max_locs[:, 1], bins=NBINS, normed=True, range=RANGE)
     uniform = np.ones(hist.shape) / np.sum(np.ones(hist.shape))
-    histnorm = ALPHA * hist + (1. - ALPHA) * uniform 
+    histnorm = ALPHA * hist + (1. - ALPHA) * uniform
     histnorm = histnorm / np.sum(histnorm)
     entropy_x = -np.sum(histnorm[histnorm > 0.0] * np.log(histnorm[histnorm > 0.0]))
     plt.imshow(hist)
     plt.show()
 
-    # Uniform santiy check
+    # Uniform sanity check
     # uniform = np.ones(hist.shape) / np.sum(np.ones(hist.shape))
     # unifrom_entropy = -np.sum(uniform[uniform > 0.0] * np.log(uniform[uniform > 0.0]))
     # print "Entropy of a uniform distribution:", unifrom_entropy
 
-    hist_z, xbins_z = np.histogram(max_vals, bins = NBINS, density = True)
+    hist_z, xbins_z = np.histogram(max_vals, bins=NBINS, density=True)
     uniform = np.ones(hist_z.shape) / np.sum(np.ones(hist_z.shape))
     hist_z = hist_z / np.sum(hist_z)
     entropy_z = -np.mean(np.log(hist_z[hist_z > 0.0]))
 
     # Save statistics
-    if SAVE_FLAG:
+    if SAVE_FLAG is True:
         np.savetxt(os.path.join(PATH, 'star_stats.csv'), np.array([np.mean(dist_loc), np.mean(dist_val), entropy_x, entropy_z]))
         np.savetxt(os.path.join(PATH, 'star_loc_variance.csv'), np.array(dist_val))
         np.savetxt(os.path.join(PATH, 'star_val_variance.csv'), np.array(dist_loc))
 
     return np.mean(dist_loc), np.mean(dist_val), entropy_x, entropy_z
-        
+
 def make_df(file_names, column_names):
+    ''' makes PANDAS dataframes of input CSVs
+    Input:
+    - file_names (string) path to where csv files to parse are
+    - column_names (string) labels for the dataframe to take on
+    Output:
+    - dataframe
+    '''
     d = file_names[0]
-    data = pd.read_table(d, delimiter = " ", header=None)
+    data = pd.read_table(d, delimiter=" ", header=None)
     data = data.T
-    if data.shape[1] > len(column_names):
-        data = pd.read_table(d, delimiter = " ", header=None, skipfooter = data.shape[1] - len(column_names))
+    if data.shape[1] > len(column_names): #initialize the dataframe
+        #if there is extra information appended in the CSV, ignore the appended information
+        data = pd.read_table(d, delimiter=" ", header=None, skipfooter=data.shape[1] - len(column_names))
         data = data.T
         data.columns = column_names
     else:
         data.columns = column_names
 
-    for m in file_names[1:]:
-        temp_data = pd.read_table(m, delimiter = " ", header=None)
+    for m in file_names[1:]: #append the rest of the data
+        temp_data = pd.read_table(m, delimiter=" ", header=None)
         temp_data = temp_data.T
-
-        # Added because some data now has mes reward printing; we want the dataframe to have the same dimensions for now
         if temp_data.shape[1] > len(column_names):
-            temp_data = pd.read_table(m, delimiter = " ", header=None, skipfooter = temp_data.shape[1] - len(column_names))
+            temp_data = pd.read_table(m, delimiter=" ", header=None, skipfooter=temp_data.shape[1] - len(column_names))
             temp_data = temp_data.T
-
         temp_data.columns = column_names
         data = data.append(temp_data)
 
