@@ -19,15 +19,19 @@ from analysis_utils import *
 ######### MAIN LOOP ###########
 if __name__ == '__main__':
     # seed_numbers = range(5100, 10000, 100)
-    # seed_numbers = range(0, 2400, 100)
     seed_numbers = range(0, 5000, 100)
+    # seed_naive = range(0, 5000, 100)
+    # seed_numbers = range(0, 2400, 100)
     # seed_numbers.remove(5300)
     print len(seed_numbers)
     # seed_numbers = [0, 100, 200, 400, 500, 700, 800, 900, 1000, 1200, 1300, 1400, 1600, 1700, 1800, 1900]
     seeds = ['seed'+ str(x) + '-' for x in seed_numbers]
+    seeds_lawnmower = ['mower'+ str(x) + '/' for x in seed_numbers]
 
     SUFFIX  = 'FREE' # FREE or CLUTTERED
-    if SUFFIX == 'NOISE':
+    TRIAL = 'plumes' # naive or plumes  or all
+
+    if TRIAL == 'naive':
         fileparams = ['pathsetdubins-nonmyopicTrue-treedpw-' + SUFFIX,
                      'pathsetdubins-nonmyopicTrue-treedpw-' + SUFFIX,
                      'pathsetdubins-nonmyopicFalse-' + SUFFIX,
@@ -35,20 +39,28 @@ if __name__ == '__main__':
 
         trials = ['naive', 'naive_value', 'naive', 'naive_value']
         labels = ['LOC-MCTS', 'VAL-MCTS', 'LOC-Myopic', 'VAL-Myopic.']
-    elif SUFFIX == 'FREE':
+    elif TRIAL == 'all':
         fileparams = ['pathsetdubins-nonmyopicTrue-treedpw-' + SUFFIX,
                      'pathsetdubins-nonmyopicTrue-treebelief-' + SUFFIX,
-                     # 'pathsetdubins-nonmyopicFalse-' + SUFFIX,
-                     'lawnmower']
-                     # 'pathsetdubins-nonmyopicTrue-treedpw-' + SUFFIX,
-                     # 'pathsetdubins-nonmyopicTrue-treedpw-' + SUFFIX,
-                     # 'pathsetdubins-nonmyopicFalse-' + SUFFIX,
-                     # 'pathsetdubins-nonmyopicFalse-' + SUFFIX]
+                     'pathsetdubins-nonmyopicFalse-' + SUFFIX,
+                     'lawnmower',
+                     'pathsetdubins-nonmyopicTrue-treedpw-' + SUFFIX,
+                     'pathsetdubins-nonmyopicTrue-treedpw-' + SUFFIX,
+                     'pathsetdubins-nonmyopicFalse-' + SUFFIX,
+                     'pathsetdubins-nonmyopicFalse-' + SUFFIX]
 
-        trials = ['mes', 'mean', 'lawnmower']
-        labels = ['PLUMES', 'UCB-MCTS','BOUSTRO.']
-        # trials = ['mes', 'mean', 'mes', 'lawnmower', 'naive', 'naive_value', 'naive', 'naive_value']
-        # labels = ['PLUMES', 'UCB-MCTS', 'UCB-MYOPIC', 'BOUSTRO.', 'LOC-MCTS', 'VAL-MCTS', 'LOC-Myopic', 'VAL-Myopic.']
+        trials = ['mes', 'mean', 'mes', 'lawnmower', 'naive', 'naive_value', 'naive', 'naive_value']
+        labels = ['PLUMES', 'UCB-MCTS', 'UCB-MYOPIC', 'BOUSTRO.', 'LOC-MCTS', 'VAL-MCTS', 'LOC-Myopic', 'VAL-Myopic.']
+
+    elif TRIAL == 'plumes':
+	    fileparams = ['pathsetdubins-nonmyopicTrue-treedpw-' + SUFFIX,
+			'pathsetdubins-nonmyopicTrue-treebelief-' + SUFFIX,
+			'pathsetdubins-nonmyopicFalse-' + SUFFIX,
+			'lawnmower']
+
+	    trials = ['mes', 'mean', 'mean', 'lawnmower']
+	    labels = ['PLUMES', 'UCB-MCTS', 'UCB-MYOPIC', 'BOUSTRO.']
+
     else:
         fileparams = ['pathsetdubins-nonmyopicTrue-treedpw-' + SUFFIX,
                     'pathsetdubins-nonmyopicTrue-treebelief-' + SUFFIX,
@@ -61,7 +73,9 @@ if __name__ == '__main__':
     # path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/'
     # path= '/home/genevieve/mit-whoi/informative-path-planning/experiments/'
     # path = '/media/genevieve/WINDOWS_COM/IROS_2019/cluttered_experiments/experiments/'
-    path = '/media/genevieve/WINDOWS_COM/IROS_2019/experiments/'
+    # path = '/media/genevieve/WINDOWS_COM/IROS_2019/experiments/'
+    path = '/media/genevieve/WINDOWS_COM/iros_submission_simulations/reviewed_submission/free_world_experiments/'
+    # path = '/media/genevieve/WINDOWS_COM/iros_submission_simulations/reviewed_submission/naive_experiments/'
     # path= '/home/genevieve/mit-whoi/informative-path-planning/final_naive_experiments/'
 
     # variables for making dataframes
@@ -115,10 +129,10 @@ if __name__ == '__main__':
                 # else:
                 #     print "Not adding:", root 
 
-                if 'robot_model' in name and ((trial in root and other_trial not in root and param in root and SUFFIX in root) or ('lawnmower' in param and 'lawnmower' in root)):
+                if 'robot_model' in name and '#' not in name and ((trial in root and other_trial not in root and param in root and SUFFIX in root) or ('lawnmower' in param and 'lawnmower' in root)):
                     if 'lawnmower' in root:
-                        for s in seed_numbers:
-                            if str(s) in root:
+                        for s in seeds_lawnmower:
+                            if s in root + '/':
                                 samples.append(root+"/"+name)
                                 print root+'/'+name
                     else:
@@ -126,9 +140,9 @@ if __name__ == '__main__':
                             if s in root:
                                 samples.append(root+"/"+name)
                                 print root+'/'+name
-
                 # if 'log' in name and (('mean' in root and 'UCB-MCTS' in param) or ('mes' in root and 'COMPOSIT' in param)) and param in root and 'FREE' in root:
-                if 'log' in name and param in root and SUFFIX in root:
+                # if 'log' in name and param in root and SUFFIX in root:
+                if 'log' in name and trial == trials[0] and trial in root and other_trial not in root and param in root and SUFFIX in root:
                     for s in seeds:
                         if s in root:
                             ls = []
@@ -137,13 +151,22 @@ if __name__ == '__main__':
                                 if "max value" in l:
                                     ls.append(l)
                             max_val.append(float(ls[0].split(" ")[3]))
+			
+                            print root+'/'+name
                             # For Genevieve
                             try:
                                 max_loc.append((float(ls[-1].split(" ")[7].split("[")[0]), float(ls[-1].split(" ")[9].split("]")[0])))
+				print "Genevieve's"
+				print max_loc[-1]	
+				print s
                             # For Victoria
                             except:
                                 max_loc.append((float(ls[0].split(" ")[6].split("[")[1]), float(ls[0].split(" ")[7].split("]")[0])))
-       
+				print "Victoria's"
+				print max_loc[-1]	
+      
+	print "Length of max locs:", len(max_loc) 
+	print "Length of max vals:", len(max_val) 
         if 'dpw' in param:
             old_values = copy.copy(values)
         
@@ -161,9 +184,9 @@ if __name__ == '__main__':
         all_labels.append(label)
 
         if 'lawnmower' in param:
-            dist_data, dist_sdata, d_props, d_propsy, ids, d_err_x, d_err_z, d_dist_x, d_dist_z, d_hx, d_hz = make_dist_dfs(values, samples, column_names, max_loc, max_val, ythresh = 1.0, xthresh = 1.5, dist_lim = 200.0, lawnmower = True)
+            dist_data, dist_sdata, d_props, d_propsy, ids, d_err_x, d_err_z, d_dist_x, d_dist_z, d_hx, d_hz = make_dist_dfs(values, samples, column_names, max_loc, max_val, ythresh = 3.0, xthresh = 1.5, dist_lim = 200.0, lawnmower = True)
         else:
-            dist_data, dist_sdata, d_props, d_propsy, ids, d_err_x, d_err_z, d_dist_x, d_dist_z, d_hx, d_hz = make_dist_dfs(values, samples, column_names, max_loc, max_val, ythresh = 1.0, xthresh = 1.5, dist_lim = 200.0)
+            dist_data, dist_sdata, d_props, d_propsy, ids, d_err_x, d_err_z, d_dist_x, d_dist_z, d_hx, d_hz = make_dist_dfs(values, samples, column_names, max_loc, max_val, ythresh = 3.0, xthresh = 1.5, dist_lim = 200.0)
 
         dist_dist_x.append(d_dist_x)
         dist_dist_z.append(d_dist_z)
@@ -184,7 +207,7 @@ if __name__ == '__main__':
         labels = labels
         # all_labels = ['PLUMES', 'LAWNMOWER']#['frpd', 'frgd', 'frgo', 'frpo', 'my', 'plumes']
     elif SUFFIX == 'NOISE':
-        labels = ['LOC-MCTS', 'VAL-MCTS', 'LOC-Myopic', 'VAL-Myopic.']
+        # labels = ['LOC-MCTS', 'VAL-MCTS', 'LOC-Myopic', 'VAL-Myopic.']
         # labels = ['LOC-MCTS', 'VAL-MCTS', 'LOC-Myopic', 'VAL-Myopic.']
         labels = labels
     else:

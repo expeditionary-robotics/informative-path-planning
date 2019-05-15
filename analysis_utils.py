@@ -299,9 +299,10 @@ def generate_histograms(dfs, props, labels, title, figname='', save_fig=False, O
     for i in range(0, len(dfs)):
         if title == '200$m$ Budget Y Samples':
             hist[i], bins[i], _ = axes[i].hist(dfs[i]['YDistance'].values, bins = np.linspace(min(dfs[0]['YDistance'].values), max(dfs[0]['YDistance'].values), np.floor(max(dfs[0]['YDistance'].values)-min(dfs[0]['YDistance'].values))), color = colors[i], density = False)
+	    print "Length of", labels[i], len(dfs[i]['YDistance'].values)
             axes[i].set_title(labels[i])
         elif title == '200$m$ Budget X Samples':
-            hist[i], bins[i], _ = axes[i].hist(dfs[i]['Distance'].values, bins = np.linspace(min(dfs[0]['Distance'].values), max(dfs[0]['Distance'].values), np.floor(max(dfs[0]['Distance'].values)-min(dfs[0]['Distance'].values))), color = colors[i], density = False)
+            hist[i], bins[i], _ = axes[i].hist(dfs[i]['Distance'].values, bins = np.linspace(min(dfs[0]['Distance'].values), max(dfs[0]['Distance'].values), 50), color = colors[i], density = False)
             axes[i].set_title(labels[i])
         else:
             hist[i], bins[i], _= axes[i].hist(dfs[i]['Distance'].values, bins = np.linspace(min(dfs[0]['Distance'].values), max(dfs[0]['Distance'].values), np.floor(max(dfs[0]['Distance'].values)-min(dfs[0]['Distance'].values))), color = colors[i], density = False)

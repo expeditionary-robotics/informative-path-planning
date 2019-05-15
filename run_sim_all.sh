@@ -4,7 +4,7 @@ mkdir spacetime_experiments
 fi
 
 pushd spacetime_experiments
-    for seed in {250..10000..100}
+    for seed in {1050..10000..100}
     do
         for pathset in dubins
         do
