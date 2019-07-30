@@ -21,3 +21,5 @@ figures_and_experiments/*
 experiments*/*
 *.mp4
 hold*/*
+**figures/
+*figures/

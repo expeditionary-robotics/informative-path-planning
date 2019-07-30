@@ -8,7 +8,7 @@ License: MIT
 Maintainers: Genevieve Flaspohler and Victoria Preston
 '''
 
-from shapely.geometry import LineString
+from shapely.geometry import LineString, Point, Polygon
 import matplotlib.pyplot as plt
 from descartes import PolygonPatch
 import numpy as np
@@ -23,7 +23,7 @@ class BlockObstacle(object):
                   (center[0]-dim[0]/2, center[1]+dim[1]/2),
                   (center[0]+dim[0]/2, center[1]+dim[1]/2)]
         self.points = points
-        self.geom = LineString(points).buffer(safety_buffer)
+        self.geom = Polygon(points).buffer(safety_buffer)
 
     def get_corners(self):
         ''' returns the point that define the polygon '''
@@ -38,26 +38,66 @@ class BlockObstacle(object):
         pts = LineString(points).buffer(safety_buffer)
         return pts.intersects(self.geom)
 
+    def contains(self, point):
+        return self.geom.contains(Point(point))
+
 class World(object):
     ''' creates a world polygon with some extent '''
-    def __init__(self, extent, safety_buffer=0.1):
+    def __init__(self, extent=None, safety_buffer=0.1):
         self.extent = extent
-        self.world = LineString([(extent[0], extent[2]),
-                                 (extent[0], extent[3]),
-                                 (extent[1], extent[3]),
-                                 (extent[1], extent[2]),
-                                 (extent[0], extent[2])]).buffer(safety_buffer)
+        if self.extent is None:
+            self.world = None
+        else:
+            self.world = LineString([(extent[0], extent[2]),
+                                     (extent[0], extent[3]),
+                                     (extent[1], extent[3]),
+                                     (extent[1], extent[2]),
+                                     (extent[0], extent[2])]).buffer(safety_buffer)
         self.obstacles = []
 
     def contains(self, trajectory, safety_buffer=0.1):
         ''' checks that a trajectory stays within the world bounds '''
-        traj = LineString(trajectory).buffer(safety_buffer)
-        crosses = traj.intersects(self.world)
-        outside = traj.bounds[0] >= self.extent[1] or \
-                  traj.bounds[1] >= self.extent[3] or \
-                  traj.bounds[0] <= self.extent[0] or \
-                  traj.bounds[1] <= self.extent[2]
-        return not crosses and not outside
+        if self.extent is None:
+            return True
+        else:
+            traj = LineString(trajectory).buffer(safety_buffer)
+            crosses = traj.intersects(self.world)
+            outside = traj.bounds[0] >= self.extent[1] or \
+                      traj.bounds[1] >= self.extent[3] or \
+                      traj.bounds[0] <= self.extent[0] or \
+                      traj.bounds[1] <= self.extent[2]
+            return not crosses and not outside
+
+    def contains_point(self, point):
+        '''checks that a specific point is in the world bounds '''
+        if self.extent is None:
+            if self.obstacles is None:
+                return True
+            else:
+                for obs in self.obstacles:
+                    if obs.contains(Point(point)):
+                        return False
+                    else:
+                        pass
+                return True
+        else:
+            outside = point[0] >= self.extent[1] or \
+                      point[1] >= self.extent[3] or \
+                      point[0] <= self.extent[0] or \
+                      point[1] <= self.extent[2]
+            if outside:
+                return False
+            else:
+                print outside
+                if self.obstacles is None:
+                    return True
+                else:
+                    for obs in self.obstacles:
+                        if obs.contains(Point(point)):
+                            return False
+                        else:
+                            pass
+                    return True
 
     def add_blocks(self, num, dim, centers=None):
         ''' adds block obstacles to the world '''
@@ -72,12 +112,12 @@ class World(object):
 
     def safe_trajectory(self, trajectory):
         ''' Takes a trajectory and determines whether it is safe '''
-        if self.contains(trajectory) is True:
+        if self.contains(trajectory):
             if self.obstacles is None:
                 return True
             else:
                 for obs in self.obstacles:
-                    if obs.crosses(trajectory) is True:
+                    if obs.crosses(trajectory):
                         return False
                 return True
         else:

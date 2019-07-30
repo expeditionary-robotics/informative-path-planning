@@ -16,16 +16,16 @@ import generate_metric_environment as gme
 
 class ActionSet(object):
     ''' Creates a variety of trajectory options '''
-    def __init__(self, args):
-        self.num_actions = args['num_actions']
-        self.length = args['length']
-        self.turning_radius = args['turning_radius']
-        self.radius_angle = args['radius_angle']
-        self.num_samples = args['num_samples']
-        self.safe_threshold = args['safe_threshold']
-        self.unknown_threshold = args['unknown_threshold']
-        self.allow_reverse = args['allow_reverse']
-        self.allow_stay = args['allow_stay']
+    def __init__(self, **kwargs):
+        self.num_actions = kwargs['num_actions']
+        self.length = kwargs['length']
+        self.turning_radius = kwargs['turning_radius']
+        self.radius_angle = kwargs['radius_angle']
+        self.num_samples = kwargs['num_samples']
+        self.safe_threshold = kwargs['safe_threshold']
+        self.unknown_threshold = kwargs['unknown_threshold']
+        self.allow_reverse = kwargs['allow_reverse']
+        self.allow_stay = kwargs['allow_stay']
 
         self.actions = None
 
@@ -40,7 +40,7 @@ class ActionSet(object):
             samples, _ = path.sample_many(self.length/self.num_samples)
             actions.append(samples)
 
-        if self.allow_reverse is True:
+        if self.allow_reverse:
             reverse_goal = trig_projection(robot_pose, self.length*0.8, np.pi)
             path = dubins.shortest_path((robot_pose[0], robot_pose[1], robot_pose[2]+np.pi),
                                         reverse_goal, self.turning_radius)
@@ -48,7 +48,7 @@ class ActionSet(object):
             samples = [(-np.inf, -np.inf, -np.inf)] + samples #flag for the controller
             actions.append(samples)
 
-        if self.allow_stay is True:
+        if self.allow_stay:
             actions.append([robot_pose for i in range(0, self.num_samples)])
 
         actions = self.prune_trajectories(actions, time, world, using_sim_world)
@@ -57,14 +57,14 @@ class ActionSet(object):
     def prune_trajectories(self, actions, time, world, using_sim_world):
         ''' Based upon the world input, prune possible trajectories to be safe '''
         safe_actions = []
-        if using_sim_world is True:
+        if using_sim_world:
             # want to use the built in functionality to test
             for action in actions:
                 if action[0][0] > -np.inf:
-                    if world.safe_trajectory(action) is True:
+                    if world.safe_trajectory(action):
                         safe_actions.append(make_path_object(action, time))
                 else:
-                    if world.safe_trajectory(action[1:]) is True:
+                    if world.safe_trajectory(action[1:]):
                         safe_actions.append(make_path_object(action, time))
         else:
             # want to use the occupancy grid from ROS
@@ -123,17 +123,17 @@ def make_array(data, height, width):
 
 if __name__ == '__main__':
     free_world = gme.World([0, 10, 0, 10])
-    args = {'num_actions':15,
-            'length': 3.5,
-            'turning_radius': 0.005,
-            'radius_angle': np.pi/4.,
-            'num_samples': 10,
-            'safe_threshold': 50.,
-            'unknown_threshold': -2.,
-            'allow_reverse': True,
-            'allow_stay': True}
 
-    action_set = ActionSet(args)
+    action_set = ActionSet('num_actions':15,
+                           'length': 3.5,
+                           'turning_radius': 0.005,
+                           'radius_angle': np.pi/4.,
+                           'num_samples': 10,
+                           'safe_threshold': 50.,
+                           'unknown_threshold': -2.,
+                           'allow_reverse': True,
+                           'allow_stay': True)
+
     safe_actions = action_set.generate_trajectories(robot_pose=(9.7, 2.8, 0),
                                                     time=0,
                                                     world=free_world,
