@@ -9,234 +9,149 @@ Maintainers: Genevieve Flaspohler and Victoria Preston
 
 import dubins
 import numpy as np
-import generate_metric_environment as gme
 import matplotlib.pyplot as plt
-
-
-class Trajectory(object):
-    ''' Creates a trajectory object '''
-    def __init__(self, length):
-        pass
+from descartes import PolygonPatch
+from geometry_msgs.msg import *
+import generate_metric_environment as gme
 
 class ActionSet(object):
     ''' Creates a variety of trajectory options '''
-    def __init__(self, num_actions, length, turning_radius, num_pts, metric_environment):
-        pass
+    def __init__(self, args):
+        self.num_actions = args['num_actions']
+        self.length = args['length']
+        self.turning_radius = args['turning_radius']
+        self.radius_angle = args['radius_angle']
+        self.num_samples = args['num_samples']
+        self.safe_threshold = args['safe_threshold']
+        self.unknown_threshold = args['unknown_threshold']
+        self.allow_reverse = args['allow_reverse']
+        self.allow_stay = args['allow_stay']
 
+        self.actions = None
 
+    def generate_trajectories(self, robot_pose, time, world, using_sim_world=True):
+        ''' Based upon the parameters, create an action set '''
+        actions = []
+        path_swath = np.linspace(-self.radius_angle, self.radius_angle, self.num_actions)
+        angles = list(path_swath).append(0)
+        for a in path_swath:
+            frontier_goal = trig_projection(robot_pose, self.length, a)
+            path = dubins.shortest_path(robot_pose, frontier_goal, self.turning_radius)
+            samples, _ = path.sample_many(self.length/self.num_samples)
+            actions.append(samples)
 
+        if self.allow_reverse is True:
+            reverse_goal = trig_projection(robot_pose, self.length*0.8, np.pi)
+            path = dubins.shortest_path((robot_pose[0], robot_pose[1], robot_pose[2]+np.pi),
+                                        reverse_goal, self.turning_radius)
+            samples, _ = path.sample_many(self.length/self.num_samples)
+            samples = [(-np.inf, -np.inf, -np.inf)] + samples #flag for the controller
+            actions.append(samples)
 
-class Path_Generator:    
-    def __init__(self, frontier_size, horizon_length, turning_radius, sample_step, extent, obstacle_world=obs.FreeWorld()):
-        ''' Initialize a path generator
-        Input:
-            frontier_size (int) the number of points on the frontier we should consider for navigation
-            horizon_length (float) distance between the vehicle and the horizon to consider
-            turning_radius (float) the feasible turning radius for the vehicle
-            sample_step (float) the unit length along the path from which to draw a sample
-            extent (list of floats) the world boundaries
-        '''
+        if self.allow_stay is True:
+            actions.append([robot_pose for i in range(0, self.num_samples)])
 
-        # the parameters for the dubin trajectory
-        self.fs = frontier_size
-        self.hl = horizon_length
-        self.tr = turning_radius
-        self.ss = sample_step
-        self.extent = extent
+        actions = self.prune_trajectories(actions, time, world, using_sim_world)
+        return actions
 
-        # Global variables
-        self.goals = [] #The frontier coordinates
-        self.samples = {} #The sample points which form the paths
-        self.cp = (0,0,0) #The current pose of the vehicle
-
-        # Determining whether to consider obstacles
-        self.obstacle_world = obstacle_world
-
-    def generate_frontier_points(self):
-        '''From the frontier_size and horizon_length, generate the frontier points to goal'''
-        angle = np.linspace(-2.35,2.35,self.fs) #fix the possibilities to 75% of the unit circle, ignoring points directly behind the vehicle
-        goals = []
-        for a in angle:
-            x = self.hl*np.cos(self.cp[2]+a)+self.cp[0]
-            # if x >= self.extent[1]-3*self.tr:
-            #     pass
-                # x = self.extent[1]-3*self.tr
-                # y = (x-self.cp[0])*np.sin(self.cp[2]+a)+self.cp[1]
-            # elif x <= self.extent[0]+3*self.tr:
-            #     pass
-                # x = self.extent[0]+3*self.tr
-                # y = (x-self.cp[0])*np.sin(self.cp[2]+a)+self.cp[1]
-            # else:
-            y = self.hl*np.sin(self.cp[2]+a)+self.cp[1]
-                # if y >= self.extent[3]-3*self.tr:
-                #     pass
-                #     # y = self.extent[3]-3*self.tr
-                #     # x = (y-self.cp[1])*-np.cos(self.cp[2]+a)+self.cp[0]
-                # elif y <= self.extent[2]+3*self.tr:
-                #     pass
-                    # y = self.extent[2]+3*self.tr
-                    # x = (y-self.cp[1])*-np.cos(self.cp[2]+a)+self.cp[0]
-            p = self.cp[2]+a
-            if np.linalg.norm([self.cp[0]-x, self.cp[1]-y]) <= self.tr:
-                pass
-            elif x > self.extent[1]-3*self.tr or x < self.extent[0]+3*self.tr:
-                pass
-            elif y > self.extent[3]-3*self.tr or y < self.extent[2]+3*self.tr:
-                pass
-            # elif self.obstacle_world.in_obstacle((x,y), buff=3*self.tr):
-            #     pass
-            else:
-                goals.append((x,y,p))
-        goals.append(self.cp)
-        self.goals = goals
-        return self.goals
-
-    def make_sample_paths(self):
-        '''Connect the current_pose to the goal places'''
-        cp = np.array(self.cp)
-        coords = {}
-        for i,goal in enumerate(self.goals):
-            g = np.array(goal)
-            distance = np.sqrt((cp[0]-g[0])**2 + (cp[1]-g[1])**2)
-            samples = int(round(distance/self.ss))
-
-            # Don't include the start location but do include the end point
-            for j in range(0,samples):
-                x = cp[0]+((j+1)*self.ss)*np.cos(g[2])
-                y = cp[1]+((j+1)*self.ss)*np.sin(g[2])
-                a = g[2]
-                try: 
-                    coords[i].append((x,y,a))
-                except:
-                    coords[i] = []
-                    coords[i].append((x,y,a))
-        self.samples = coords
-        return self.samples, self.samples
-
-    def get_path_set(self, current_pose):
-        '''Primary interface for getting list of path sample points for evaluation
-        Input:
-            current_pose (tuple of x, y, z, a which are floats) current location of the robot in world coordinates
-        Output:
-            paths (dictionary of frontier keys and sample points)
-        '''
-        self.cp = current_pose
-        self.generate_frontier_points()
-        paths, true_paths = self.make_sample_paths()
-        return paths, true_paths
-
-    def path_cost(self, path, loc=None):
-        ''' Calculate the cost of a path sequence either with respect to path length, or distance from some element in the world (loc)'''
-        dist = 0
-        if loc is None:
-            # cost will be path length
-            for i in xrange(len(path)-1):
-                dist += np.sqrt((path[i][0]-path[i+1][0])**2 + (path[i][1]-path[i+1][1])**2)
-            return dist
+    def prune_trajectories(self, actions, time, world, using_sim_world):
+        ''' Based upon the world input, prune possible trajectories to be safe '''
+        safe_actions = []
+        if using_sim_world is True:
+            # want to use the built in functionality to test
+            for action in actions:
+                if action[0][0] > -np.inf:
+                    if world.safe_trajectory(action) is True:
+                        safe_actions.append(make_path_object(action, time))
+                else:
+                    if world.safe_trajectory(action[1:]) is True:
+                        safe_actions.append(make_path_object(action, time))
         else:
-            # cost will be average distance from element of interest
-            for coord in path:
-                dist += np.sqrt((coord[0]-loc[0])**2 + (coord[1]-loc[1])**2)
-            dist = dist/len(path)
-            return dist
-
-    def get_frontier_points(self):
-        ''' Method to access the goal points'''
-        return self.goals
-
-    def get_sample_points(self):
-        return self.samples
-
-class Dubins_Path_Generator(Path_Generator):
-    '''
-    The Dubins_Path_Generator class, which inherits from the Path_Generator class. Replaces the make_sample_paths
-    method with paths generated using the dubins library
-    '''
-    
-    def buffered_paths(self):
-        sampling_path = {}
-        true_path = {}
-        for i,goal in enumerate(self.goals):            
-            path = dubins.shortest_path(self.cp, goal, self.tr)
-            fconfig, _ = path.sample_many(self.ss/10)
-
-            ftemp = []
-            for c in fconfig:
-                if c[0] > self.extent[0] and c[0] < self.extent[1] and c[1] > self.extent[2] and c[1] < self.extent[3] and not self.obstacle_world.in_obstacle((c[0], c[1]), buff = 0.0):
-                    ftemp.append(c)
+            # want to use the occupancy grid from ROS
+            data = make_array(world.data, world.info.height, world.info.width)
+            for action in actions:
+                if action[0][0] > -np.inf:
+                    idy = [int(round((x[0]-current_map.info.origin.position.x)/current_map.info.resolution)) for x in action]
+                    idx = [int(round((x[1]-current_map.info.origin.position.y)/current_map.info.resolution)) for x in action]
                 else:
-                    break
+                    idy = [int(round((x[0]-current_map.info.origin.position.x)/current_map.info.resolution)) for x in action[1:]]
+                    idx = [int(round((x[1]-current_map.info.origin.position.y)/current_map.info.resolution)) for x in action[1:]]
+                
+                try: #catch if project outside of array
+                    cost_vals = data[idx, idy]
+                    cost = np.sum([k for k in cost_vals if k >= 0.])
+                    unknown_cost = np.sum([k for k in cost_vals if k < 0.])
+                except:
+                    cost = 0
+                    unknown_cost = 0
+                    for m, n in zip(idx, idy):
+                        try: #get everything in the array
+                            if data[m, n] >= 0:
+                                cost += data[m, n]
+                            else:
+                                unknown_cost += data[m, n]
+                        except:
+                            break
+                if (cost < self.safe_threshold and unknown_cost > self.unknown_threshold) and len(action) > 0:
+                    safe_actions.append(make_path_object(action, time))
+        return safe_actions
 
-            try:
-                ttemp = ftemp[0::10]
-                for m,c in enumerate(ttemp):
-                    if c[0] <= self.extent[0]+3*self.tr or c[0] >= self.extent[1]-3*self.tr or c[1] <= self.extent[2]+3*self.tr or c[1] >= self.extent[3]-3*self.tr or self.obstacle_world.in_obstacle((c[0], c[1]), buff = 3*self.tr):
-                        ttemp = ttemp[0:m-1]
+def trig_projection(point, step_size, angle):
+    ''' Function to perform a path projection'''
+    x = step_size*np.cos(point[2]+angle)+point[0]
+    y = step_size*np.sin(point[2]+angle)+point[1]
+    p = point[2]+angle
+    return (x, y, p)
 
-                if len(ttemp) < 2:
-                    pass
-                else:
-                    sampling_path[i] = ttemp
-                    true_path[i] = ftemp[0:ftemp.index(ttemp[-1])+1]
-            except:
-                pass
+def make_path_object(path, time):
+    ''' Does the ROS message conversionros'''
+    pub_path = []
+    for coord in path:
+        pc = Point32()
+        pc.x = coord[0]
+        pc.y = coord[1]
+        pc.z = coord[2] # keep heading information
+        pub_path.append(pc)
+    pte = PolygonStamped()
+    pte.header.frame_id = 'world'
+    pte.header.stamp = time
+    pte.polygon.points = pub_path
+    return pte
+def make_array(data, height, width):
+    ''' Converts occupancy grid vector to useable array'''
+    return np.array(data).reshape((height, width), order='C')
 
-        return sampling_path, true_path
-
-        
-    def make_sample_paths(self):
-        '''Connect the current_pose to the goal places'''
-        coords, true_coords = self.buffered_paths()
-
-        
-        if len(coords) == 0:
-            print 'no viable path'
-            #pdb.set_trace()
-            #coords, true_coords = self.buffered_paths()
-            
-        self.samples = coords
-        return coords, true_coords
-
-        
 if __name__ == '__main__':
-    # bw = obs.BlockWorld( [0., 10., 0., 10.], num_blocks=1, dim_blocks=(2.,2.), centers=[(6.1,5)])
-    # bw = obs.BugTrap([0., 10., 0., 10.], (5,5), 3, channel_size = 0.5, width = 3., orientation='left')
-    # bw = obs.ChannelWorld([0., 10., 0., 10.], (6,5), 3, 0.4)
-    bw = obs.FreeWorld()
+    free_world = gme.World([0, 10, 0, 10])
+    args = {'num_actions':15,
+            'length': 3.5,
+            'turning_radius': 0.005,
+            'radius_angle': np.pi/4.,
+            'num_samples': 10,
+            'safe_threshold': 50.,
+            'unknown_threshold': -2.,
+            'allow_reverse': True,
+            'allow_stay': True}
 
-    # extent, discretization, sample_step, turning_radius, step_size,obstacle_world=obs.FreeWorld()
-    gen = Reachable_Frontier_Generator([0., 10., 0., 10.], (20,20), 0.5, 0.1, 1.5, bw)
-    # gen = Dubins_Path_Generator(15., 1.5, 0.05, 0.5, [0., 10., 0., 10.], bw)
-    
-    plt.figure()
+    action_set = ActionSet(args)
+    safe_actions = action_set.generate_trajectories(robot_pose=(9.7, 2.8, 0),
+                                                    time=0,
+                                                    world=free_world,
+                                                    using_sim_world=True)
 
-    trajectory = []
-    samples = []
-    coord = (5.2,5.2,0)
-    for m in range(1):
-        paths, true_paths = gen.get_path_set(coord)
-        print len(paths)
-        action = np.random.choice(paths.keys())
-        for i, path in paths.items():
-            f = np.array(path)
-            plt.plot(f[:,0], f[:,1], 'k*')
-        for i, path in true_paths.items():
-            f = np.array(path)
-            plt.plot(f[:,0], f[:,1], 'r')
-        # samples.append(paths[action])
-        # trajectory.append(true_paths[action])
-        coord = paths[action][-1]
-        print m
+    # Visualize the world and pathsets
+    bounds = PolygonPatch(free_world.world, alpha=0.5, fc='k', ec='k')
+    plt.gca().add_patch(bounds)
 
-    # for e, k in zip(samples, trajectory):
-    #     f = np.array(e)
-    #     l = np.array(k)
-    #     plt.plot(f[:,0], f[:,1], 'r*')
-    #     plt.plot(l[:,0], l[:,1])
-    
-    obstacles = bw.get_obstacles()
-    for o in obstacles:
-        x,y = o.exterior.xy
-        plt.plot(x,y)
-    plt.axis([0., 10., 0., 10.])
+    # let's visualize the obstacles
+    for obs in free_world.obstacles:
+        plt.gca().add_patch(PolygonPatch(obs.geom, alpha=0.5))
+
+    # let's visualize the trajectory
+    for action in safe_actions:
+        plt.plot([c.x for c in action.polygon.points], [c.y for c in action.polygon.points], c='r')
+
+    plt.gca().axis('square')
     plt.show()
+    plt.close()
+

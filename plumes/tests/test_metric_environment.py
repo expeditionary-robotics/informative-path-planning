@@ -24,11 +24,13 @@ def test_trajectory():
 	b = [(1, 1), (9, 1)]
 	c = [(1, 1), (1, 9)]
 	d = [(1, 9), (9, 1)]
+	e = [(0, 0), (0, 0)]
 
 	assert free_world.safe_trajectory(a) is False, 'False Safety Dectected'
 	assert free_world.safe_trajectory(b) is True, 'False Collision Dectected'
 	assert free_world.safe_trajectory(c) is True, 'False Collision Dectected'
 	assert free_world.safe_trajectory(d) is False, 'False Safety Dectected'
+	assert free_world.safe_trajectory(e) is False, 'False Safety Detected'
 
 if __name__ == '__main__':
 	test_trajectory()

@@ -38,7 +38,6 @@ class BlockObstacle(object):
         pts = LineString(points).buffer(safety_buffer)
         return pts.intersects(self.geom)
 
-
 class World(object):
     ''' creates a world polygon with some extent '''
     def __init__(self, extent, safety_buffer=0.1):
@@ -54,10 +53,10 @@ class World(object):
         ''' checks that a trajectory stays within the world bounds '''
         traj = LineString(trajectory).buffer(safety_buffer)
         crosses = traj.intersects(self.world)
-        outside = traj.bounds[0] > self.extent[1] or \
-                  traj.bounds[1] > self.extent[3] or \
-                  traj.bounds[0] < self.extent[0] or \
-                  traj.bounds[1] < self.extent[2]
+        outside = traj.bounds[0] >= self.extent[1] or \
+                  traj.bounds[1] >= self.extent[3] or \
+                  traj.bounds[0] <= self.extent[0] or \
+                  traj.bounds[1] <= self.extent[2]
         return not crosses and not outside
 
     def add_blocks(self, num, dim, centers=None):
@@ -73,21 +72,23 @@ class World(object):
 
     def safe_trajectory(self, trajectory):
         ''' Takes a trajectory and determines whether it is safe '''
-        if self.contains(trajectory):
+        if self.contains(trajectory) is True:
             if self.obstacles is None:
                 return True
             else:
                 for obs in self.obstacles:
                     if obs.crosses(trajectory) is True:
                         return False
-        return True
+                return True
+        else:
+            return False
 
 
 if __name__ == '__main__':
     free_world = World([0, 10, 0, 10])
     free_world.add_blocks(3, (2, 5))# [(3, 3), (5, 5), (7, 7)])
 
-    trajectory = [(1, 1), (1, 6), (2, 7)]
+    trajectory = [(5, 5), (5, 5)]
 
     print free_world.safe_trajectory(trajectory)
 
