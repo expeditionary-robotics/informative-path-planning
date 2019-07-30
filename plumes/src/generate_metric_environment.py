@@ -65,8 +65,8 @@ class World(object):
         if centers is None:
             centers = []
             for i in range(0, num):
-                centers.append(((self.extent[1]-dim[0]-(self.extent[0]+dim[0]))*np.random.random()+self.extent[0]+dim[0],
-                                (self.extent[3]-dim[1]-(self.extent[2]+dim[1]))*np.random.random()+self.extent[2]+dim[1]))
+                centers.append(((self.extent[1]-dim[0]/2-(self.extent[0]+dim[0]/2))*np.random.random()+self.extent[0]+dim[0]/2,
+                                (self.extent[3]-dim[1]/2-(self.extent[2]+dim[1]/2))*np.random.random()+self.extent[2]+dim[1]/2))
         self.obstacles = []
         for i in range(0, num):
             self.obstacles.append(BlockObstacle(dim, centers[i]))
@@ -85,7 +85,7 @@ class World(object):
 
 if __name__ == '__main__':
     free_world = World([0, 10, 0, 10])
-    free_world.add_blocks(3, (2, 2))# [(3, 3), (5, 5), (7, 7)])
+    free_world.add_blocks(3, (2, 5))# [(3, 3), (5, 5), (7, 7)])
 
     trajectory = [(1, 1), (1, 6), (2, 7)]
 
