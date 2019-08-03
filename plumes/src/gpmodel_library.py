@@ -12,6 +12,7 @@ import os
 import copy
 from sets import Set
 import GPy as GPy
+from GPy.kern.src import prod, add
 from GPy.inference.latent_function_inference import exact_gaussian_inference
 from GPy.util.linalg import pdinv, dpotrs, dpotri, symmetrify, jitchol, dtrtrs, tdot
 from GPy.util import diag
@@ -23,7 +24,7 @@ import pdb
 class GPModel(object):
     '''The GPModel class, which is a wrapper on top of GPy.'''     
     
-    def __init__(self, ranges, lengthscale, variance, noise=0.0001, dim=2, kernel='rbf', period=None):
+    def __init__(self, ranges, lengthscale, variance, kparams, noise=0.0001, dim=2, kernel='rbf'):
         '''Initialize a GP regression model with given kernel parameters. 
         Inputs:
             ranges (list of floats) the bounds of the world
@@ -38,6 +39,8 @@ class GPModel(object):
         self.lengthscale = lengthscale
         self.variance = variance
         self.ranges = ranges
+        self.dim = dim
+        self.kparams = kparams
         
         # The Gaussian dataset; start with null set
         self.xvals = None
@@ -45,23 +48,40 @@ class GPModel(object):
         
         # The dimension of the evironment
         if dim == 2:
-            self.dim = dim
             self.asymmetric = False
-
         elif dim == 3:
-            if len(lengthscale) < dim:
-                raise ValueError('Lengthscale vector must have same length as dimension.')
-            self.dim = dim
+            if kernel == 'rbf':
+                if len(lengthscale) < dim:
+                    raise ValueError('Lengthscale vector must have same length as dimension.')
             self.asymmetric = True
         else:
-            print dimension
+            print dim
             raise ValueError('Environment must have dimension 2 or 3')
 
         if kernel == 'rbf':
-            self.kern = GPy.kern.RBF(input_dim=self.dimension,
+            self.kern = GPy.kern.RBF(input_dim=dim,
                                      lengthscale=lengthscale,
                                      variance=variance,
-                                     ARD=self.asymmetric) 
+                                     ARD=self.asymmetric)
+        elif kernel == 'ode':
+            self.kern = GPy.kern.ODE_st(input_dim=dim,
+                                        variance_Yx=kparams['variance'][0],
+                                        variance_Yt=kparams['variance'][1],
+                                        lengthscale_Yx=kparams['lengthscale'][0],
+                                        lengthscale_Yt=kparams['lengthscale'][1],
+                                        a=1.0,
+                                        b=-0.001,
+                                        c=0.5)
+        elif kernel == 'transport':
+            self.kern = GPy.kern.Transport(input_dim=dim,
+                                           lengthscale=lengthscale,
+                                           variance=variance)
+        elif kernel == 'swell':
+            self.kern = GPy.kern.Swell(input_dim=dim,
+                                       lengthscale_x=kparams['lengthscale'][0],
+                                       lengthscale_t=kparams['lengthscale'][1],
+                                       variance_x=kparams['variance'][0],
+                                       variance_t=kparams['variance'][1])
         else:
             raise ValueError('Kernel type must by \'rbf\'')
             
@@ -78,7 +98,7 @@ class GPModel(object):
             var (float array): an nparray of floats representing predictive variance, with dimension NUM_PTS x 1 
         '''        
         assert(xvals.shape[0] >= 1)            
-        assert(xvals.shape[1] == self.dimension)    
+        assert(xvals.shape[1] == self.dim)    
         
         n_points, input_dim = xvals.shape
 
@@ -108,7 +128,7 @@ class GPModel(object):
 
         if self.model is None:
             # if no model, make GPy model
-            self.model = GPy.models.GPRegression(np.array(self.xvals), np.array(self.zvals), self.kern, noise_var = self.noise)
+            self.model = GPy.models.GPRegression(np.array(self.xvals), np.array(self.zvals), self.kern, noise_var=self.noise)
         else:
             # otherwise, add to existing model
             self.model.set_XY(X=np.array(self.xvals), Y=np.array(self.zvals))
@@ -131,7 +151,7 @@ class GPModel(object):
             raise ValueError("Failed to load kernel. Kernel parameter file not found.")
         return
 
-    def train_kernel(self, xvals=None, zvals=None, kernel_file='kernel_model.npy'):
+    def train_kernel(self, xvals=None, zvals=None, kernel='rbf', kernel_file='kernel_model.npy'):
         ''' Public method that optmizes kernel parameters based on input data and saves to files.
         Inputs:
             xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2
@@ -143,7 +163,7 @@ class GPModel(object):
         
         # Read pre-trained kernel parameters from file, if available and no 
         # training data is provided
-        if self.xvals is not None and self.zvals is not None:
+        if self.xvals is not None and self.zvals is not None and kernel == 'rbf':
             xvals = self.xvals
             zvals = self.zvals
 
@@ -174,8 +194,8 @@ class OnlineGPModel(GPModel):
         Implements online, recursive updates for a Gaussian Process using the 
         Woodbury-Morrison formula by modifying the Posteior class from the GPy Library 
     '''
-    def __init__(self, ranges, lengthscale, variance, noise=0.0001, dim=2, kernel='rbf',  update_legacy=False):
-        super(OnlineGPModel, self).__init__(ranges, lengthscale, variance, noise, dimension, kernel)
+    def __init__(self, ranges, lengthscale, variance, kparams, noise=0.0001, dim=2, kernel='rbf', update_legacy=False):
+        super(OnlineGPModel, self).__init__(ranges, lengthscale, variance, kparams, noise, dimension, kernel)
         
         self._K_chol = None
         self._K = None
@@ -288,7 +308,7 @@ class OnlineGPModel(GPModel):
     def predict_value(self, xvals, include_noise = True, full_cov = False):
         # Calculate for the test point
         assert(xvals.shape[0] >= 1)            
-        assert(xvals.shape[1] == self.dimension)    
+        assert(xvals.shape[1] == self.dim)    
         n_points, input_dim = xvals.shape
 
         # With no observations, predict 0 mean everywhere and prior variance

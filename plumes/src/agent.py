@@ -4,31 +4,18 @@
 This library allows access to the simulated robot class, which can be designed using a number of parameters.
 '''
 from matplotlib import pyplot as plt
-import matplotlib
-from matplotlib.colors import LogNorm
 from matplotlib import cm
-from sklearn import mixture
-from IPython.display import display
-from scipy.stats import multivariate_normal
 import numpy as np
 import scipy as sp
-import math
 import os
-import GPy as GPy
-import dubins
-import time
-from itertools import chain
-import pdb
 import logging
 logger = logging.getLogger('robot')
 
-import aq_library as aqlib
-import mcts_library as mctslib
+import heuristic_reward as aqlib
+import mcts_search as mctslib
 import gpmodel_library as gplib 
-import evaluation_library as evalib 
-import paths_library as pathlib 
-import envmodel_library as envlib 
-import obstacles as obslib
+import mission_logger as evalib 
+import generate_actions as pathlib 
 
 
 class Robot(object):
@@ -57,67 +44,37 @@ class Robot(object):
         '''
 
         # Parameterization for the robot
+        # ENVIROMENT
         self.ranges = kwargs['extent']
-        self.dimension = kwargs['dimension']
-        self.create_animation = kwargs['create_animation']
-        self.eval = kwargs['evaluation']
+        self.dim = kwargs['dimension']
         self.loc = kwargs['start_loc']
         self.time = kwargs['start_time']
-        self.sample_world = kwargs['sample_world']
-        self.f_rew = kwargs['f_rew']
-        self.frontier_size = kwargs['frontier_size']
-        self.discretization = kwargs['discretization']
-        self.tree_type = kwargs['tree_type']
-        self.path_option = kwargs['path_generator']
-
-        self.nonmyopic = kwargs['nonmyopic']
-        self.comp_budget = kwargs['computation_budget']
-        self.roll_length = kwargs['rollout_length']
-        self.horizon_length = kwargs['horizon_length']
-        self.sample_step = kwargs['sample_step']
-        self.turning_radius = kwargs['turning_radius']
-        self.goal_only = kwargs['goal_only']
-        self.obstacle_world = kwargs['obstacle_world']
-        self.learn_params = kwargs['learn_params']
-        self.use_cost = kwargs['use_cost']
-        
-        self.MIN_COLOR = kwargs['MIN_COLOR']
-        self.MAX_COLOR = kwargs['MAX_COLOR']
-
-        self.maxes = []
-        self.current_max = -1000
-        self.current_max_loc = [0,0]
-        self.max_locs = None
-        self.max_val = None
-        self.target = None
+        self.measure_environment = kwargs['sample_world']
         self.noise = kwargs['noise']
+        self.obstacle_world = kwargs['obstacle_world']
 
-        if self.f_rew == 'hotspot_info':
-            self.aquisition_function = aqlib.hotspot_info_UCB
-        elif self.f_rew == 'mean':
-            self.aquisition_function = aqlib.mean_UCB  
-        elif self.f_rew == 'info_gain':
-            self.aquisition_function = aqlib.info_gain
-        elif self.f_rew == 'mes':
-            self.aquisition_function = aqlib.mves
-        elif self.f_rew == 'maxs-mes':
-            self.aquisition_function = aqlib.mves_maximal_set
-        elif self.f_rew == 'exp_improve':
-            self.aquisition_function = aqlib.exp_improvement
-        else:
-            raise ValueError('Only \'hotspot_info\' and \'mean\' and \'info_gain\' and \'mes\' and \'exp_improve\' reward fucntions supported.')
+        #BELIEF SPACE
+        self.kernel = kwargs['kernel']
+        self.kparams = kwargs['kparams']
 
         # Initialize the robot's GP model with the initial kernel parameters
-        self.GP = gplib.OnlineGPModel(ranges = self.ranges, lengthscale = kwargs['init_lengthscale'], variance = kwargs['init_variance'], noise = self.noise, dimension = self.dimension)
+        self.GP = gplib.OnlineGPModel(ranges=self.ranges,
+                                      lengthscale=kwargs['init_lengthscale'],
+                                      variance=kwargs['init_variance'],
+                                      noise=self.noise,
+                                      dimension=self.dim,
+                                      kernel=self.kernel,
+                                      kparams=self.kparams)
         # self.GP = gplib.GPModel(ranges = self.ranges, lengthscale = kwargs['init_lengthscale'], variance = kwargs['init_variance'], noise = self.noise, dimension = self.dimension)
                 
         # If both a kernel training dataset and a prior dataset are provided, train the kernel using both
-        if  kwargs['kernel_dataset'] is not None and kwargs['prior_dataset'] is not None:
+        # Can only support this for RBF kernels presently
+        if  kwargs['kernel_dataset'] is not None and kwargs['prior_dataset'] is not None and self.kernel == 'rbf':
             data = np.vstack([kwargs['prior_dataset'][0], kwargs['kernel_dataset'][0]])
             observations = np.vstack([kwargs['prior_dataset'][1], kwargs['kernel_dataset'][1]])
             self.GP.train_kernel(data, observations, kwargs['kernel_file']) 
         # Train the kernel using the provided kernel dataset
-        elif kwargs['kernel_dataset'] is not None:
+        elif kwargs['kernel_dataset'] is not None and self.kernel == 'rbf':
             self.GP.train_kernel(kwargs['kernel_dataset'][0], kwargs['kernel_dataset'][1], kwargs['kernel_file'])
         # If a kernel file is provided, load the kernel parameters
         elif kwargs['kernel_file'] is not None:
@@ -129,68 +86,79 @@ class Robot(object):
         # Incorporate the prior dataset into the model
         if kwargs['prior_dataset'] is not None:
             self.GP.add_data(kwargs['prior_dataset'][0], kwargs['prior_dataset'][1]) 
-        
-        # The path generation class for the robot
-        if self.path_option == 'dubins':
-            self.path_generator = pathlib.Dubins_Path_Generator(self.frontier_size, self.horizon_length, self.turning_radius, self.sample_step, self.ranges, self.obstacle_world)
-        elif self.path_option == 'equal_dubins':
-            self.path_generator = pathlib.Dubins_EqualPath_Generator(self.frontier_size, self.horizon_length, self.turning_radius, self.sample_step, self.ranges, self.obstacle_world)
-        elif self.path_option == 'fully_reachable_goal':
-            self.path_generator = pathlib.Reachable_Frontier_Generator(self.frontier_size, self.horizon_length, self.turning_radius, self.sample_step, self.ranges, self.obstacle_world)
-        elif self.path_option == 'fully_reachable_step':
-            self.path_generator = pathlib.Reachable_Step_Generator(self.frontier_size, self.horizon_length, self.turning_radius, self.sample_step, self.ranges, self.obstacle_world)
+
+        #REWARD
+        self.f_rew = kwargs['f_rew']
+        if self.f_rew == 'mean':
+            self.aquisition_function = aqlib.mean_UCB  
+        elif self.f_rew == 'info_gain':
+            self.aquisition_function = aqlib.info_gain
+        elif self.f_rew == 'mes':
+            self.aquisition_function = aqlib.mves
+        elif self.f_rew == 'exp_improve':
+            self.aquisition_function = aqlib.exp_improvement
         else:
-            self.path_generator = pathlib.Path_Generator(self.frontier_size, self.horizon_length, self.turning_radius, self.sample_step, self.ranges, self.obstacle_world)
+            raise ValueError('Only \'mean\', \'info-gain\', \'exp-improve\', and \'mes\'reward fucntions supported.')
+
+        #ACTIONS
+        self.path_generator = kwargs['path_generator']
+
+        #PLANNER
+        self.tree_type = kwargs['tree_type']
+        self.nonmyopic = kwargs['nonmyopic']
+        self.comp_budget = kwargs['computation_budget']
+        self.roll_length = kwargs['rollout_length']
+        
+        #LOGISTICS
+        self.create_animation = kwargs['create_animation'] #flagging for removal
+        self.eval = kwargs['evaluation'] #flagging for removal
+        self.MIN_COLOR = kwargs['MIN_COLOR']
+        self.MAX_COLOR = kwargs['MAX_COLOR']
+        self.running_simulation = kwargs['running_simulation'] #indicates whether running in sim or on car
+
+        #INITIALIZATION
+        self.maxes = []
+        self.current_max = -1000
+        self.current_max_loc = [0,0]
+        self.max_locs = None
+        self.max_val = None
+        self.target = None
 
     def choose_trajectory(self, t):
-        ''' Select the best trajectory avaliable to the robot at the current pose, according to the aquisition function.
+        ''' Select the best trajectory avaliable to the robot at the current pose, according to the reward heuristic.
         Input: 
             t (int > 0): the current planning iteration (value of a point can change with algortihm progress)
         Output:
             either None or the (best path, best path value, all paths, all values, the max_locs for some functions)
         '''
+        #initialize heusitic information
         value = {}
         param = None    
-        
-        max_locs = max_vals = None      
-        if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
-            self.max_val, self.max_locs, self.target = aqlib.sample_max_vals(self.GP, t = t, obstacles = self.obstacle_world)
-        pred_loc, pred_val = self.predict_max(t = t)
-            
-        paths, true_paths = self.path_generator.get_path_set(self.loc)
+        max_locs = max_vals = None
 
-        for path, points in paths.items():
-            # set params
-            if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
-                param = (self.max_val, self.max_locs, self.target)
-            elif self.f_rew == 'exp_improve':
-                if len(self.maxes) == 0:
-                    param = [self.current_max]
-                else:
-                    param = self.maxes
-            #  get costs
-            cost = 100.0
-            if self.use_cost == True:
-                cost = float(self.path_generator.path_cost(true_paths[path]))
-                if cost == 0.0:
-                    cost = 100.0
-
-            # set the points over which to determine reward
-            if self.path_option == 'fully_reachable_goal' and self.goal_only == True:
-                poi = [(points[-1][0], points[-1][1])]
-            elif self.path_option == 'fully_reachable_step' and self.goal_only == True:
-                poi = [(self.goals[path][0], self.goals[path][1])]
+        if self.f_rew == 'mes':
+            self.max_val, self.max_locs, self.target = aqlib.sample_max_vals(self.GP, t=t, obstacles=self.obstacle_world)
+            param = (self.max_val, self.max_locs, self.target)
+        elif self.f_rew == 'exp_improve':
+            if len(self.maxes) == 0:
+                param = [self.current_max]
             else:
-                poi = points
+                param = self.maxes
 
-            if self.use_cost == False:
-                value[path] = self.aquisition_function(time = t, xvals = poi, robot_model = self.GP, param = param)
-            else:
-                reward = self.aquisition_function(time = t, xvals = poi, robot_model = self.GP, param = param)
-                value[path] = reward/cost   
+        actions = self.path_generator.generate_trajectories(robot_pose=self.loc,
+                                                            time=t,
+                                                            world=self.obstacle_world,
+                                                            using_sim_world=self.running_simulation)
+
+        for path, action in enumerate(actions):
+            value[path] = self.aquisition_function(time=t,
+                                                   xvals=action.polygon.points,
+                                                   robot_model=self.GP,
+                                                   param=param)
+
         try:
             best_key = np.random.choice([key for key in value.keys() if value[key] == max(value.values())])
-            return paths[best_key], true_paths[best_key], value[best_key], paths, value, self.max_locs
+            return actions[best_key].polygon.points, value[best_key], actions, value
         except:
             return None
     
@@ -198,7 +166,7 @@ class Robot(object):
         ''' Gather noisy samples of the environment and updates the robot's GP model.
         Input: 
             xobs (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2 '''
-        zobs = self.sample_world(xobs)       
+        zobs = self.measure_environment(xobs)       
         self.GP.add_data(xobs, zobs)
 
         for z, x in zip (zobs, xobs):
@@ -206,37 +174,21 @@ class Robot(object):
                 self.current_max = z[0]
                 self.current_max_loc = [x[0],x[1]]
 
-    def predict_max(self, t = 0):
+    def predict_max(self):
         # If no observations have been collected, return default value
         if self.GP.xvals is None:
             return np.array([0., 0.]), 0.
 
-        ''' First option, return the max value observed so far '''
-        #return self.GP.xvals[np.argmax(self.GP.zvals), :], np.max(self.GP.zvals)
-
-        ''' Second option: generate a set of predictions from model and return max '''
         # Generate a set of observations from robot model with which to predict mean
         x1vals = np.linspace(self.ranges[0], self.ranges[1], 30)
         x2vals = np.linspace(self.ranges[2], self.ranges[3], 30)
         x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') 
 
-        if self.dimension == 2:
+        if self.dim == 2:
             data = np.vstack([x1.ravel(), x2.ravel()]).T
-        elif self.dimension == 3:
+        elif self.dim == 3:
             data = np.vstack([x1.ravel(), x2.ravel(), self.time * np.ones(len(x1.ravel()))]).T
         observations, var = self.GP.predict_value(data)        
-
-        '''
-        if t > 50:
-            fig2, ax2 = plt.subplots(figsize=(8, 6))
-            ax2.set_xlim(self.ranges[0:2])
-            ax2.set_ylim(self.ranges[2:])        
-            ax2.set_title('Countour Plot of the Approximated World Model')     
-            plot = ax2.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis')
-            plot = ax2.scatter(x1, x2, observations.reshape(x1.shape), cmap = 'viridis')
-            plt.show()
-        '''
-
 
         return data[np.argmax(observations), :], np.max(observations)
         
@@ -244,9 +196,12 @@ class Robot(object):
         ''' Gather noisy samples of the environment and updates the robot's GP model  
         Input: 
             T (int > 0): the length of the planning horization (number of planning iterations)'''
+        
+        # initialize
         self.trajectory = []
         self.dist = 0
         
+        # step through each planning iteratio in the simulation
         for t in xrange(T):
             # Select the best trajectory according to the robot's aquisition function
             self.time = t
@@ -260,7 +215,7 @@ class Robot(object):
 
 
             if self.nonmyopic == False:
-                sampling_path, best_path, best_val, all_paths, all_values, max_locs = self.choose_trajectory(t = t)
+                sampling_path, best_val, all_paths, all_values = self.choose_trajectory(t=t)
             else:
                 # set params
                 if self.f_rew == "exp_improve":
@@ -268,45 +223,42 @@ class Robot(object):
                 else:
                     param = None
                 # create the tree search
-                mcts = mctslib.cMCTS(self.comp_budget, self.GP, self.loc, self.roll_length, self.path_generator, self.aquisition_function, self.f_rew, t, aq_param = param, use_cost = self.use_cost, tree_type = self.tree_type)
-                sampling_path, best_path, best_val, all_paths, all_values, self.max_locs, self.max_val = mcts.choose_trajectory(t = t)
+                mcts = mctslib.cMCTS(self.comp_budget, self.GP, self.loc, self.roll_length, self.path_generator, self.aquisition_function, self.f_rew, t, aq_param=param, tree_type=self.tree_type)
+                sampling_path, best_val, all_paths, all_values, self.max_locs, self.max_val = mcts.choose_trajectory(t=t)
             
-            # Update eval metrics
+            # Update eval metrics #TODO fix
             start = self.loc
             for m in best_path:
                 self.dist += np.sqrt((start[0]-m[0])**2 + (start[1]-m[1])**2)
                 start = m
-            self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, sampling_path, \
-            value = best_val, max_loc = pred_loc, max_val = pred_val, params = [self.current_max, self.current_max_loc, self.max_val, self.max_locs], dist = self.dist) 
+            # self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, sampling_path, \
+            # value = best_val, max_loc = pred_loc, max_val = pred_val, params = [self.current_max, self.current_max_loc, self.max_val, self.max_locs], dist = self.dist) 
 
             if best_path == None:
                 break
             data = np.array(sampling_path)
             x1 = data[:,0]
             x2 = data[:,1]
-            if self.dimension == 2:
+            if self.dim == 2:
                 xlocs = np.vstack([x1, x2]).T           
-            elif self.dimension == 3:
+            elif self.dim == 3:
                 # Collect observations at the current time
                 xlocs = np.vstack([x1, x2, t*np.ones(len(x1))]).T           
             else:
                 raise ValueError('Only 2D or 3D worlds supported!')
             
             self.collect_observations(xlocs)
-            if t < T/3 and self.learn_params == True:
-                self.GP.train_kernel()
-
             self.trajectory.append(best_path)
             
-            if self.create_animation:
-                self.visualize_trajectory(screen = False, filename = t, best_path = sampling_path, 
-                        maxes = self.max_locs, all_paths = all_paths, all_vals = all_values)            
+            # if self.create_animation:
+            #     self.visualize_trajectory(screen = False, filename = t, best_path = sampling_path, 
+            #             maxes = self.max_locs, all_paths = all_paths, all_vals = all_values)            
 
-                self.visualize_reward(screen = True, filename = 'REWARD.' + str(t), t = t)
-            #if t > 50:
-            #    self.visualize_reward(screen = True, filename = 'REWARD_' + str(t), t = t)
+            #     self.visualize_reward(screen = True, filename = 'REWARD.' + str(t), t = t)
+            # #if t > 50:
+            # #    self.visualize_reward(screen = True, filename = 'REWARD_' + str(t), t = t)
 
-            self.loc = sampling_path[-1]
+            # self.loc = sampling_path[-1]
         np.savetxt('./figures/' + self.f_rew+ '/robot_model.csv', (self.GP.xvals[:, 0], self.GP.xvals[:, 1], self.GP.zvals[:, 0]))
 
     
@@ -328,9 +280,9 @@ class Robot(object):
         x2vals = np.linspace(self.ranges[2], self.ranges[3], 100)
         x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') 
 
-        if self.dimension == 2:
+        if self.dim == 2:
             data = np.vstack([x1.ravel(), x2.ravel()]).T
-        elif self.dimension == 3:
+        elif self.dim == 3:
             data = np.vstack([x1.ravel(), x2.ravel(), self.time*np.ones(len(x1.ravel()))]).T
         
         observations, var = self.GP.predict_value(data)        
@@ -398,9 +350,9 @@ class Robot(object):
         x2vals = np.linspace(self.ranges[2], self.ranges[3], 100)
         x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
 
-        if self.dimension == 2:
+        if self.dim == 2:
             data = np.vstack([x1.ravel(), x2.ravel()]).T
-        elif self.dimension == 3:
+        elif self.dim == 3:
             data = np.vstack([x1.ravel(), x2.ravel(), self.time * np.ones(len(x1.ravel()))]).T
 
         print "Etnering visualize reward"
@@ -468,9 +420,9 @@ class Robot(object):
         x2vals = np.linspace(self.ranges[2], self.ranges[3], 100)
         x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
 
-        if self.dimension == 2:
+        if self.dim == 2:
             data = np.vstack([x1.ravel(), x2.ravel()]).T
-        elif self.dimension == 3:
+        elif self.dim == 3:
             data = np.vstack([x1.ravel(), x2.ravel(), self.time * np.ones(len(x1.ravel()))]).T
         observations, var = self.GP.predict_value(data)        
         
@@ -491,7 +443,3 @@ class Robot(object):
                 os.makedirs('./figures/' + str(self.f_rew))
             fig.savefig('./figures/' + str(self.f_rew)+ '/world_model.' + str(filename) + '.png')
             plt.close()
-    
-    def plot_information(self):
-        ''' Visualizes the accumulation of reward and aquisition functions ''' 
-        self.eval.plot_metrics()

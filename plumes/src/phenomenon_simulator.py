@@ -21,8 +21,9 @@ class Phenomenon:
     '''The Phenomenon class, which simulates the true, natural phenomenon as
     a retangular Gaussian world.
     ''' 
-    def __init__(self, ranges, NUM_PTS, variance, lengthscale, noise=0.0001, 
-            seed=0, dim=2, model=None, metric_world=gme.World(), time_duration=1):
+    def __init__(self, ranges, NUM_PTS, variance, lengthscale, kparams, noise=0.0001, 
+            seed=0, dim=2, model=None, metric_world=gme.World(), time_duration=1, kernel='rbf',
+            MIN_COLOR=-25., MAX_COLOR=25.):
         ''' Initialize a random Gaussian environment using the input kernel, 
             assuming zero mean function.
         Input:
@@ -48,7 +49,11 @@ class Phenomenon:
         self.noise = noise
         self.obstacle_world = metric_world
         self.time_duration = time_duration
+        self.kernel=kernel
         logger.info('Environment seed: {}'.format(seed))
+
+        self.MIN_COLOR = MIN_COLOR
+        self.MAX_COLOR = MAX_COLOR
         
         # Expect ranges to be a 4-tuple consisting of x1min, x1max, x2min, and x2max
         self.x1min = float(ranges[0])
@@ -62,7 +67,9 @@ class Phenomenon:
             plot_world(ranges,
                        self.obstacle_world,
                        copy.deepcopy(self.GP),
-                       './figures/world_model_countour.png')
+                       './figures/world_model_countour.png',
+                        MIN_COLOR=self.MIN_COLOR,
+                        MAX_COLOR=self.MAX_COLOR)
         else:
             # Generate a set of discrete grid points, uniformly spread across the environment
             x1vals = np.linspace(self.x1min, self.x1max, NUM_PTS)
@@ -84,23 +91,24 @@ class Phenomenon:
                 # lives within the boundary constraints
                 while in_violation:
 
-                    print "Current environment in violation of boundary constraint. Regenerating!"
-                    logger.warning("Current environment in violation of boundary constraint. Regenerating!")
-
-                    # Intialize a GP model of the environment
-                    self.GP = GPModel(ranges=ranges,
-                                      lengthscale=lengthscale,
-                                      variance=variance,
-                                      noise=noise,
-                                      dim=dim)         
-
                     # Initialize points at time T
                     if self.dim == 2:
                         data = np.vstack([x1.ravel(), x2.ravel()]).T 
                     elif self.dim == 3:
                         data = np.vstack([x1.ravel(), x2.ravel(), T*np.ones(len(x1.ravel()))]).T 
                     
-                    if T == 0:
+                    # Intialize a GP model of the environment
+                    self.GP = GPModel(ranges=ranges,
+                                      lengthscale=lengthscale,
+                                      variance=variance,
+                                      noise=noise,
+                                      dim=dim,
+                                      kparams=kparams,
+                                      kernel=kernel) 
+
+                    print "Current environment in violation of boundary constraint. Regenerating!"
+                    logger.warning("Current environment in violation of boundary constraint. Regenerating!")
+                    if T == 0:        
                         # Take an initial sample in the GP prior, conditioned on no other data
                         xsamples = np.reshape(np.array(data[0, :]), (1, dim)) # dimension: 1 x dim
                         mean, var = self.GP.predict_value(xsamples, include_noise=False)   
@@ -111,7 +119,7 @@ class Phenomenon:
 
                         # Generate data to populate the GP with
                         zsamples = np.random.normal(loc=mean, scale=np.sqrt(var))
-                        zsamples = np.reshape(zsamples, (1, 1)) # dimension: 1 x 1 
+                        zsamples = np.reshape(zsamples, (1, 1)) # dimension: 1 x 1
                         self.GP.add_data(xsamples, zsamples)                            
                     
                         # Draw observations from the posterior (with new random seed), then update the GP with those samples
@@ -120,8 +128,9 @@ class Phenomenon:
                         self.GP.add_data(data[1:, :], observations)                            
                     else:
                         np.random.seed(seed)
-                        observations = self.models[T-1].posterior_samples(data, full_cov = True, size=1)
-                        self.GP.add_data(data, observations)                            
+                        observations = self.models[T-1].posterior_samples(data, full_cov=True, size=1)
+                        self.GP.add_data(data, observations)
+                         
                 
                     # Extract the maxima and increment random seed
                     maxima = self.GP.xvals[np.argmax(self.GP.zvals), :]
@@ -135,7 +144,9 @@ class Phenomenon:
                            self.obstacle_world,
                            copy.deepcopy(self.GP),
                            './figures/world_model_countour.'+ str(T) + '.png', 
-                           time = T)
+                           time=T,
+                           MIN_COLOR=self.MIN_COLOR,
+                           MAX_COLOR=self.MAX_COLOR)
                 plt.close('all')
             
             # Dump the GP models, for later evaluation
@@ -168,18 +179,19 @@ class Phenomenon:
         # return the world value with additive noise (to simulate sensor)
         return mean + np.random.normal(loc=0, scale=np.sqrt(self.noise))
 
-def plot_world(ranges, metric_world, GP, filename, time, MIN_COLOR=-25., MAX_COLOR=25):
+def plot_world(ranges, metric_world, GP, filename, time, MIN_COLOR=-25., MAX_COLOR=25.):
     ''' Helper function to draw contour plots of the phenomenon '''
     x1vals = np.linspace(ranges[0], ranges[1], 40)
     x2vals = np.linspace(ranges[2], ranges[3], 40)
     x1, x2 = np.meshgrid(x1vals, x2vals, sparse=False, indexing='xy') # dimension: NUM_PTS x NUM_PTS       
     
-    dim = GP.dimension
+    dim = GP.dim
     if dim == 2:
         data = np.vstack([x1.ravel(), x2.ravel()]).T 
     elif dim == 3:
         data = np.vstack([x1.ravel(), x2.ravel(), time*np.ones(len(x1.ravel()))]).T
-    observations, var = GP.predict_value(data, include_noise=False)        
+    observations, var = GP.predict_value(data, include_noise=False)
+    # observations = dynamic_func(x1.ravel(), x2.ravel(), time*np.ones(len(x1.ravel()))) #+ observations
     
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.set_xlim(ranges[0:2])
@@ -198,16 +210,41 @@ def plot_world(ranges, metric_world, GP, filename, time, MIN_COLOR=-25., MAX_COL
     fig.savefig(filename)
     plt.close()
 
+def dynamic_func(x1, x2, t):
+    ang1 = 1.5*np.sin(t/0.1)
+    ang2 = 1.5*np.cos(t/0.1)
+
+    temp1 = np.exp(-(np.power(((x1-5-ang1)/0.7),2)))
+    temp2 = np.exp(-(np.power(((x2-5-ang2)/0.7),2)))
+
+    f = np.multiply(temp1,temp2)
+    f = np.array(list(f))[:,None]
+
+    return f
+
 if __name__ == '__main__':
     world = gme.World([0., 10., 0., 10.])
     # world.add_blocks(3, (1.5, 1.5), ((3, 3), (5, 5), (7, 7)))
+    rbf_variance = 100
+    rbf_lengthscale = (1.5, 1.5, 100.)
+
+    ode_variance = (10, 10)
+    ode_lengthscale = (1.5, 1.0)
+
+    swell_variance = (100., 100.)
+    swell_lengthscale = (1.5, 1.5)
+
     phenom = Phenomenon(ranges=[0., 10., 0., 10.],
                         NUM_PTS=20,
-                        variance=100.,
-                        lengthscale=(1.5, 1.5, 100),
+                        variance=rbf_variance,
+                        lengthscale=rbf_lengthscale,
                         noise=0.5,
-                        seed=0,
+                        seed=200,
                         dim=3,
                         model=None,
                         metric_world=world,
-                        time_duration=150)
+                        time_duration=5,
+                        kparams={'lengthscale':swell_lengthscale, 'variance':swell_variance},
+                        kernel='transport',
+                        MIN_COLOR=0,
+                        MAX_COLOR=3)

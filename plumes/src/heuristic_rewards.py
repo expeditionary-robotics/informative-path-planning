@@ -1,7 +1,12 @@
 # !/usr/bin/python
 
-'''%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                                    Aquisition Functions - should have the form:
+''' This library provides the heuristic reward functions used in PLUMES and baselines 
+
+License: MIT
+Maintainers: Genevieve Flaspohler and Victoria Preston
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    Aquisition Functions - should have the form:
     def alpha(time, xvals, robot_model, param), where:
         time (int): the current timestep of planning
         xvals (list of float tuples): representing a path i.e. [(3.0, 4.0), (5.6, 7.2), ... ])
@@ -10,23 +15,11 @@
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'''
 from matplotlib import pyplot as plt
-import matplotlib
-from matplotlib.colors import LogNorm
-from matplotlib import cm
-from sklearn import mixture
-from IPython.display import display
-from scipy.stats import multivariate_normal
 import numpy as np
 import scipy as sp
-import math
 import os
-import GPy as GPy
-import dubins
-import time
 from itertools import chain
-import pdb
 import logging
-import obstacles as obslib
 logger = logging.getLogger('robot')
 
 def info_gain(time, xvals, robot_model, param=None):
@@ -35,7 +28,6 @@ def info_gain(time, xvals, robot_model, param=None):
     x1 = data[:,0]
     x2 = data[:,1]
 
-    # TODO: time will be constant during all simulations? 
     if robot_model.dimension == 2:
         queries = np.vstack([x1, x2]).T   
     elif robot_model.dimension == 3:
@@ -44,45 +36,44 @@ def info_gain(time, xvals, robot_model, param=None):
 
     # If the robot hasn't taken any observations yet, simply return the entropy of the potential set
     if xobs is None:
-        Sigma_after = robot_model.kern.K(queries)
-        entropy_after, sign_after = np.linalg.slogdet(np.eye(Sigma_after.shape[0], Sigma_after.shape[1]) \
-                                    + robot_model.variance * Sigma_after)
-        #print "Entropy with no obs: ", entropy_after
-        return 0.5 * sign_after * entropy_after
+        Sigma = robot_model.kern.K(queries)
+        entropy, sign = np.linalg.slogdet(np.eye(Sigma.shape[0], Sigma.shape[1]) \
+                                    + robot_model.variance * Sigma)
+        return 0.5 * sign * entropy
+    else:
+        all_data = np.vstack([xobs, queries])
+        
+        # The covariance matrices of the previous observations and combined observations respectively
+        Sigma_before = robot_model.kern.K(xobs) 
+        Sigma_total = robot_model.kern.K(all_data)       
 
-    all_data = np.vstack([xobs, queries])
-    
-    # The covariance matrices of the previous observations and combined observations respectively
-    Sigma_before = robot_model.kern.K(xobs) 
-    Sigma_total = robot_model.kern.K(all_data)       
+        # The term H(y_a, y_obs)
+        entropy_before, sign_before =  np.linalg.slogdet(np.eye(Sigma_before.shape[0], Sigma_before.shape[1]) \
+                                        + robot_model.variance * Sigma_before)
+        
+        # The term H(y_a, y_obs)
+        entropy_after, sign_after = np.linalg.slogdet(np.eye(Sigma_total.shape[0], Sigma_total.shape[1]) \
+                                        + robot_model.variance * Sigma_total)
 
-    # The term H(y_a, y_obs)
-    entropy_before, sign_before =  np.linalg.slogdet(np.eye(Sigma_before.shape[0], Sigma_before.shape[1]) \
-                                    + robot_model.variance * Sigma_before)
-    
-    # The term H(y_a, y_obs)
-    entropy_after, sign_after = np.linalg.slogdet(np.eye(Sigma_total.shape[0], Sigma_total.shape[1]) \
-                                    + robot_model.variance * Sigma_total)
-
-    # The term H(y_a | f)
-    entropy_total = 2 * np.pi * np.e * sign_after * entropy_after - 2 * np.pi * np.e * sign_before * entropy_before
-    #print "Entropy: ", entropy_total
+        # The term H(y_a | f)
+        entropy_total = 2 * np.pi * np.e * sign_after * entropy_after - 2 * np.pi * np.e * sign_before * entropy_before
 
 
-    ''' TODO: this term seems like it should still be in the equation, but it makes the IG negative'''
-    #entropy_const = 0.5 * np.log(2 * np.pi * np.e * robot_model.variance)
-    entropy_const = 0.0
+        ''' TODO: this term seems like it should still be in the equation, but it makes the IG negative'''
+        #entropy_const = 0.5 * np.log(2 * np.pi * np.e * robot_model.variance)
+        entropy_const = 0.0
 
-    # This assert should be true, but it's not :(
-    #assert(entropy_after - entropy_before - entropy_const > 0)
-    return entropy_total - entropy_const
+        # This assert should be true, but it's not :(
+        #assert(entropy_after - entropy_before - entropy_const > 0)
+        return entropy_total - entropy_const
 
     
-def mean_UCB(time, xvals, robot_model, param=None, FVECTOR = False):
+def mean_UCB(time, xvals, robot_model, param=None, FVECTOR=False):
     ''' Computes the UCB for a set of points along a trajectory '''
     data = np.array(xvals)
     x1 = data[:,0]
     x2 = data[:,1]
+
     # TODO: time will be constant during all simulations? 
     if robot_model.dimension == 2:
         queries = np.vstack([x1, x2]).T   
@@ -97,11 +88,8 @@ def mean_UCB(time, xvals, robot_model, param=None, FVECTOR = False):
                               
     # The GPy interface can predict mean and variance at an array of points; this will be an overestimate
     mu, var = robot_model.predict_value(queries)
-    #mu_test, var_test = robot_model.predict_value_legacy(queries)
-    #print "------Diff-----------:"
-    #print mu - mu_test
-    #print var - var_test
-
+    
+    # Have a time varying beta function
     delta = 0.9
     d = 20
     pit = np.pi**2 * (time + 1)**2 / 6.
@@ -112,29 +100,9 @@ def mean_UCB(time, xvals, robot_model, param=None, FVECTOR = False):
     else:
         return np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
 
-def hotspot_info_UCB(time, xvals, robot_model, param=None):
-    ''' The reward information gathered plus the estimated exploitation value gathered'''
-    data = np.array(xvals)
-    x1 = data[:,0]
-    x2 = data[:,1]
-    if robot_model.dimension == 2:
-        queries = np.vstack([x1, x2]).T   
-    elif robot_model.dimension == 3:
-        queries = np.vstack([x1, x2, time * np.ones(len(x1))]).T   
-                              
-    LAMBDA = 1.0 # TOOD: should depend on time
-    mu, var = robot_model.predict_value(queries)
-    
-    delta = 0.9
-    d = 20
-    pit = np.pi**2 * (time + 1)**2 / 6.
-    beta_t = 2 * np.log(d * pit / delta)
-
-    return info_gain(time, xvals, robot_model) + LAMBDA * np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
-
-
-def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = True, obstacles=obslib.FreeWorld()):
+def sample_max_vals(robot_model, t, obstacles, nK=3, nFeatures=200, visualize=True):
     ''' The mutual information between a potential set of samples and the local maxima'''
+    
     # If the robot has not samples yet, return a constant value
     if robot_model.xvals is None:
         return None, None, None
@@ -151,22 +119,23 @@ def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = True, o
     for i in xrange(nK):
         print "Starting global optimization", i, "of", nK
         logger.info("Starting global optimization {} of {}".format(i, nK))
+        
         # Draw the weights for the random features
-        # TODO: make sure this formula is correct
         if robot_model.dimension == 2:
-            W = np.random.normal(loc = 0.0, scale = np.sqrt(1./(robot_model.lengthscale)), size = (nFeatures, d))
+            W = np.random.normal(loc=0.0, scale=np.sqrt(1./(robot_model.lengthscale)), size=(nFeatures, d))
         elif robot_model.dimension == 3:
-            W = np.random.normal(loc = 0.0, scale = np.sqrt(1./(robot_model.lengthscale[0])), size = (nFeatures, d))
-
-
-        b = 2 * np.pi * np.random.uniform(low = 0.0, high = 1.0, size = (nFeatures, 1))
+            try:
+                W = np.random.normal(loc=0.0, scale=np.sqrt(1./(robot_model.lengthscale[0])), size=(nFeatures, d))
+            except:
+                W = np.random.normal(loc=0.0, scale=np.sqrt(1./(robot_model.lengthscale)), size=(nFeatures, d))
+        
+        b = 2 * np.pi * np.random.uniform(low=0.0, high=1.0, size=(nFeatures, 1))
         
         # Compute the features for xx
-
         Z = np.sqrt(2 * robot_model.variance / nFeatures) * np.cos(np.dot(W, robot_model.xvals.T) + b)
         
         # Draw the coefficient theta
-        noise = np.random.normal(loc = 0.0, scale = 1.0, size = (nFeatures, 1))
+        noise = np.random.normal(loc=0.0, scale=1.0, size=(nFeatures, 1))
 
         # TODO: Figure this code out
         if robot_model.xvals.shape[0] < nFeatures:
@@ -203,15 +172,10 @@ def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = True, o
             #theta = np.random.multivariate_normal(mean = np.reshape(mu, (nFeatures,)), cov = Sigma, size = (nFeatures, 1))
             
         # Obtain a function samples from posterior GP
-        #def target(x): 
-        #    pdb.set_trace()
-        #    return np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
         target = lambda x: np.dot(theta.T * np.sqrt(2.0 * robot_model.variance / nFeatures), np.cos(np.dot(W, x.T) + b)).T
         target_vector_n = lambda x: -target(x.reshape(1, d))
         
         # Can only take a 1D input
-        #def target_gradient(x): 
-        #    return np.dot(theta.T * -np.sqrt(2.0 * robot_model.variance / nFeatures), np.sin(np.dot(W, x.reshape((2,1))) + b) * W)
         target_gradient = lambda x: np.dot(theta.T * -np.sqrt(2.0 * robot_model.variance / nFeatures), np.sin(np.dot(W, x.reshape((d, 1))) + b) * W)
         target_vector_gradient_n = lambda x: -np.asarray(target_gradient(x).reshape(d,))
                                                                     
@@ -232,18 +196,6 @@ def sample_max_vals(robot_model, t, nK = 3, nFeatures = 200, visualize = True, o
         print "Max Value in Optimization \t \t", samples[i]
         logger.info("Max Value in Optimization \t {}".format(samples[i]))
         locs[i, :] = maxima
-        
-        #if max_val < np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise) or \
-        #    maxima[0] == robot_model.ranges[0] or maxima[0] == robot_model.ranges[1] or \
-        #    maxima[1] == robot_model.ranges[2] or maxima[1] == robot_model.ranges[3]:
-
-        '''
-        if max_val < np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise):
-            samples[i] = np.max(robot_model.zvals) + 5.0 * np.sqrt(robot_model.noise)
-            print "Max observed is bigger than max in opt:", samples[i]
-            logger.info("Max observed is bigger than max in opt: {}".format(samples[i]))
-            locs[i, :] = robot_model.xvals[np.argmax(robot_model.zvals)]
-        '''
 
     samples = np.delete(samples, delete_locs, axis = 0)
     locs = np.delete(locs, delete_locs, axis = 0)
@@ -301,9 +253,6 @@ def mves(time, xvals, robot_model, param, FVECTOR = False):
         else:
             f += sum(utility)
 
-        #if np.sum(utility) == 0.000:
-        #    pdb.set_trace()
-
         f += sum(utility)
     # Average f
     f = f / maxes.shape[0]
@@ -313,51 +262,6 @@ def mves(time, xvals, robot_model, param, FVECTOR = False):
     else:
         # f is an np array; return scalar value
         return f[0]
-
-'''
-def mves_maximal_set(time, xvals, robot_model, param):
-    #Define the Acquisition Function for maximal-set information gain param is tuple (maxima, target)
-    max_vals = param[0]
-    max_locs = param[1]
-    target = param[2]
-
-    if max_vals is None:
-        return 1.0
-
-    data = np.array(xvals)
-    x1 = data[:,0]
-    x2 = data[:,1]
-    queries = np.vstack([x1, x2]).T        
-    d = queries.shape[1] # The dimension of the points (should be 2D)     
-
-    # Initialize f, g
-    f = 0
-    for i in xrange(max_vals.shape[0]):
-        # Compute the posterior mean/variance predictions and gradients.
-        mean_before, var_before = robot_model.predict_value(queries)
-     
-        radius = 2.0
-        radius_steps = 0
-        angle_steps = 0
-        ball_data = np.zeros(((radius_steps) * (angle_steps) + 1, queries .shape[1]))
-        for ii, dist in enumerate(np.linspace(0., radius, radius_steps)):
-            for jj, angle in enumerate(np.linspace(0., 2. * np.pi, angle_steps)):
-                ball_data[ii*angle_steps + jj, :] = np.reshape(max_locs[i] + np.array([dist * np.cos(angle), dist * np.sin(angle)]), (1,2))
-                #ball_data[ii*angle_steps + jj, :] = np.reshape(np.array([3., 3.]) + np.array([dist * np.cos(angle), dist * np.sin(angle)]), (1,2))
-        ball_data[-1, :] = np.reshape(max_locs[i], (1,2))
-
-        observations = target[i](ball_data)
-        temp_model = robot_model.add_data_to_temp_model(ball_data, observations)
-        
-        mean_after, var_after = robot_model.predict_value(queries, TEMP = True)
-        utility = entropy_of_n(var_before) - entropy_of_tn(a = None, b = max_vals[i], mu = mean_after, var = var_after)
-        f += sum(utility)
-
-    # Average f
-    f = f / max_vals.shape[0]
-    # f is an np array; return scalar value
-    return f[0] 
-'''
     
 def entropy_of_n(var):    
     return np.log(np.sqrt(2.0 * np.pi * var))
@@ -386,7 +290,7 @@ def entropy_of_tn(a, b, mu, var):
     
     return np.log(Z * np.sqrt(2.0 * np.pi * var)) + (alpha * phi_alpha - beta * phi_beta) / (2.0 * Z)
 
-def global_maximization(target, target_vector_n, target_grad, target_vector_gradient_n, ranges, guesses, visualize, filename, obstacles, time = None):
+def global_maximization(target, target_vector_n, target_grad, target_vector_gradient_n, ranges, guesses, visualize, filename, obstacles, time=None):
     MIN_COLOR = -25.
     MAX_COLOR = 25.
 
@@ -427,28 +331,6 @@ def global_maximization(target, target_vector_n, target_grad, target_vector_grad
         max_index = np.argmax(y)
         start = np.asarray(Xgrid_sample[max_index, :])
 
-    # If highest sample point is inside an obstacle, find one outside of the obstacle
-    # xobs = []
-    # yobs = []
-    # if obstacles.in_obstacle((start[0], start[1])) == True:
-    #     x1 = np.random.uniform(ranges[0], ranges[1], size = gridSize)
-    #     x2 = np.random.uniform(ranges[2], ranges[3], size = gridSize)
-    #     for x in x1:
-    #         for y in x2:
-    #             if obstacles.in_obstacle((x,y)) == True:
-    #                 pass
-    #             else:
-    #                 xobs.append(x)
-    #                 yobs.append(y)
-    #     xobs = np.array(xobs)
-    #     yobs = np.array(yobs)
-    #     Xgrid_exception = np.vstack([xobs.ravel(), yobs.ravel()]).T
-
-    #     y = target(Xgrid_exception)
-    #     max_index = np.argmax(y)
-    #     start = np.asarray(Xgrid_exception[max_index, :])
-
-    
     if visualize:
         # Generate a set of observations from robot model with which to make contour plots
         x1vals = np.linspace(ranges[0], ranges[1], 100)
