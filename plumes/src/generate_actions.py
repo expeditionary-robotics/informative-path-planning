@@ -9,6 +9,7 @@ Maintainers: Genevieve Flaspohler and Victoria Preston
 
 import dubins
 import numpy as np
+import copy
 import matplotlib.pyplot as plt
 from descartes import PolygonPatch
 from geometry_msgs.msg import *
@@ -37,14 +38,15 @@ class ActionSet(object):
         for a in path_swath:
             frontier_goal = trig_projection(robot_pose, self.length, a)
             path = dubins.shortest_path(robot_pose, frontier_goal, self.turning_radius)
-            samples, _ = path.sample_many(self.length/self.num_samples)
+            samples, _ = path.sample_many(np.round(self.length/self.num_samples, 2))
             actions.append(samples)
 
         if self.allow_reverse:
-            reverse_goal = trig_projection(robot_pose, self.length*0.8, np.pi)
+            reverse_goal = trig_projection(robot_pose, self.length*1.2, np.pi)
             path = dubins.shortest_path((robot_pose[0], robot_pose[1], robot_pose[2]+np.pi),
                                         reverse_goal, self.turning_radius)
             samples, _ = path.sample_many(self.length/self.num_samples)
+            samples = [(s[0], s[1], s[2]-np.pi) for s in samples]
             samples = [(-np.inf, -np.inf, -np.inf)] + samples #flag for the controller
             actions.append(samples)
 
@@ -52,6 +54,15 @@ class ActionSet(object):
             actions.append([robot_pose for i in range(0, self.num_samples)])
 
         actions = self.prune_trajectories(actions, time, world, using_sim_world)
+
+        if len(actions) == 0:
+            print len(actions)
+            relaxed_world = copy.copy(world)
+            relaxed_world.safety_buffer=world.safety_buffer*0.5
+            relaxed_world.refresh_world()
+            print relaxed_world.safety_buffer
+            self.generate_trajectories(robot_pose, time, relaxed_world, using_sim_world)
+
         return actions
 
     def prune_trajectories(self, actions, time, world, using_sim_world):
@@ -62,10 +73,10 @@ class ActionSet(object):
             for action in actions:
                 if action[0][0] > -np.inf:
                     if world.safe_trajectory(action):
-                        safe_actions.append(make_path_object(action, time))
+                        safe_actions.append(action)
                 else:
                     if world.safe_trajectory(action[1:]):
-                        safe_actions.append(make_path_object(action, time))
+                        safe_actions.append(action[1:])
         else:
             # want to use the occupancy grid from ROS
             data = make_array(world.data, world.info.height, world.info.width)
@@ -124,7 +135,7 @@ def make_array(data, height, width):
 if __name__ == '__main__':
     free_world = gme.World([0, 10, 0, 10])
 
-    action_set = ActionSet('num_actions':15,
+    action_set = ActionSet({'num_actions':15,
                            'length': 3.5,
                            'turning_radius': 0.005,
                            'radius_angle': np.pi/4.,
@@ -132,7 +143,7 @@ if __name__ == '__main__':
                            'safe_threshold': 50.,
                            'unknown_threshold': -2.,
                            'allow_reverse': True,
-                           'allow_stay': True)
+                           'allow_stay': True})
 
     safe_actions = action_set.generate_trajectories(robot_pose=(9.7, 2.8, 0),
                                                     time=0,

@@ -11,7 +11,7 @@ import os
 import logging
 logger = logging.getLogger('robot')
 
-import heuristic_reward as aqlib
+import heuristic_rewards as aqlib
 import mcts_search as mctslib
 import gpmodel_library as gplib 
 import mission_logger as evalib 
@@ -62,7 +62,7 @@ class Robot(object):
                                       lengthscale=kwargs['init_lengthscale'],
                                       variance=kwargs['init_variance'],
                                       noise=self.noise,
-                                      dimension=self.dim,
+                                      dim=self.dim,
                                       kernel=self.kernel,
                                       kparams=self.kparams)
         # self.GP = gplib.GPModel(ranges = self.ranges, lengthscale = kwargs['init_lengthscale'], variance = kwargs['init_variance'], noise = self.noise, dimension = self.dimension)
@@ -97,6 +97,8 @@ class Robot(object):
             self.aquisition_function = aqlib.mves
         elif self.f_rew == 'exp_improve':
             self.aquisition_function = aqlib.exp_improvement
+        elif self.f_rew == 'gumbel':
+            self.aquisition_function = aqlib.gumbel_mves
         else:
             raise ValueError('Only \'mean\', \'info-gain\', \'exp-improve\', and \'mes\'reward fucntions supported.')
 
@@ -106,6 +108,7 @@ class Robot(object):
         #PLANNER
         self.tree_type = kwargs['tree_type']
         self.nonmyopic = kwargs['nonmyopic']
+        print self.nonmyopic
         self.comp_budget = kwargs['computation_budget']
         self.roll_length = kwargs['rollout_length']
         
@@ -144,32 +147,41 @@ class Robot(object):
                 param = [self.current_max]
             else:
                 param = self.maxes
+        elif self.f_rew == 'gumbel':
+            max_vals = aqlib.sample_max_vals_gumbel(self.GP, t=t, obstacles=self.obstacle_world)
+            # _, pred_max = self.predict_max()
+            param = max_vals
 
         actions = self.path_generator.generate_trajectories(robot_pose=self.loc,
                                                             time=t,
                                                             world=self.obstacle_world,
                                                             using_sim_world=self.running_simulation)
-
+        print 'num of available actions', len(actions)
         for path, action in enumerate(actions):
             value[path] = self.aquisition_function(time=t,
-                                                   xvals=action.polygon.points,
+                                                   xvals=np.array(action),
                                                    robot_model=self.GP,
                                                    param=param)
 
         try:
-            best_key = np.random.choice([key for key in value.keys() if value[key] == max(value.values())])
-            return actions[best_key].polygon.points, value[best_key], actions, value
+            # print 'here'
+            # print value
+            best_key = np.random.choice([key for key in value.keys() if value[key] == np.nanmax(value.values())])
+            return np.array(actions[best_key]), value[best_key], actions, value
         except:
-            return None
+            # print 'failure'
+            # return None
+            best_key = np.random.choice([key for key in value.keys()])
+            return np.array(actions[best_key]), value[best_key], actions, value
     
     def collect_observations(self, xobs):
         ''' Gather noisy samples of the environment and updates the robot's GP model.
         Input: 
             xobs (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2 '''
-        zobs = self.measure_environment(xobs)       
-        self.GP.add_data(xobs, zobs)
+        zobs = self.measure_environment(xobs[1:,:], self.time)
+        self.GP.add_data(xobs[1:,:], zobs)
 
-        for z, x in zip (zobs, xobs):
+        for z, x in zip (zobs, xobs[1:,:]):
             if z[0] > self.current_max:
                 self.current_max = z[0]
                 self.current_max_loc = [x[0],x[1]]
@@ -213,28 +225,43 @@ class Robot(object):
             print "Current predicted max and value: \t", pred_loc, "\t", pred_val
             logger.info("Current predicted max and value: {} \t {}".format(pred_loc, pred_val))
 
-
-            if self.nonmyopic == False:
+            if self.nonmyopic is False:
+                print 'Using myopic planner!'
                 sampling_path, best_val, all_paths, all_values = self.choose_trajectory(t=t)
             else:
                 # set params
                 if self.f_rew == "exp_improve":
                     param = self.current_max
+                elif self.f_rew == "gumbel":
+                    max_vals = aqlib.sample_max_vals_gumbel(self.GP, t=t, obstacles=self.obstacle_world)
+                    param = max_vals
+                    # _, pred_max = self.predict_max()
+                    # param = (pred_max, 10)
                 else:
                     param = None
                 # create the tree search
-                mcts = mctslib.cMCTS(self.comp_budget, self.GP, self.loc, self.roll_length, self.path_generator, self.aquisition_function, self.f_rew, t, aq_param=param, tree_type=self.tree_type)
+                mcts = mctslib.cMCTS(computation_budget=self.comp_budget,
+                                     belief=self.GP,
+                                     initial_pose=self.loc, 
+                                     rollout_length=self.roll_length, 
+                                     path_generator=self.path_generator,
+                                     aquisition_function=self.aquisition_function, 
+                                     f_rew=self.f_rew,
+                                     T=t,
+                                     aq_param=param, 
+                                     tree_type=self.tree_type, 
+                                     obs_world=self.obstacle_world, 
+                                     use_sim_world=True)
+                
                 sampling_path, best_val, all_paths, all_values, self.max_locs, self.max_val = mcts.choose_trajectory(t=t)
             
+            print 'reward output'
+            print all_values
             # Update eval metrics #TODO fix
-            start = self.loc
-            for m in best_path:
-                self.dist += np.sqrt((start[0]-m[0])**2 + (start[1]-m[1])**2)
-                start = m
-            # self.eval.update_metrics(len(self.trajectory), self.GP, all_paths, sampling_path, \
-            # value = best_val, max_loc = pred_loc, max_val = pred_val, params = [self.current_max, self.current_max_loc, self.max_val, self.max_locs], dist = self.dist) 
+            self.eval.update_metrics(t, self.GP, self.loc, sampling_path, \
+            value=best_val, max_loc=pred_loc, max_val=pred_val, params=[self.current_max, self.current_max_loc, self.max_val, self.max_locs], dist=self.dist) 
 
-            if best_path == None:
+            if sampling_path is None:
                 break
             data = np.array(sampling_path)
             x1 = data[:,0]
@@ -246,22 +273,28 @@ class Robot(object):
                 xlocs = np.vstack([x1, x2, t*np.ones(len(x1))]).T           
             else:
                 raise ValueError('Only 2D or 3D worlds supported!')
-            
+          
+            if t % 10 == 0:
+                self.visualize_reward(screen = True, filename = 'REWARD.' + str(t), t = t)
+
             self.collect_observations(xlocs)
-            self.trajectory.append(best_path)
+            self.trajectory.append(sampling_path)
+
+            start = self.loc
+            for m in sampling_path:
+                self.dist += np.sqrt((start[0]-m[0])**2 + (start[1]-m[1])**2)
+                start = m
             
             # if self.create_animation:
-            #     self.visualize_trajectory(screen = False, filename = t, best_path = sampling_path, 
-            #             maxes = self.max_locs, all_paths = all_paths, all_vals = all_values)            
+            if t % 10 == 0:
+                self.visualize_trajectory(screen = False, filename = t, best_path = sampling_path, 
+                            maxes = self.max_locs, all_paths = all_paths, all_vals = all_values)            
 
-            #     self.visualize_reward(screen = True, filename = 'REWARD.' + str(t), t = t)
-            # #if t > 50:
-            # #    self.visualize_reward(screen = True, filename = 'REWARD_' + str(t), t = t)
-
-            # self.loc = sampling_path[-1]
+            print 'sampling path', sampling_path
+            self.loc = sampling_path[-1,:]
+            print 'new_location', self.loc
         np.savetxt('./figures/' + self.f_rew+ '/robot_model.csv', (self.GP.xvals[:, 0], self.GP.xvals[:, 1], self.GP.zvals[:, 0]))
 
-    
     def visualize_trajectory(self, screen = True, filename = 'SUMMARY', best_path = None, 
         maxes = None, all_paths = None, all_vals = None):      
         ''' Visualize the set of paths chosen by the robot 
@@ -288,7 +321,7 @@ class Robot(object):
         observations, var = self.GP.predict_value(data)        
        
         # Plot the current robot model of the world
-        fig, ax = plt.subplots(figsize=(8, 6))
+        fig, ax = plt.subplots(figsize=(8, 8))
         ax.set_xlim(self.ranges[0:2])
         ax.set_ylim(self.ranges[2:])
         # plot = ax.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = self.MIN_COLOR, vmax = self.MAX_COLOR, levels=np.linspace(self.MIN_COLOR, self.MAX_COLOR, 15))
@@ -312,14 +345,14 @@ class Robot(object):
             
             for index in path_order:
                 c = next(path_color)                
-                points = all_paths[all_paths.keys()[index]]
+                points = all_paths[index]
                 f = np.array(points)
-                plt.plot(f[:,0], f[:,1], c = c)
+                plt.plot(f[:,0], f[:,1], c=c)
                
         # If available, plot the selected path in green
         if best_path is not None:
             f = np.array(best_path)
-            plt.plot(f[:,0], f[:,1], c = 'g')
+            plt.plot(f[:,0], f[:,1], c='g')
            
         # If available, plot the current location of the maxes for mes
         if maxes is not None:
@@ -328,10 +361,10 @@ class Robot(object):
             # plt.scatter(maxes[:, 0], maxes[:, 1], color = 'r', marker = '*', s = 500.0)
 
         # If available, plot the obstacles in the world
-        if len(self.obstacle_world.get_obstacles()) != 0:
-            for o in self.obstacle_world.get_obstacles():
-                x,y = o.exterior.xy
-                plt.plot(x,y,'r',linewidth=3)
+        # if len(self.obstacle_world.get_obstacles()) != 0:
+        #     for o in self.obstacle_world.get_obstacles():
+        #         x,y = o.exterior.xy
+        #         plt.plot(x,y,'r',linewidth=3)
            
         # Either plot to screen or save to file
         if screen:
@@ -343,8 +376,7 @@ class Robot(object):
             #plt.show()
             plt.close()
 
-
-    def visualize_reward(self, screen = False, filename = 'REWARD', t = 0):
+    def visualize_reward(self, screen=False, filename='REWARD', t=0):
         # Generate a set of observations from robot model with which to make contour plots
         x1vals = np.linspace(self.ranges[0], self.ranges[1], 100)
         x2vals = np.linspace(self.ranges[2], self.ranges[3], 100)
@@ -355,16 +387,21 @@ class Robot(object):
         elif self.dim == 3:
             data = np.vstack([x1.ravel(), x2.ravel(), self.time * np.ones(len(x1.ravel()))]).T
 
-        print "Etnering visualize reward"
+        print "Entering visualize reward"
         print data.shape
 
-        if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
+        if self.f_rew == 'mes':
             param = (self.max_val, self.max_locs, self.target)
         elif self.f_rew == 'exp_improve':
             if len(self.maxes) == 0:
                 param = [self.current_max]
             else:
                 param = self.maxes
+        elif self.f_rew == 'gumbel':
+            max_vals = aqlib.sample_max_vals_gumbel(self.GP, t=t, obstacles=self.obstacle_world)
+            param = max_vals
+            # _, pred_max = self.predict_max()
+            # param = (pred_max, 10)
         else:
             param = None
 
@@ -373,7 +410,7 @@ class Robot(object):
         print "rewrd:", r
         '''
         
-        reward = self.aquisition_function(time = t, xvals = data, robot_model = self.GP, param = param, FVECTOR = True)
+        reward = self.aquisition_function(time=t, xvals=data, robot_model=self.GP, param=param, FVECTOR=True)
         print "Shape reward:", reward.shape
         
         fig2, ax2 = plt.subplots(figsize=(8, 8))
@@ -381,32 +418,25 @@ class Robot(object):
         ax2.set_ylim(self.ranges[2:])        
         ax2.set_title('Reward Plot ')     
 
-        MAX_COLOR = np.percentile(reward, 98)
-        MIN_COLOR = np.percentile(reward, 2)
-        
-        print MAX_COLOR
-        print MIN_COLOR
+        MAX_COLOR = np.nanpercentile(reward, 100.)
+        MIN_COLOR = np.nanpercentile(reward, 2.)
 
         if MAX_COLOR > MIN_COLOR:
             # plot = ax2.contourf(x1, x2, reward.reshape(x1.shape), cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR, levels=np.linspace(MIN_COLOR, MAX_COLOR, 25))
-            plot = ax2.contourf(x1, x2, reward.reshape(x1.shape), 25, cmap = 'plasma', vmin = MIN_COLOR, vmax = MAX_COLOR)
+            plot = ax2.contourf(x1, x2, reward.reshape(x1.shape), 25, cmap='plasma', vmin=MIN_COLOR, vmax=MAX_COLOR)
         else:
-            plot = ax2.contourf(x1, x2, reward.reshape(x1.shape), 25, cmap = 'plasma')
+            plot = ax2.contourf(x1, x2, reward.reshape(x1.shape), 25, cmap='plasma')
         
         # If available, plot the current location of the maxes for mes
         if self.max_locs is not None:
             for coord in self.max_locs:
                 plt.scatter(coord[0], coord[1], color = 'r', marker = '*', s = 500.0)
 
-        '''
-        # Plot the samples taken by the robot
-        if self.GP.xvals is not None:
-            scatter = ax2.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c=self.GP.zvals.ravel(), s = 10.0, cmap = 'viridis')        
-        '''
         if not os.path.exists('./figures/' + str(self.f_rew)):
             os.makedirs('./figures/' + str(self.f_rew))
         fig2.savefig('./figures/' + str(self.f_rew)+ '/world_model.' + str(filename) + '.png')
         plt.close()
+    
     def visualize_world_model(self, screen = True, filename = 'SUMMARY'):
         ''' Visaulize the robots current world model by sampling points uniformly in space and 
         plotting the predicted function value at those locations.
@@ -443,3 +473,7 @@ class Robot(object):
                 os.makedirs('./figures/' + str(self.f_rew))
             fig.savefig('./figures/' + str(self.f_rew)+ '/world_model.' + str(filename) + '.png')
             plt.close()
+    
+    def plot_information(self):
+        ''' Visualizes the accumulation of reward and aquisition functions ''' 
+        self.eval.plot_metrics()

@@ -157,7 +157,7 @@ class Phenomenon:
             print "Environment initialized with bounds X1: (", self.x1min, ",", self.x1max, ")  X2:(", self.x2min, ",", self.x2max, ")"
             logger.info("Environment initialized with bounds X1: ({}, {})  X2: ({}, {})".format(self.x1min, self.x1max, self.x2min, self.x2max)) 
 
-    def sample_value(self, xvals):
+    def sample_value(self, xvals, time=0):
         ''' The public interface to the Environment class. Returns a noisy sample of the true value of environment at a set of point. 
         Input:
             xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2 
@@ -171,7 +171,7 @@ class Phenomenon:
         if self.dim == 2:
             mean, var = self.GP.predict_value(xvals, include_noise=False)
         elif self.dim == 3:
-            T = xvals[1, self.dim-1] #get the time of the model phenomenon
+            T = time #get the time of the model phenomenon
             mean, var = self.models[T].predict_value(xvals, include_noise=False)
         else:
             raise ValueError('Model dimension must be 2 or 3!');

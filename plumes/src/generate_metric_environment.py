@@ -44,6 +44,7 @@ class BlockObstacle(object):
 class World(object):
     ''' creates a world polygon with some extent '''
     def __init__(self, extent=None, safety_buffer=0.1):
+        self.safety_buffer = safety_buffer
         self.extent = extent
         if self.extent is None:
             self.world = None
@@ -54,6 +55,13 @@ class World(object):
                                      (extent[1], extent[2]),
                                      (extent[0], extent[2])]).buffer(safety_buffer)
         self.obstacles = []
+
+    def refresh_world(self):
+        self.world = LineString([(self.extent[0], self.extent[2]),
+                                 (self.extent[0], self.extent[3]),
+                                 (self.extent[1], self.extent[3]),
+                                 (self.extent[1], self.extent[2]),
+                                 (self.extent[0], self.extent[2])]).buffer(self.safety_buffer)
 
     def contains(self, trajectory, safety_buffer=0.1):
         ''' checks that a trajectory stays within the world bounds '''

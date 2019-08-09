@@ -195,7 +195,7 @@ class OnlineGPModel(GPModel):
         Woodbury-Morrison formula by modifying the Posteior class from the GPy Library 
     '''
     def __init__(self, ranges, lengthscale, variance, kparams, noise=0.0001, dim=2, kernel='rbf', update_legacy=False):
-        super(OnlineGPModel, self).__init__(ranges, lengthscale, variance, kparams, noise, dimension, kernel)
+        super(OnlineGPModel, self).__init__(ranges, lengthscale, variance, kparams, noise, dim, kernel)
         
         self._K_chol = None
         self._K = None
