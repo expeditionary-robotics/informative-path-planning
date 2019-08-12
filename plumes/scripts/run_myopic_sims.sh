@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-if [ ! -d thesis_rbf2d_experiments ]; then
-mkdir thesis_rbf2d_experiments
+if [ ! -d thesis_swell3d_experiments ]; then
+mkdir thesis_swell3d_experiments
 fi
 
-pushd thesis_rbf2d_experiments
-    for seed in {0..1000..100}
+pushd thesis_swell3d_experiments
+    for seed in {100..1000..100}
     do
         for nonmyopic in False True
         do
@@ -13,9 +13,6 @@ pushd thesis_rbf2d_experiments
               for tree_type in dpw belief
               do
                   echo sim_seed${seed}-nonmyopic${nonmyopic}-tree${tree_type}
-                  if [ ${nonmyopic} = False ] && [ ${reward_func} = gumbel ]; then
-                    continue
-                  fi
                   if [ ${nonmyopic} = True ] && [ ${reward_func} = gumbel ] && [ ${tree_type} = belief ]; then
                     continue
                   fi

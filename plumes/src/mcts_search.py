@@ -2,28 +2,21 @@
 
 '''
 This library allows access to the Monte Carlo Tree Search class used in the PLUMES framework.
-A MCTS allows for performing many forward simulation of multiple-chained actions in order to 
+A MCTS allows for performing many forward simulation of multiple-chained actions in order to
 select the single most promising action to take at some time t. We have presented a variation
 of the MCTS by forward simulating within an incrementally updated GP belief world.
 
 License: MIT
 Maintainers: Genevieve Flaspohler and Victoria Preston
 '''
-
-import numpy as np
-import scipy as sp
-import math
-import matplotlib
-import os
-import GPy as GPy
 import time
-from itertools import chain
-import pdb
-import logging
-logger = logging.getLogger('robot')
-from heuristic_rewards import *
-import copy
 import random
+import copy
+from itertools import chain
+import logging
+from heuristic_rewards import *
+import numpy as np
+logger = logging.getLogger('robot')
 
 class MCTS(object):
     '''Class that establishes a MCTS for nonmyopic planning'''
@@ -55,7 +48,7 @@ class MCTS(object):
 
         # The tree
         self.tree = None
-        
+
         # Elements which are relevant for some acquisition functions
         self.aquisition_function = aquisition_function
         self.params = None
@@ -270,7 +263,7 @@ class Node(object):
         self.zvals = zvals
         self.reward = 0.0
         self.nqueries = 0
-        
+
         # Parent will be none if the node is a root
         self.parent = parent
         self.children = None
@@ -278,7 +271,7 @@ class Node(object):
         # Set belief or belief action node
         if action is None:
             self.node_type = 'B'
-            self.action = None 
+            self.action = None
 
             # If the root node, depth is 0
             if parent is None:
@@ -294,12 +287,12 @@ class Node(object):
         if self.children is None:
             self.children = []
         self.children.append(child_node)
-    
+
     def print_self(self):
         print self.name
 
 class Tree(object):
-    def __init__(self, f_rew, f_aqu,  belief, pose, path_generator, t, depth, param, c, obs_world, use_sim_world=True):
+    def __init__(self, f_rew, f_aqu, pose, path_generator, t, depth, param, c, obs_world, use_sim_world=True):
         self.path_generator = path_generator
         self.max_depth = depth
         self.param = param
@@ -310,11 +303,11 @@ class Tree(object):
         self.obs_world = obs_world
         self.use_sim_world = use_sim_world
 
-        self.root = Node(pose, parent=None, name='root', action=None, zvals=None)  
-        #self.build_action_children(self.root) 
+        self.root = Node(pose, parent=None, name='root', action=None, zvals=None)
 
     def get_best_child(self):
-        return self.root.children[np.argmax([node.nqueries for node in self.root.children])]
+        return random.choice([node for node in self.root.children if node.nqueries == np.nanmax([n.nqueries for n in self.root.children])])
+        # return self.root.children[np.argmax([node.nqueries for node in self.root.children])]
 
     def backprop(self, leaf_node, reward):
         if leaf_node.parent is None:
@@ -326,12 +319,13 @@ class Tree(object):
             leaf_node.reward += reward
             self.backprop(leaf_node.parent, reward)
             return
-    
+
     def get_next_leaf(self, belief):
-        next_leaf, reward = self.leaf_helper(self.root, reward=0.0,  belief=belief) 
+        next_leaf, reward = self.leaf_helper(self.root, reward=0.0, belief=copy.deepcopy(belief))
         self.backprop(next_leaf, reward)
 
     def leaf_helper(self, current_node, reward, belief):
+        # belief = copy.deepcopy(belief)
         if current_node.node_type == 'B':
             # Root belief node
             if current_node.depth == self.max_depth:
@@ -354,46 +348,51 @@ class Tree(object):
 
         # At random node, after selected action from a specific node
         elif current_node.node_type == 'BA':
-            # Copy old belief
-            #gp_new = copy.copy(current_node.belief) 
-            #gp_new = current_node.belief
-
             # Sample a new set of observations and form a new belief
-            #xobs = current_node.action
             obs = np.array(current_node.action)
-            xobs = np.vstack([obs[:,0], obs[:,1]]).T
 
-            if self.f_rew == 'mes' or self.f_rew == 'gumbel' or self.f_rew == 'exp_improve':
-                r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief, param = self.param)
+            if belief.dim == 2:
+                xobs = np.vstack([obs[:, 0], obs[:, 1]]).T
+            elif belief.dim == 3:
+                xobs = np.vstack([obs[:, 0], obs[:, 1], (self.t+current_node.depth - 1)*np.ones(obs.shape[0])]).T
+
+            if self.f_rew == 'mes' or self.f_rew == 'exp_improve':
+                r = self.aquisition_function(time=self.t+current_node.depth - 1, xvals=xobs, robot_model=belief, param=self.param)
+            elif self.f_rew == 'gumbel':
+                param = sample_max_vals_gumbel(belief, t=self.t+current_node.depth - 1, obstacles=self.obs_world)
+                r = self.aquisition_function(time=self.t+current_node.depth - 1, xvals=xobs, robot_model=belief, param=param)
             else:
-                r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief)
+                r = self.aquisition_function(time=self.t+current_node.depth - 1, xvals=xobs, robot_model=belief)
 
             if current_node.children is not None:
                 alpha = 3.0 / (10.0 * (self.max_depth - current_node.depth) - 3.0)
                 nchild = len(current_node.children)
 
                 if current_node.depth < self.max_depth - 1 and np.floor(nchild ** alpha) == np.floor((nchild - 1) ** alpha):
+                    # print 'revisiting child'
                     nqueries = [node.nqueries for node in current_node.children]
                     child = random.choice([node for node in current_node.children if node.nqueries == np.nanmin(nqueries)])
                     belief.add_data(xobs, child.zvals)
                     return self.leaf_helper(child, reward + r, belief)
 
-            if belief.model is None:
-                n_points, input_dim = xobs.shape
+            if belief.xvals is None:
+                print 'belief model is None'
+                n_points, _ = xobs.shape
                 zmean, zvar = np.zeros((n_points, )), np.eye(n_points) * belief.variance
-                zobs = np.random.multivariate_normal(mean = zmean, cov = zvar)
+                zobs = np.random.multivariate_normal(mean=zmean, cov=zvar)
                 zobs = np.reshape(zobs, (n_points, 1))
             else:
-                zobs = belief.posterior_samples(xobs, full_cov = False, size = 1)
+                zobs = belief.posterior_samples(xobs, full_cov=False, size=1)
+                # zobs, _ = belief.predict_value(xobs)
             belief.add_data(xobs, zobs)
-
+            # print zobs
 
             pose_new = current_node.action[-1]
-            child = Node(pose = pose_new, 
-                         parent = current_node, 
-                         name = current_node.name + '_belief' + str(current_node.depth + 1), 
-                         action = None, 
-                         zvals = zobs)
+            child = Node(pose=pose_new,
+                         parent=current_node,
+                         name=current_node.name + '_belief' + str(current_node.depth + 1),
+                         action=None,
+                         zvals=zobs)
             current_node.add_children(child)
 
             # Recursive call
@@ -402,27 +401,27 @@ class Tree(object):
     def get_next_child(self, current_node):
         vals = {}
         e_d = 0.5 * (1.0 - (3.0/(10.0*(self.max_depth - current_node.depth))))
-        for i, child in enumerate(current_node.children):
+        for child in current_node.children:
             if child.nqueries == 0:
                 return child
-            vals[child] = child.reward/float(child.nqueries) + self.c * np.sqrt((float(current_node.nqueries) ** e_d)/float(child.nqueries)) 
+            vals[child] = child.reward/float(child.nqueries) + self.c * np.sqrt((float(current_node.nqueries) ** e_d)/float(child.nqueries))
         # Return the max node, or a random node if the value is equal
         return random.choice([key for key in vals.keys() if vals[key] == np.nanmax(vals.values())])
-        
+
     def build_action_children(self, parent):
         actions = self.path_generator.generate_trajectories(parent.pose, self.t, self.obs_world, self.use_sim_world)
         if len(actions) == 0:
-            print "No actions!" 
+            print "No actions!"
             return
-        
+
         #print "Creating children for:", parent.name
         for i, action in enumerate(actions):
             #print "Action:", i
-            parent.add_children(Node(pose = parent.pose, 
-                                     parent = parent, 
-                                     name = parent.name + '_action' + str(i), 
-                                     action = action, 
-                                     zvals = None))
+            parent.add_children(Node(pose=parent.pose,
+                                     parent=parent,
+                                     name=parent.name + '_action' + str(i),
+                                     action=action,
+                                     zvals=None))
 
     def print_tree(self):
         counter = self.print_helper(self.root)
@@ -430,29 +429,34 @@ class Tree(object):
 
     def print_helper(self, cur_node):
         if cur_node.children is None:
-            #cur_node.print_self()
-            #print cur_node.name
             return 1
         else:
-            #cur_node.print_self()
-            #print "\n"
             counter = 0
             for child in cur_node.children:
                 counter += self.print_helper(child)
             return counter
 
-''' Inherit class, that implements more standard MCTS, and assumes MLE observation to deal with continuous spaces '''
 class BeliefTree(Tree):
-    def __init__(self, f_rew, f_aqu,  belief, pose, path_generator, t, depth, param, c, obs_world, use_sim_world=True):
-        super(BeliefTree, self).__init__(f_rew, f_aqu,  belief, pose, path_generator, t, depth, param, c, obs_world, use_sim_world)
+    ''' Inherit class, that implements more standard MCTS, and assumes MLE observation to deal with continuous spaces '''
+    def __init__(self, f_rew, f_aqu, pose, path_generator, t, depth, param, c, obs_world, use_sim_world=True):
+        super(BeliefTree, self).__init__(f_rew, f_aqu, pose, path_generator, t, depth, param, c, obs_world, use_sim_world)
 
-    # Max Reward-based node selection
     def get_best_child(self):
-        return self.root.children[np.argmax([node.nqueries for node in self.root.children])]
+        # Max Reward-based node selection
+        # return random.choice([node for node in self.root.children if node.nqueries == np.nanmax([n.nqueries for n in self.tree.children])])
+        # return self.root.children[np.argmax([node.nqueries for node in self.root.children])]
+        vals = {}
+        for child in self.root.children:
+            if child.nqueries == 0:
+                return child, False
+            vals[child] = child.reward/float(child.nqueries)
+        # Return the max node, or a random node if the value is equal
+        return random.choice([key for key in vals.keys() if vals[key] == max(vals.values())])
 
     def random_rollouts(self, current_node, reward, belief):
         cur_depth = current_node.depth
         pose = current_node.pose
+        belief = copy.deepcopy(belief)
         while cur_depth <= self.max_depth:
             actions = self.path_generator.generate_trajectories(pose, self.t, self.obs_world, self.use_sim_world)
             # No viable trajectories from current location
@@ -461,24 +465,32 @@ class BeliefTree(Tree):
 
             #select a random action
             try:
-                a = np.random.randint(0, len(actions) - 1)
+                a = random.randint(0, len(actions) - 1)
             except:
                 a = 0
             obs = np.array(actions[a])
-            xobs = np.vstack([obs[:,0], obs[:,1]]).T
 
-            if self.f_rew == 'mes' or self.f_rew == 'gumbel' or self.f_rew == 'exp_improve':
-                r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief, param = self.param)
+            if belief.dim == 2:
+                xobs = np.vstack([obs[:, 0], obs[:, 1]]).T
+            elif belief.dim == 3:
+                xobs = np.vstack([obs[:, 0], obs[:, 1], (self.t+cur_depth-1) * np.ones(obs.shape[0])]).T
+
+            if self.f_rew == 'mes' or self.f_rew == 'exp_improve':
+                r = self.aquisition_function(time=self.t+cur_depth-1, xvals=xobs, robot_model=belief, param=self.param)
+            elif self.f_rew == 'gumbel':
+                param = sample_max_vals_gumbel(belief, t=self.t+cur_depth-1, obstacles=self.obs_world)
+                r = self.aquisition_function(time=self.t+cur_depth-1, xvals=xobs, robot_model=belief, param=param)
+
             else:
-                r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief)
+                r = self.aquisition_function(time=self.t+cur_depth-1, xvals=xobs, robot_model=belief)
 
             # ''Simulate'' the maximum likelihood observation
-            if belief.model is None:
-                n_points, input_dim = xobs.shape
+            if belief.xvals is None:
+                n_points, _ = xobs.shape
                 zobs = np.zeros((n_points, ))
                 zobs = np.reshape(zobs, (n_points, 1))
             else:
-                zobs, _= belief.predict_value(xobs)
+                zobs, _ = belief.predict_value(xobs)
 
             belief.add_data(xobs, zobs)
 
@@ -489,6 +501,7 @@ class BeliefTree(Tree):
         return reward
 
     def leaf_helper(self, current_node, reward, belief):
+        belief = copy.deepcopy(belief)
         if current_node.node_type == 'B':
             # belief node
             if current_node.depth == self.max_depth:
@@ -503,70 +516,65 @@ class BeliefTree(Tree):
                 if current_node.children is None:
                     return current_node, reward
 
-                child, full_action_set  = self.get_next_child(current_node)
-                #print "Selecting next action child:", child.name
-                #print "Full action set?", full_action_set
+                child, full_action_set = self.get_next_child(current_node)
 
                 if full_action_set:
                     # Recursive call
                     return self.leaf_helper(child, reward, belief)
                 else:
                     # Do random rollouts
-                    #print "Doing random rollouts!"
-                    rollout_reward = self.random_rollouts(current_node, reward, belief) 
-                    #print "Rollout reward:", rollout_reward
+                    rollout_reward = self.random_rollouts(current_node, reward, belief)
                     return child, rollout_reward
 
         # At random node, after selected action from a specific node
         elif current_node.node_type == 'BA':
-            # Copy old belief
-            #gp_new = copy.copy(current_node.belief) 
-            #gp_new = current_node.belief
-
             # Sample a new set of observations and form a new belief
-            #xobs = current_node.action
             obs = np.array(current_node.action)
-            xobs = np.vstack([obs[:,0], obs[:,1]]).T
+            if belief.dim == 2:
+                xobs = np.vstack([obs[:, 0], obs[:, 1]]).T
+            elif belief.dim == 3:
+                xobs = np.vstack([obs[:, 0], obs[:, 1], (self.t+current_node.depth-1) * np.ones(obs.shape[0])]).T
 
-            if self.f_rew == 'mes' or self.f_rew == 'gumbel' or self.f_rew == 'exp_improve':
-                r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief, param = self.param)
+            if self.f_rew == 'mes' or self.f_rew == 'exp_improve':
+                r = self.aquisition_function(time=self.t+current_node.depth-1, xvals=xobs, robot_model=belief, param=self.param)
+            elif self.f_rew == 'gumbel':
+                param = sample_max_vals_gumbel(belief, t=self.t+current_node.depth-1, obstacles=self.obs_world)
+                r = self.aquisition_function(time=self.t+current_node.depth-1, xvals=xobs, robot_model=belief, param=param)
+
             else:
-                r = self.aquisition_function(time = self.t, xvals = xobs, robot_model = belief)
+                r = self.aquisition_function(time=self.t+current_node.depth-1, xvals=xobs, robot_model=belief)
 
             # ''Simulate'' the maximum likelihood observation
-            if belief.model is None:
-                n_points, input_dim = xobs.shape
+            if belief.xvals is None:
+                n_points, _ = xobs.shape
                 zobs = np.zeros((n_points, ))
                 zobs = np.reshape(zobs, (n_points, 1))
             else:
-                zobs, _= belief.predict_value(xobs)
+                zobs, _ = belief.predict_value(xobs)
 
             belief.add_data(xobs, zobs)
 
             pose_new = current_node.action[-1]
-            child = Node(pose = pose_new, 
-                         parent = current_node, 
-                         name = current_node.name + '_belief' + str(current_node.depth + 1), 
-                         action = None, 
-                         zvals = zobs)
+            child = Node(pose=pose_new,
+                         parent=current_node,
+                         name=current_node.name + '_belief' + str(current_node.depth + 1),
+                         action=None,
+                         zvals=zobs)
             #print "Adding next belief child:", child.name
             current_node.add_children(child)
 
             # Recursive call
             return self.leaf_helper(child, reward + r, belief)
 
-    ''' Returns the next most promising child of a belief node, and a FLAG indicating if belief node is fully explored '''
     def get_next_child(self, current_node):
+        ''' Returns the next most promising child of a belief node, and a FLAG indicating if belief node is fully explored '''
         vals = {}
-        for i, child in enumerate(current_node.children):
-            #print "Considering child:", child.name, "with queries:", child.nqueries
+        for child in current_node.children:
             if child.nqueries == 0:
                 return child, False
-            vals[child] = child.reward/float(child.nqueries) + self.c * np.sqrt(2.0*np.log(float(current_node.nqueries))/float(child.nqueries)) 
+            vals[child] = child.reward/float(child.nqueries) + self.c * np.sqrt(2.0*np.log(float(current_node.nqueries))/float(child.nqueries))
         # Return the max node, or a random node if the value is equal
         return random.choice([key for key in vals.keys() if vals[key] == max(vals.values())]), True
-        
-
 
 class cMCTS(MCTS):
     '''Class that establishes a MCTS for nonmyopic planning'''
@@ -577,23 +585,21 @@ class cMCTS(MCTS):
         self.obs_world = obs_world
         self.use_sim_world = use_sim_world
         self.param = aq_param
+        self.GP = copy.deepcopy(belief)
 
         # The differnt constatns use logarthmic vs polynomical exploriation
         if self.f_rew == 'mean':
             if self.tree_type == 'belief':
-                self.c = 1000
+                self.c = 1000.
             elif self.tree_type == 'dpw':
-                self.c = 5000
+                self.c = 5000.
         elif self.f_rew == 'exp_improve':
-            self.c = 200
+            self.c = 200.
         elif self.f_rew == 'mes' or self.f_rew == 'gumbel':
             if self.tree_type == 'belief':
                 self.c = 1.0 / np.sqrt(2.0)
             elif self.tree_type == 'dpw':
                 self.c = 1.0 / np.sqrt(2.0)
-                # self.c = 1.0
-                # self.c = 5.0
-                # self.c = 0.0
         else:
             self.c = 1.0
         print "Setting c to :", self.c
@@ -604,43 +610,41 @@ class cMCTS(MCTS):
 
         # randomly sample the world for entropy search function
         if self.f_rew == 'mes':
-            self.max_val, self.max_locs, self.target  = sample_max_vals(self.GP, t = t)
+            self.max_val, self.max_locs, self.target = sample_max_vals(self.GP, t=t, obstacles=self.obs_world)
             param = (self.max_val, self.max_locs, self.target)
         elif self.f_rew == 'exp_improve':
             param = self.param
-        elif self.f_rew == 'gumbel':
-            param = self.param
+        # elif self.f_rew == 'gumbel':
+        #     param = sample_max_vals_gumbel(self.GP, t=t, obstacles=self.obs_world)
         else:
             param = None
 
         # initialize tree
         if self.tree_type == 'dpw':
-            self.tree = Tree(self.f_rew, self.aquisition_function, self.GP, self.cp, self.path_generator, t, depth=self.rl, param=param, c=self.c, obs_world=self.obs_world, use_sim_world=self.use_sim_world)
+            self.tree = Tree(self.f_rew, self.aquisition_function, self.cp, self.path_generator, t, depth=self.rl, param=param, c=self.c, obs_world=self.obs_world, use_sim_world=self.use_sim_world)
         elif self.tree_type == 'belief':
-            self.tree = BeliefTree(self.f_rew, self.aquisition_function, self.GP, self.cp, self.path_generator, t, depth=self.rl, param=param, c=self.c, obs_world=self.obs_world, use_sim_world=self.use_sim_world)
+            self.tree = BeliefTree(self.f_rew, self.aquisition_function, self.cp, self.path_generator, t, depth=self.rl, param=param, c=self.c, obs_world=self.obs_world, use_sim_world=self.use_sim_world)
         else:
             raise ValueError('Tree type must be one of either \'dpw\' or \'belief\'')
 
-        time_start = time.time()            
+        time_start = time.time()
         # while we still have time to compute, generate the tree
         i = 0
         gp = copy.copy(self.GP)
         while i < self.comp_budget:
             i += 1
             self.tree.get_next_leaf(gp)
-            if True:
-                gp = copy.copy(self.GP)
+            gp = copy.copy(self.GP)
         time_end = time.time()
         print "Rollouts completed in", str(time_end - time_start) +  "s"
         print "Number of rollouts:", i
         self.tree.print_tree()
 
-        # print [(node.nqueries, node.reward/node.nqueries) for node in self.tree.root.children]
-
-        best_child = self.tree.root.children[np.argmax([node.nqueries for node in self.tree.root.children])]
-        # best_child = random.choice([node for node in self.tree.root.children if node.nqueries == np.nanmax([n.nqueries for n in self.tree.root.children])])
+        # best_child = self.tree.root.children[np.argmax([node.nqueries for node in self.tree.root.children])]
+        best_child = random.choice([node for node in self.tree.root.children if node.nqueries == np.nanmax([n.nqueries for n in self.tree.root.children])])
         all_vals = {}
+        actions = []
         for i, child in enumerate(self.tree.root.children):
             all_vals[i] = child.reward / float(child.nqueries)
-        actions = self.path_generator.generate_trajectories(self.tree.root.pose, t, self.obs_world, self.use_sim_world)
+            actions.append(child.action)
         return np.array(best_child.action), best_child.reward/float(best_child.nqueries), actions, all_vals, self.max_locs, self.max_val

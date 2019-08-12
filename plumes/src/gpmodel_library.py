@@ -128,9 +128,12 @@ class GPModel(object):
 
         if self.model is None:
             # if no model, make GPy model
+            # print 'making a model!'
+            # self.model = GPy.models.GPRegression(np.array(self.xvals), np.array(self.zvals), kernel=self.kern)
             self.model = GPy.models.GPRegression(np.array(self.xvals), np.array(self.zvals), self.kern, noise_var=self.noise)
         else:
             # otherwise, add to existing model
+            # print 'adding to existing model', self.model
             self.model.set_XY(X=np.array(self.xvals), Y=np.array(self.zvals))
 
     def posterior_samples(self, xvals, size=10, full_cov=True):
@@ -257,7 +260,12 @@ class OnlineGPModel(GPModel):
             M = S - np.dot(np.dot(R, Pinv), Q)
             # Adds some additional noise to ensure well-conditioned
             diag.add(M, self.noise + 1e-8)
-            M, _, _, _ = pdinv(M)
+            # print M
+            try:
+                M, _, _, _ = pdinv(M)
+            except:
+                # print 'default to normal inv'
+                M = np.linalg.inv(M)
 
             Pnew = Pinv + np.dot(np.dot(np.dot(np.dot(Pinv, Q), M), R), Pinv)
             Qnew = -np.dot(np.dot(Pinv, Q), M)

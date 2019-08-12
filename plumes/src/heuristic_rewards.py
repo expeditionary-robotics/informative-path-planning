@@ -104,9 +104,13 @@ def mean_UCB(time, xvals, robot_model, param=None, FVECTOR = False):
     if FVECTOR:
         return mu + np.sqrt(beta_t) * np.fabs(var)
     else:
-        return np.sum(mu) + np.sqrt(beta_t) * np.sum(np.fabs(var))
+        ucb_reward = np.nanmean(mu) + np.sqrt(beta_t) * np.nanmean(np.fabs(var))
+        if ucb_reward < 0.:
+            return 0.
+        else:
+            return ucb_reward
 
-    
+
 def hotspot_info_UCB(time, xvals, robot_model, param=None):
     ''' The reward information gathered plus the estimated exploitation value gathered'''
     data = np.array(xvals)
@@ -135,8 +139,7 @@ def sample_max_vals_gumbel(robot_model, t, obstacles, nK = 10, nFeatures = 30, v
     # estimates the maxes in the world
 
     if robot_model.xvals is None:
-        print 'returning none'
-        return None, None, None
+        return None
 
     x1vals = np.linspace(robot_model.ranges[0], robot_model.ranges[1], nFeatures)
     x2vals = np.linspace(robot_model.ranges[2], robot_model.ranges[3], nFeatures)
@@ -145,11 +148,12 @@ def sample_max_vals_gumbel(robot_model, t, obstacles, nK = 10, nFeatures = 30, v
     if robot_model.dim == 2:
         queries = np.vstack([x1.ravel(), x2.ravel()]).T   
     elif robot_model.dim == 3:
-        queries = np.vstack([x1.ravel(), x2.ravel(), time * np.ones(len(x1.ravel()))]).T   
+        queries = np.vstack([x1.ravel(), x2.ravel(), t * np.ones(len(x1.ravel()))]).T   
       
-    mean, var = robot_model.predict_value(queries)
-    observed_max = np.nanmax(mean)  
-    sig = np.sqrt(var)
+    mean, var = robot_model.predict_value(queries) #maybe should be posterior?
+    # observed_max = np.nanmax(mean)
+    observed_max = np.nanmax(robot_model.posterior_samples(queries, full_cov=False, size=1))  
+    sig = np.sqrt(np.fabs(var))
 
     def probf(m0, mean=mean, sig=sig):
         gamma = np.divide((m0 - mean), sig)
@@ -165,9 +169,9 @@ def sample_max_vals_gumbel(robot_model, t, obstacles, nK = 10, nFeatures = 30, v
 
         temp_dist = np.divide(mgrid-mean, sig)
         prob = np.prod(sp.stats.norm.cdf(temp_dist),axis=0)
-        med = binary_search(0.5, probf, prob, mgrid, 0.001)
-        q1 = binary_search(0.25, probf, prob, mgrid, 0.001)
-        q2 = binary_search(0.75, probf, prob, mgrid, 0.001)
+        med = binary_search(0.5, probf, prob, mgrid, 0.01)
+        q1 = binary_search(0.25, probf, prob, mgrid, 0.01)
+        q2 = binary_search(0.75, probf, prob, mgrid, 0.01)
 
         b = np.divide((q1 - q2), np.log(np.log(4./3.)) - np.log(np.log(4.)))
         a = med + b*np.log(np.log(2.))
@@ -181,65 +185,11 @@ def sample_max_vals_gumbel(robot_model, t, obstacles, nK = 10, nFeatures = 30, v
 
 def gumbel_mves(time, xvals, robot_model, param, FVECTOR=False):
     # approximates gumbel sampling from Wang and Jegelka paper
-    # param = [20., 3]
     if param is None:
         if FVECTOR:
             return np.ones((xvals.shape[0], 1))
         else:
             return 1.0
-
-    # data = np.array(xvals)
-    # x1 = data[:,0]
-    # x2 = data[:,1]
-    # # x1vals = np.linspace(robot_model.ranges[0], robot_model.ranges[1], 10)
-    # # x2vals = np.linspace(robot_model.ranges[2], robot_model.ranges[3], 10)
-    # # x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') 
-
-    # if robot_model.dim == 2:
-    #     queries = np.vstack([x1.ravel(), x2.ravel()]).T   
-    # elif robot_model.dim == 3:
-    #     queries = np.vstack([x1.ravel(), x2.ravel(), time * np.ones(len(x1.ravel()))]).T   
-    
-    # d = queries.shape[1] # The dimension of the points (should be 2D)
-    # observed_max = param[0]      
-
-    # # Compute the posterior mean/variance predictions and gradients.
-    # #[meanVector, varVector, meangrad, vargrad] = mean_var(x, xx, ...
-    # #    yy, KernelMatrixInv{i}, l(i,:), sigma(i), sigma0(i));
-    # # print np.array(queries[i,:]).reshape(1, d)
-    # mean, var = robot_model.predict_value(queries)
-    # sig = np.sqrt(var)
-
-    # def probf(m0, mean=mean, sig=sig):
-    #     gamma = np.divide((m0 - mean), sig)
-    #     cdfgamma = sp.stats.norm.cdf(gamma)
-    #     return np.prod(cdfgamma)
-
-    # left = observed_max - 5.0 * robot_model.noise
-    # # print 'Evaluating Reward'
-    # # print left, probf(left)
-    # # print mean
-    # # print '--'
-    # # print probf(left)
-    # if probf(left) < 0.25:
-    #     right = np.nanmax(mean + 5.0 * sig)
-    #     while probf(right) < 0.75:
-    #         right = right + right - left
-    #     mgrid = np.linspace(left, right, 100)
-
-    #     temp_dist = np.divide(mgrid-mean, sig)
-    #     prob = np.prod(sp.stats.norm.cdf(temp_dist),axis=0)
-    #     med = binary_search(0.5, probf, prob, mgrid, 0.001)
-    #     q1 = binary_search(0.25, probf, prob, mgrid, 0.001)
-    #     q2 = binary_search(0.75, probf, prob, mgrid, 0.001)
-
-    #     b = np.divide((q1 - q2), np.log(np.log(4./3.)) - np.log(np.log(4.)))
-    #     a = med + b*np.log(np.log(2.))
-
-    #     r = np.random.uniform(low=0.0, high=1.0, size=param[1])
-    #     ystar = a - np.multiply(b,np.log(-np.log(r))) - 2. * np.sqrt(robot_model.noise)
-    # else:
-    #     ystar = np.array([left - 5.0 * np.sqrt(robot_model.noise)])
     return mves(time, xvals, robot_model, param, FVECTOR=FVECTOR)
 
 def binary_search(val, probfunc, funcvals, mgrid, thres):
@@ -413,11 +363,11 @@ def sample_max_vals(robot_model, t, obstacles, nK = 3, nFeatures = 200, visualiz
     # print "Returning:", samples.shape, locs.shape
     return samples, locs, funcs
 
-def mves(time, xvals, robot_model, param, FVECTOR=False):
+def mves(t, xvals, robot_model, param, FVECTOR=False):
     ''' Define the Acquisition Function and the Gradient of MES'''
     # Compute the aquisition function value f and garident g at the queried point x using MES, given samples
     # function maxes and a previous set of functino maxes
-    maxes = param[0]
+    maxes = param[0]#np.array(param[0])
     # If no max values are provided, return default value
     if maxes is None:
         if FVECTOR:
@@ -426,14 +376,12 @@ def mves(time, xvals, robot_model, param, FVECTOR=False):
             return 1.0
 
     data = np.array(xvals)
-    x1 = data[:,0]
-    x2 = data[:,1]
+    x1 = data[:, 0]
+    x2 = data[:, 1]
     if robot_model.dim == 2:
-        queries = np.vstack([x1, x2]).T   
+        queries = np.vstack([x1, x2]).T
     elif robot_model.dim == 3:
-        queries = np.vstack([x1, x2, time * np.ones(len(x1))]).T   
-    
-    d = queries.shape[1] # The dimension of the points (should be 2D)     
+        queries = np.vstack([x1, x2, t * np.ones(len(x1))]).T
 
     # Initialize f, g
     if FVECTOR:
@@ -442,35 +390,29 @@ def mves(time, xvals, robot_model, param, FVECTOR=False):
         f = 0
 
     for i in xrange(maxes.shape[0]):
-        # Compute the posterior mean/variance predictions and gradients.
-        #[meanVector, varVector, meangrad, vargrad] = mean_var(x, xx, ...
-        #    yy, KernelMatrixInv{i}, l(i,:), sigma(i), sigma0(i));
         mean, var = robot_model.predict_value(queries)
-        
-        # Compute the acquisition function of MES.        
-        gamma = np.divide((maxes[i] - mean), var)
+
+        # Compute the acquisition function of MES.
+        gamma = np.divide((maxes[i] - mean), np.sqrt(np.fabs(var)))
         pdfgamma = sp.stats.norm.pdf(gamma)
         cdfgamma = sp.stats.norm.cdf(gamma)
         utility = gamma * pdfgamma / (2.0 * cdfgamma) - np.log(cdfgamma)
-        
+
         if FVECTOR:
             f += utility
         else:
-            f += sum(utility)
-
-        #if np.sum(utility) == 0.000:
-        #    pdb.set_trace()
+            f += np.sum(utility)
 
     # Average f
     f = f / maxes.shape[0]
+
     # f is an np array; return scalar value
     if FVECTOR:
-        return f # TODO: make this better! Dummy return
+        return f
     else:
-        # f is an np array; return scalar value
-        if f[0] < 0 or np.isnan(f[0]):
+        if f < 0 or np.isnan(f):
             return 0.
-        return f[0]
+        return f
 
 def naive(time, xvals, robot_model, param, FVECTOR = False):
     ''' The naive reward function for the MSS problem where param is number of samples to draw and range for reward'''

@@ -9,6 +9,7 @@ import numpy as np
 import scipy as sp
 import os
 import logging
+import random
 logger = logging.getLogger('robot')
 
 import heuristic_rewards as aqlib
@@ -149,7 +150,6 @@ class Robot(object):
                 param = self.maxes
         elif self.f_rew == 'gumbel':
             max_vals = aqlib.sample_max_vals_gumbel(self.GP, t=t, obstacles=self.obstacle_world)
-            # _, pred_max = self.predict_max()
             param = max_vals
 
         actions = self.path_generator.generate_trajectories(robot_pose=self.loc,
@@ -166,20 +166,20 @@ class Robot(object):
         try:
             # print 'here'
             # print value
-            best_key = np.random.choice([key for key in value.keys() if value[key] == np.nanmax(value.values())])
+            best_key = random.choice([key for key in value.keys() if value[key] == np.nanmax(value.values())])
             return np.array(actions[best_key]), value[best_key], actions, value
         except:
             # print 'failure'
             # return None
-            best_key = np.random.choice([key for key in value.keys()])
+            best_key = random.choice([key for key in value.keys()])
             return np.array(actions[best_key]), value[best_key], actions, value
     
     def collect_observations(self, xobs):
         ''' Gather noisy samples of the environment and updates the robot's GP model.
         Input: 
             xobs (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2 '''
-        zobs = self.measure_environment(xobs[1:,:], self.time)
-        self.GP.add_data(xobs[1:,:], zobs)
+        zobs = self.measure_environment(xobs[:-1,:], self.time)
+        self.GP.add_data(xobs[:-1,:], zobs)
 
         for z, x in zip (zobs, xobs[1:,:]):
             if z[0] > self.current_max:
@@ -232,9 +232,9 @@ class Robot(object):
                 # set params
                 if self.f_rew == "exp_improve":
                     param = self.current_max
-                elif self.f_rew == "gumbel":
-                    max_vals = aqlib.sample_max_vals_gumbel(self.GP, t=t, obstacles=self.obstacle_world)
-                    param = max_vals
+                # elif self.f_rew == "gumbel":
+                #     max_vals = aqlib.sample_max_vals_gumbel(self.GP, t=t, obstacles=self.obstacle_world)
+                #     param = max_vals
                     # _, pred_max = self.predict_max()
                     # param = (pred_max, 10)
                 else:
@@ -295,8 +295,8 @@ class Robot(object):
             print 'new_location', self.loc
         np.savetxt('./figures/' + self.f_rew+ '/robot_model.csv', (self.GP.xvals[:, 0], self.GP.xvals[:, 1], self.GP.zvals[:, 0]))
 
-    def visualize_trajectory(self, screen = True, filename = 'SUMMARY', best_path = None, 
-        maxes = None, all_paths = None, all_vals = None):      
+    def visualize_trajectory(self, screen=True, filename='SUMMARY', best_path=None, 
+        maxes=None, all_paths=None, all_vals=None):      
         ''' Visualize the set of paths chosen by the robot 
         Inputs:
             screen (boolean): determines whether the figure is plotted to the screen or saved to file
@@ -394,24 +394,16 @@ class Robot(object):
             param = (self.max_val, self.max_locs, self.target)
         elif self.f_rew == 'exp_improve':
             if len(self.maxes) == 0:
-                param = [self.current_max]
+                param = (self.current_max)
             else:
                 param = self.maxes
         elif self.f_rew == 'gumbel':
-            max_vals = aqlib.sample_max_vals_gumbel(self.GP, t=t, obstacles=self.obstacle_world)
+            max_vals = aqlib.sample_max_vals_gumbel(self.GP, t=self.time, obstacles=self.obstacle_world)
             param = max_vals
-            # _, pred_max = self.predict_max()
-            # param = (pred_max, 10)
         else:
             param = None
-
-        '''
-        r = self.aquisition_function(time = t, xvals = data, robot_model = self.GP, param = param)
-        print "rewrd:", r
-        '''
         
-        reward = self.aquisition_function(time=t, xvals=data, robot_model=self.GP, param=param, FVECTOR=True)
-        print "Shape reward:", reward.shape
+        reward = self.aquisition_function(time=self.time, xvals=data, robot_model=self.GP, param=param, FVECTOR=True)
         
         fig2, ax2 = plt.subplots(figsize=(8, 8))
         ax2.set_xlim(self.ranges[0:2])
@@ -422,15 +414,14 @@ class Robot(object):
         MIN_COLOR = np.nanpercentile(reward, 2.)
 
         if MAX_COLOR > MIN_COLOR:
-            # plot = ax2.contourf(x1, x2, reward.reshape(x1.shape), cmap = 'viridis', vmin = MIN_COLOR, vmax = MAX_COLOR, levels=np.linspace(MIN_COLOR, MAX_COLOR, 25))
             plot = ax2.contourf(x1, x2, reward.reshape(x1.shape), 25, cmap='plasma', vmin=MIN_COLOR, vmax=MAX_COLOR)
         else:
             plot = ax2.contourf(x1, x2, reward.reshape(x1.shape), 25, cmap='plasma')
-        
+
         # If available, plot the current location of the maxes for mes
         if self.max_locs is not None:
             for coord in self.max_locs:
-                plt.scatter(coord[0], coord[1], color = 'r', marker = '*', s = 500.0)
+                plt.scatter(coord[0], coord[1], color='r', marker='*', s=500.0)
 
         if not os.path.exists('./figures/' + str(self.f_rew)):
             os.makedirs('./figures/' + str(self.f_rew))
