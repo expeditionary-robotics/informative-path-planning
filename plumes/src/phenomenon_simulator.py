@@ -68,8 +68,9 @@ class Phenomenon:
                        self.obstacle_world,
                        copy.deepcopy(self.GP),
                        './figures/world_model_countour.png',
-                        MIN_COLOR=self.MIN_COLOR,
-                        MAX_COLOR=self.MAX_COLOR)
+                       time=None,
+                       MIN_COLOR=self.MIN_COLOR,
+                       MAX_COLOR=self.MAX_COLOR)
         else:
             # Generate a set of discrete grid points, uniformly spread across the environment
             x1vals = np.linspace(self.x1min, self.x1max, NUM_PTS)
@@ -138,7 +139,7 @@ class Phenomenon:
                     in_violation = not self.obstacle_world.contains_point(maxima)
 
                 # Satisfactory world has been found. Save the model and plot.
-                print maxima
+                print maxima, np.max(self.GP.zvals)
                 self.models[T] = copy.deepcopy(self.GP)
                 plot_world(ranges,
                            self.obstacle_world,

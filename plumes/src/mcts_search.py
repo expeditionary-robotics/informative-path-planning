@@ -350,19 +350,18 @@ class Tree(object):
         elif current_node.node_type == 'BA':
             # Sample a new set of observations and form a new belief
             obs = np.array(current_node.action)
-
             if belief.dim == 2:
                 xobs = np.vstack([obs[:, 0], obs[:, 1]]).T
             elif belief.dim == 3:
-                xobs = np.vstack([obs[:, 0], obs[:, 1], (self.t+current_node.depth - 1)*np.ones(obs.shape[0])]).T
+                xobs = np.vstack([obs[:, 0], obs[:, 1], (self.t+current_node.depth)*np.ones(obs.shape[0])]).T
 
             if self.f_rew == 'mes' or self.f_rew == 'exp_improve':
-                r = self.aquisition_function(time=self.t+current_node.depth - 1, xvals=xobs, robot_model=belief, param=self.param)
+                r = self.aquisition_function(time=self.t+current_node.depth, xvals=xobs, robot_model=belief, param=self.param)
             elif self.f_rew == 'gumbel':
-                param = sample_max_vals_gumbel(belief, t=self.t+current_node.depth - 1, obstacles=self.obs_world)
-                r = self.aquisition_function(time=self.t+current_node.depth - 1, xvals=xobs, robot_model=belief, param=param)
+                param = sample_max_vals_gumbel(belief, t=self.t+current_node.depth, obstacles=self.obs_world)
+                r = self.aquisition_function(time=self.t+current_node.depth, xvals=xobs, robot_model=belief, param=param)
             else:
-                r = self.aquisition_function(time=self.t+current_node.depth - 1, xvals=xobs, robot_model=belief)
+                r = self.aquisition_function(time=self.t+current_node.depth, xvals=xobs, robot_model=belief)
 
             if current_node.children is not None:
                 alpha = 3.0 / (10.0 * (self.max_depth - current_node.depth) - 3.0)
@@ -383,9 +382,7 @@ class Tree(object):
                 zobs = np.reshape(zobs, (n_points, 1))
             else:
                 zobs = belief.posterior_samples(xobs, full_cov=False, size=1)
-                # zobs, _ = belief.predict_value(xobs)
             belief.add_data(xobs, zobs)
-            # print zobs
 
             pose_new = current_node.action[-1]
             child = Node(pose=pose_new,
@@ -473,16 +470,16 @@ class BeliefTree(Tree):
             if belief.dim == 2:
                 xobs = np.vstack([obs[:, 0], obs[:, 1]]).T
             elif belief.dim == 3:
-                xobs = np.vstack([obs[:, 0], obs[:, 1], (self.t+cur_depth-1) * np.ones(obs.shape[0])]).T
+                xobs = np.vstack([obs[:, 0], obs[:, 1], (self.t+cur_depth) * np.ones(obs.shape[0])]).T
 
             if self.f_rew == 'mes' or self.f_rew == 'exp_improve':
-                r = self.aquisition_function(time=self.t+cur_depth-1, xvals=xobs, robot_model=belief, param=self.param)
+                r = self.aquisition_function(time=self.t+cur_depth, xvals=xobs, robot_model=belief, param=self.param)
             elif self.f_rew == 'gumbel':
-                param = sample_max_vals_gumbel(belief, t=self.t+cur_depth-1, obstacles=self.obs_world)
-                r = self.aquisition_function(time=self.t+cur_depth-1, xvals=xobs, robot_model=belief, param=param)
+                param = sample_max_vals_gumbel(belief, t=self.t+cur_depth, obstacles=self.obs_world)
+                r = self.aquisition_function(time=self.t+cur_depth, xvals=xobs, robot_model=belief, param=param)
 
             else:
-                r = self.aquisition_function(time=self.t+cur_depth-1, xvals=xobs, robot_model=belief)
+                r = self.aquisition_function(time=self.t+cur_depth, xvals=xobs, robot_model=belief)
 
             # ''Simulate'' the maximum likelihood observation
             if belief.xvals is None:
@@ -533,16 +530,16 @@ class BeliefTree(Tree):
             if belief.dim == 2:
                 xobs = np.vstack([obs[:, 0], obs[:, 1]]).T
             elif belief.dim == 3:
-                xobs = np.vstack([obs[:, 0], obs[:, 1], (self.t+current_node.depth-1) * np.ones(obs.shape[0])]).T
+                xobs = np.vstack([obs[:, 0], obs[:, 1], (self.t+current_node.depth) * np.ones(obs.shape[0])]).T
 
             if self.f_rew == 'mes' or self.f_rew == 'exp_improve':
-                r = self.aquisition_function(time=self.t+current_node.depth-1, xvals=xobs, robot_model=belief, param=self.param)
+                r = self.aquisition_function(time=self.t+current_node.depth, xvals=xobs, robot_model=belief, param=self.param)
             elif self.f_rew == 'gumbel':
-                param = sample_max_vals_gumbel(belief, t=self.t+current_node.depth-1, obstacles=self.obs_world)
-                r = self.aquisition_function(time=self.t+current_node.depth-1, xvals=xobs, robot_model=belief, param=param)
+                param = sample_max_vals_gumbel(belief, t=self.t+current_node.depth, obstacles=self.obs_world)
+                r = self.aquisition_function(time=self.t+current_node.depth, xvals=xobs, robot_model=belief, param=param)
 
             else:
-                r = self.aquisition_function(time=self.t+current_node.depth-1, xvals=xobs, robot_model=belief)
+                r = self.aquisition_function(time=self.t+current_node.depth, xvals=xobs, robot_model=belief)
 
             # ''Simulate'' the maximum likelihood observation
             if belief.xvals is None:

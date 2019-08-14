@@ -151,8 +151,7 @@ def sample_max_vals_gumbel(robot_model, t, obstacles, nK = 10, nFeatures = 30, v
         queries = np.vstack([x1.ravel(), x2.ravel(), t * np.ones(len(x1.ravel()))]).T   
       
     mean, var = robot_model.predict_value(queries) #maybe should be posterior?
-    # observed_max = np.nanmax(mean)
-    observed_max = np.nanmax(robot_model.posterior_samples(queries, full_cov=False, size=1))  
+    observed_max = np.nanmax(mean)
     sig = np.sqrt(np.fabs(var))
 
     def probf(m0, mean=mean, sig=sig):

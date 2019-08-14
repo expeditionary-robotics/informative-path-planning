@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-if [ ! -d thesis_swell3d_experiments ]; then
-mkdir thesis_swell3d_experiments
+if [ ! -d thesis_sep3d_experiments ]; then
+mkdir thesis_sep3d_experiments
 fi
 
-pushd thesis_swell3d_experiments
+pushd thesis_sep3d_experiments
     for seed in {100..1000..100}
     do
         for nonmyopic in False True

@@ -147,14 +147,19 @@ class Evaluation:
         x1 = x1.reshape((NTEST,))
         x2 = x2.reshape((NTEST,))
 
-        if self.world.dim == 2:
+        if self.world.dim == 2 and robot_model.dim == 2:
             data = np.vstack([x1, x2]).T   
             pred_world, var_world = self.world.GP.predict_value(data)
             pred_robot, var_robot = robot_model.predict_value(data)      
-        elif self.world.dim == 3:
+        elif self.world.dim == 3 and robot_model.dim == 3:
             data = np.vstack([x1, x2, time * np.ones(NTEST)]).T   
             pred_world, var_world = self.world.models[time].predict_value(data)
-            pred_robot, var_robot = robot_model.predict_value(data)      
+            pred_robot, var_robot = robot_model.predict_value(data)
+        elif self.world.dim == 3 and robot_model.dim == 2:
+            data = np.vstack([x1, x2, time * np.ones(NTEST)]).T
+            belief_data = np.vstack([x1, x2]).T   
+            pred_world, var_world = self.world.models[time].predict_value(data)
+            pred_robot, var_robot = robot_model.predict_value(belief_data)      
 
         # Get the NHOTSPOT most "valuable" points
         order = np.argsort(pred_world, axis = None)
@@ -169,15 +174,19 @@ class Evaluation:
         x2 = np.random.random_sample((NTEST, 1)) * (self.world.x2max - self.world.x2min) + self.world.x2min
         x1 = x1.reshape((NTEST,))
         x2 = x2.reshape((NTEST,))
-        if self.world.dim == 2:
+        if self.world.dim == 2 and robot_model.dim == 2:
             data = np.vstack([x1, x2]).T   
             pred_world, var_world = self.world.GP.predict_value(data)
             pred_robot, var_robot = robot_model.predict_value(data)      
-        elif self.world.dim == 3:
+        elif self.world.dim == 3 and robot_model.dim == 3:
             data = np.vstack([x1, x2, time * np.ones(NTEST)]).T   
             pred_world, var_world = self.world.models[time].predict_value(data)
-            pred_robot, var_robot = robot_model.predict_value(data)      
-        
+            pred_robot, var_robot = robot_model.predict_value(data)
+        elif self.world.dim == 3 and robot_model.dim == 2:
+            data = np.vstack([x1, x2, time * np.ones(NTEST)]).T
+            belief_data = np.vstack([x1, x2]).T   
+            pred_world, var_world = self.world.models[time].predict_value(data)
+            pred_robot, var_robot = robot_model.predict_value(belief_data)     
         return ((pred_world - pred_robot) ** 2).mean()
     
     ''' Helper functions '''

@@ -53,6 +53,7 @@ class Robot(object):
         self.measure_environment = kwargs['sample_world']
         self.noise = kwargs['noise']
         self.obstacle_world = kwargs['obstacle_world']
+        self.phenom_dim = kwargs['phenom_dim']
 
         #BELIEF SPACE
         self.kernel = kwargs['kernel']
@@ -174,14 +175,30 @@ class Robot(object):
             best_key = random.choice([key for key in value.keys()])
             return np.array(actions[best_key]), value[best_key], actions, value
     
-    def collect_observations(self, xobs):
+    def collect_observations(self, data):
         ''' Gather noisy samples of the environment and updates the robot's GP model.
         Input: 
             xobs (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2 '''
-        zobs = self.measure_environment(xobs[:-1,:], self.time)
-        self.GP.add_data(xobs[:-1,:], zobs)
+        x1 = data[:,0]
+        x2 = data[:,1]
+        if self.dim == 2 and self.phenom_dim == self.dim:
+            xlocs = np.vstack([x1, x2]).T
+            zobs = self.measure_environment(xlocs[:-1,:], self.time)
+            self.GP.add_data(xlocs[:-1,:], zobs)         
+        elif self.dim == 3 and self.phenom_dim == 3:
+            # Collect observations at the current time
+            xlocs = np.vstack([x1, x2, self.time*np.ones(len(x1))]).T
+            zobs = self.measure_environment(xlocs[:-1,:], self.time)
+            self.GP.add_data(xlocs[:-1,:], zobs)
+        elif self.dim == 2 and self.phenom_dim == 3:
+            xlocs = np.vstack([x1, x2, self.time*np.ones(len(x1))]).T
+            update_xlocs = np.vstack([x1, x2]).T
+            zobs = self.measure_environment(xlocs[:-1,:], self.time)
+            self.GP.add_data(update_xlocs[:-1,:], zobs)          
+        else:
+            raise ValueError('Only 2D or 3D worlds supported!')
 
-        for z, x in zip (zobs, xobs[1:,:]):
+        for z, x in zip (zobs, xlocs[1:,:]):
             if z[0] > self.current_max:
                 self.current_max = z[0]
                 self.current_max_loc = [x[0],x[1]]
@@ -258,17 +275,17 @@ class Robot(object):
             print 'reward output'
             print all_values
             # Update eval metrics #TODO fix
-            self.eval.update_metrics(t, self.GP, self.loc, sampling_path, \
-            value=best_val, max_loc=pred_loc, max_val=pred_val, params=[self.current_max, self.current_max_loc, self.max_val, self.max_locs], dist=self.dist) 
+            # self.eval.update_metrics(t, self.GP, self.loc, sampling_path, \
+            # value=best_val, max_loc=pred_loc, max_val=pred_val, params=[self.current_max, self.current_max_loc, self.max_val, self.max_locs], dist=self.dist) 
 
             if sampling_path is None:
                 break
             data = np.array(sampling_path)
             x1 = data[:,0]
             x2 = data[:,1]
-            if self.dim == 2:
+            if self.dim == 2 and self.phenom_dim == self.dim:
                 xlocs = np.vstack([x1, x2]).T           
-            elif self.dim == 3:
+            elif self.dim == 3 or self.phenom_dim == 3:
                 # Collect observations at the current time
                 xlocs = np.vstack([x1, x2, t*np.ones(len(x1))]).T           
             else:
@@ -277,7 +294,7 @@ class Robot(object):
             if t % 10 == 0:
                 self.visualize_reward(screen = True, filename = 'REWARD.' + str(t), t = t)
 
-            self.collect_observations(xlocs)
+            self.collect_observations(data)#xlocs)
             self.trajectory.append(sampling_path)
 
             start = self.loc
@@ -324,8 +341,8 @@ class Robot(object):
         fig, ax = plt.subplots(figsize=(8, 8))
         ax.set_xlim(self.ranges[0:2])
         ax.set_ylim(self.ranges[2:])
-        # plot = ax.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = self.MIN_COLOR, vmax = self.MAX_COLOR, levels=np.linspace(self.MIN_COLOR, self.MAX_COLOR, 15))
-        plot = ax.contourf(x1, x2, observations.reshape(x1.shape), 25, cmap = 'viridis', vmin = self.MIN_COLOR)
+        # plot = ax.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = self.MIN_COLOR, vmax=self.MAX_COLOR, levels=np.linspace(self.MIN_COLOR, self.MAX_COLOR, 15))
+        plot = ax.contourf(x1, x2, observations.reshape(x1.shape), 25, cmap = 'viridis', vmin = self.MIN_COLOR, vmax=self.MAX_COLOR)
         if self.GP.xvals is not None:
             scatter = ax.scatter(self.GP.xvals[:, 0], self.GP.xvals[:, 1], c='k', s = 20.0, cmap = 'viridis')                
         color = iter(plt.cm.cool(np.linspace(0,1,len(self.trajectory))))
@@ -381,10 +398,9 @@ class Robot(object):
         x1vals = np.linspace(self.ranges[0], self.ranges[1], 100)
         x2vals = np.linspace(self.ranges[2], self.ranges[3], 100)
         x1, x2 = np.meshgrid(x1vals, x2vals, sparse = False, indexing = 'xy') # dimension: NUM_PTS x NUM_PTS       
-
         if self.dim == 2:
             data = np.vstack([x1.ravel(), x2.ravel()]).T
-        elif self.dim == 3:
+        elif self.dim == 3 or self.phenom_dim == 3:
             data = np.vstack([x1.ravel(), x2.ravel(), self.time * np.ones(len(x1.ravel()))]).T
 
         print "Entering visualize reward"
