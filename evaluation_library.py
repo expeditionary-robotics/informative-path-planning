@@ -8,7 +8,6 @@ import matplotlib
 from matplotlib.colors import LogNorm
 from matplotlib import cm
 from sklearn import mixture
-from IPython.display import display
 from scipy.stats import multivariate_normal
 import numpy as np
 import scipy as sp

@@ -7,7 +7,6 @@ License: MIT
 Maintainers: Genevieve Flaspohler and Victoria Preston
 '''
 
-from IPython.display import display
 import numpy as np
 import math
 import dubins

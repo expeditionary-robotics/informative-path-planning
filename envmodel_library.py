@@ -11,7 +11,6 @@ from matplotlib import pyplot as plt
 import matplotlib
 from matplotlib.colors import LogNorm
 from matplotlib import cm
-from IPython.display import display
 import numpy as np
 import math
 import os
