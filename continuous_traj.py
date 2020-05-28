@@ -102,9 +102,26 @@ class continuous_traj_sampler:
             v = input_sample[i][0]
             yaw = input_sample[i][1]
             local_traj = self.make_single_traj(cp, v, yaw, self.ss)
-            MPL[i]=local_traj
+            MPL[i]= local_traj
+            MPL[i]['v'] = v
+            MPL[i]['yaw'] = yaw
         return MPL
-    
+
+    def path_cost(self, path, loc=None):
+        ''' Calculate the cost of a path sequence either with respect to path length, or distance from some element in the world (loc)'''
+        dist = 0
+        if loc is None:
+            # cost will be path length
+            for i in range(len(path)-1):
+                dist += np.sqrt((path[i][0]-path[i+1][0])**2 + (path[i][1]-path[i+1][1])**2)
+            return dist
+        else:
+            # cost will be average distance from element of interest
+            for coord in path:
+                dist += np.sqrt((coord[0]-loc[0])**2 + (coord[1]-loc[1])**2)
+            dist = dist/len(path)
+            return dist
+
     def visualize_path(self, MPL):
         fig, ax = plt.subplots(figsize=(8, 6))
         xmin = self.extent[0]
@@ -117,7 +134,7 @@ class continuous_traj_sampler:
         for i in MPL:
             c = next(color)
             for j in MPL[i]:
-                plt.plot(MPL[i][j][0][0], MPL[i][j][0][1],c=c, marker='*')
+                plt.plot(MPL[i][0][j][0][0], MPL[i][0][j][0][1],c=c, marker='*')
         # plt.plot(MPL[:,0], MPL[:,1], marker='*')
 
         plt.show()
@@ -130,7 +147,7 @@ if __name__=='__main__':
     input_limit = [0.0, 10.0, -30.0, 30.0]
     sample_number = 10
     horizon_length = 4
-    sample_step = 0.1
+    sample_step = 1.0
     frontier_size = 1.0
     total_time = 5.0
     traj_sampler = continuous_traj_sampler(input_limit,frontier_size, sample_number,total_time, horizon_length, sample_step, extent, bw )
@@ -138,6 +155,6 @@ if __name__=='__main__':
     MPL = traj_sampler.get_path_set(pose)
 
     for i in MPL:        
-        print(MPL[i][1][0][0])
+        print(MPL[i])
 
-    traj_sampler.visualize_path(MPL)
+    # traj_sampler.visualize_path(MPL)

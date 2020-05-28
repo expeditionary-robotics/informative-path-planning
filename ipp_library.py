@@ -830,6 +830,8 @@ class Robot(object):
         path_options = {'default':Path_Generator(frontier_size, horizon_length, turning_radius, sample_step, self.ranges),
                         'dubins': Dubins_Path_Generator(frontier_size, horizon_length, turning_radius, sample_step, self.ranges),
                         'equal_dubins': Dubins_EqualPath_Generator(frontier_size, horizon_length, turning_radius, sample_step, self.ranges)}
+                        # 'continuous_traj' : continuous_traj(frontier_size, horizon_length, )}
+                        
         self.path_generator = path_options[path_generator]
 
     def choose_trajectory(self, t):
