@@ -67,7 +67,7 @@ robot = roblib.Robot(sample_world = world.sample_value, #function handle for col
                      init_lengthscale = 1.0, 
                      init_variance = 100.0, 
                      noise = 0.0001,
-                     path_generator = 'fully_reachable_goal', #options: default, dubins, equal_dubins, fully_reachable_goal, fully_reachable_step
+                     path_generator = 'default', #options: default, dubins, equal_dubins, fully_reachable_goal, fully_reachable_step
                      goal_only = True, #select only if using fully reachable step and you want the reward of the step to only be the goal
                      frontier_size = 15,
                      horizon_length = 1.5, 

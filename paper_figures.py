@@ -46,7 +46,7 @@ if __name__ == '__main__':
     # path= '/home/vpreston/Documents/IPP/informative-path-planning/experiments/'
     # path= '/home/genevieve/mit-whoi/informative-path-planning/experiments/'
     # path = '/media/genevieve/WINDOWS_COM/IROS_2019/cluttered_experiments/experiments/'
-    path = '/media/genevieve/WINDOWS_COM/IROS_2019/experiments/'
+    path = '/home/dabinkim/informative-path-planning/experiments/'
 
     # variables for making dataframes
     column_names = ['time', 'info_gain','aqu_fun', 'MSE', 'hotspot_error','max_loc_error', 'max_val_error', 

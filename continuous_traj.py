@@ -11,7 +11,7 @@ from random import *
 
 
 class continuous_traj_sampler:
-    def __init__(self, input_limit, frontier_size, sample_number, horizon_length, total_time, sample_step, extent, obstacle_world=obs.FreeWorld()):
+    def __init__(self, input_limit, sample_number, frontier_size,  horizon_length, total_time, sample_step, extent, obstacle_world=obs.FreeWorld()):
         '''
         Sample number: Number of action samples will generate. 
         '''
@@ -139,22 +139,22 @@ class continuous_traj_sampler:
 
         plt.show()
 
-if __name__=='__main__':
+# if __name__=='__main__':
 
-    bw = obs.FreeWorld()
-    pose = (0.0, 0.0, 0.0)
-    extent = [-10.0, 10.0, -10.0, 10.0]
-    input_limit = [0.0, 10.0, -30.0, 30.0]
-    sample_number = 10
-    horizon_length = 4
-    sample_step = 1.0
-    frontier_size = 1.0
-    total_time = 5.0
-    traj_sampler = continuous_traj_sampler(input_limit,frontier_size, sample_number,total_time, horizon_length, sample_step, extent, bw )
-    sampled_input = traj_sampler.input_sampler()
-    MPL = traj_sampler.get_path_set(pose)
+#     bw = obs.FreeWorld()
+#     pose = (0.0, 0.0, 0.0)
+#     extent = [-10.0, 10.0, -10.0, 10.0]
+#     input_limit = [0.0, 10.0, -30.0, 30.0]
+#     sample_number = 10
+#     horizon_length = 4
+#     sample_step = 1.0
+#     frontier_size = 1.0
+#     total_time = 5.0
+#     traj_sampler = continuous_traj_sampler(input_limit,frontier_size, sample_number,total_time, horizon_length, sample_step, extent, bw )
+#     sampled_input = traj_sampler.input_sampler()
+#     MPL = traj_sampler.get_path_set(pose)
 
-    for i in MPL:        
-        print(MPL[i])
+#     for i in MPL:        
+#         print(MPL[i])
 
-    # traj_sampler.visualize_path(MPL)
+#     # traj_sampler.visualize_path(MPL)

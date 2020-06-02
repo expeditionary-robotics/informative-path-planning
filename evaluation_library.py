@@ -190,7 +190,7 @@ class Evaluation:
         if robot_model.xvals is None:
             return 0., 0.
     
-        dim = self.world.dim;
+        dim = self.world.dim
         global_max_val = np.reshape(np.array(self.max_val), (1,1))
         global_max_loc = np.reshape(np.array(self.max_loc), (1,2))
 
