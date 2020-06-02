@@ -367,7 +367,7 @@ class Dubins_EqualPath_Generator(Path_Generator):
         '''Connect the current_pose to the goal places'''
         coords = {}
         true_coords = {}
-        for i,goal in enumerate(self.goals):
+        for i, goal in enumerate(self.goals):
             g = (goal[0],goal[1],self.cp[2])
             path = dubins.shortest_path(self.cp, goal, self.tr)
             configurations, _ = path.sample_many(self.ss)
