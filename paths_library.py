@@ -228,7 +228,20 @@ class Dubins_EqualPath_Generator(Path_Generator):
                     ftemp.append(c)
             true_path[key] = ftemp
         return coords, true_coords
-        
+
+    def get_path_set(self, current_pose):
+        '''Primary interface for getting list of path sample points for evaluation
+        Input:
+            current_pose (tuple of x, y, z, a which are floats) current location of the robot in world coordinates
+        Output:
+            paths (dictionary of frontier keys and sample points)
+        '''
+        self.cp = current_pose
+        self.generate_frontier_points()
+        paths, true_paths = self.make_sample_paths()
+        return paths, true_paths
+
+
 class Reachable_Frontier_Generator():
     '''
     Generates a list of reachable goals within a world, and develops Dubins curve style trajectories and sample sets to reach these goals

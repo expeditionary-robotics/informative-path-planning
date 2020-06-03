@@ -103,6 +103,24 @@ class GPModel(object):
         return mean, var        
 
 
+    def set_data(self, xvals, zvals):
+        ''' Public method that updates the data in the GP model.
+        Inputs:
+        * xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2
+        * zvals (float array): an nparray of floats representing sensor observations, with dimension NUM_PTS x 1 ''' 
+        
+        # Save the data internally
+        self.xvals = xvals
+        self.zvals = zvals
+        
+        # If the model hasn't been created yet (can't be created until we have data), create GPy model
+        if self.model == None:
+            self.model = GPy.models.GPRegression(np.array(xvals), np.array(zvals), self.kern)
+        # Else add to the exisiting model
+        else:
+            self.model.set_XY(X = np.array(xvals), Y = np.array(zvals))
+
+
     def add_data(self, xvals, zvals):
         ''' Public method that adds data to an the GP model.
         Inputs:
@@ -118,6 +136,8 @@ class GPModel(object):
         if self.zvals is None:
             self.zvals = zvals
         else:
+            # print(self.zvals)
+            # print(zvals)
             self.zvals = np.vstack([self.zvals, zvals])
 
         # If the model hasn't been created yet (can't be created until we have data), create GPy model

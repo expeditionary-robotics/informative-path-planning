@@ -20,8 +20,170 @@ import continuous_traj
 import mcts_library as mc_lib
 # import glog as log
 import logging as log
-import gpmodel_library as gp_lib
+# import gpmodel_library as gp_lib
 # from continuous_traj import continuous_traj
+
+
+class GPModel:
+    '''The GPModel class, which is a wrapper on top of GPy, allowing saving and loading of trained kernel parameters.
+    Inputs:
+    * variance (float) the variance parameter of the squared exponential kernel
+    * lengthscale (float) the lengthscale parameter of the squared exponential kernel
+    * noise (float) the sensor noise parameter of the squared exponential kernel
+    * dimension (float) the dimension of the environment (currently, only 2D environments are supported)
+    * kernel (string) the type of kernel (currently, only 'rbf' kernels are supported) '''     
+    
+    def __init__(self, lengthscale, variance, noise = 0.05, dimension = 2, kernel = 'rbf'):
+        '''Initialize a GP regression model with given kernel parameters. '''
+        
+        # The noise parameter of the sensor
+        self.noise = noise
+        self.lengthscale = lengthscale
+        self.variance = variance
+        
+        # The Gaussian dataset
+        self.xvals = None
+        self.zvals = None
+        
+        # The dimension of the evironment
+        if dimension == 2:
+            self.dim = dimension
+        else:
+            raise ValueError('Environment must have dimension 2 \'rbf\'')
+
+        if kernel == 'rbf':
+            self.kern = GPy.kern.RBF(input_dim = self.dim, lengthscale = lengthscale, variance = variance) 
+        else:
+            raise ValueError('Kernel type must by \'rbf\'')
+            
+        # Intitally, before any data is created, 
+        self.model = None
+         
+    def predict_value(self, xvals):
+        ''' Public method returns the mean and variance predictions at a set of input locations.
+        Inputs:
+        * xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2
+        
+        Returns: 
+        * mean (float array): an nparray of floats representing predictive mean, with dimension NUM_PTS x 1         
+        * var (float array): an nparray of floats representing predictive variance, with dimension NUM_PTS x 1 '''        
+
+        assert(xvals.shape[0] >= 1)            
+        assert(xvals.shape[1] == self.dim)    
+        
+        n_points, input_dim = xvals.shape
+        
+        # With no observations, predict 0 mean everywhere and prior variance
+        if self.model == None:
+            return np.zeros((n_points, 1)), np.ones((n_points, 1)) * self.variance
+        
+        # Else, return 
+        mean, var = self.model.predict(xvals, full_cov = False, include_likelihood = True)
+        return mean, var        
+    
+
+    def set_data(self, xvals, zvals):
+        ''' Public method that updates the data in the GP model.
+        Inputs:
+        * xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2
+        * zvals (float array): an nparray of floats representing sensor observations, with dimension NUM_PTS x 1 ''' 
+        
+        # Save the data internally
+        self.xvals = xvals
+        self.zvals = zvals
+        
+        # If the model hasn't been created yet (can't be created until we have data), create GPy model
+        if self.model == None:
+            self.model = GPy.models.GPRegression(np.array(xvals), np.array(zvals), self.kern)
+        # Else add to the exisiting model
+        else:
+            self.model.set_XY(X = np.array(xvals), Y = np.array(zvals))
+    
+    def add_data(self, xvals, zvals):
+        ''' Public method that adds data to an the GP model.
+        Inputs:
+        * xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2
+        * zvals (float array): an nparray of floats representing sensor observations, with dimension NUM_PTS x 1 ''' 
+        
+        if self.xvals is None:
+            self.xvals = xvals
+        else:
+            self.xvals = np.vstack([self.xvals, xvals])
+            
+        if self.zvals is None:
+            self.zvals = zvals
+        else:
+            self.zvals = np.vstack([self.zvals, zvals])
+
+        # If the model hasn't been created yet (can't be created until we have data), create GPy model
+        if self.model == None:
+            self.model = GPy.models.GPRegression(np.array(xvals), np.array(zvals), self.kern)
+#             self.model.optimize()
+        # Else add to the exisiting model
+        else:
+            self.model.set_XY(X = np.array(self.xvals), Y = np.array(self.zvals))
+#             self.model.optimize()
+
+    def load_kernel(self, kernel_file = 'kernel_model.npy'):
+        ''' Public method that loads kernel parameters from file.
+        Inputs:
+        * kernel_file (string): a filename string with the location of the kernel parameters '''    
+        
+        # Read pre-trained kernel parameters from file, if avaliable and no training data is provided
+        if os.path.isfile(kernel_file):
+            print "Loading kernel parameters from file"
+            self.kern[:] = np.load(kernel_file)
+        else:
+            raise ValueError("Failed to load kernel. Kernel parameter file not found.")
+            
+        return
+
+    def train_kernel(self, xvals = None, zvals = None, kernel_file = 'kernel_model.npy'):
+        ''' Public method that optmizes kernel parameters based on input data and saves to files.
+        Inputs:
+        * xvals (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2
+        * zvals (float array): an nparray of floats representing sensor observations, with dimension NUM_PTS x 1        
+        * kernel_file (string): a filename string with the location to save the kernel parameters '''      
+        
+        # Read pre-trained kernel parameters from file, if avaliable and no training data is provided
+        if xvals is not None and zvals is not None:
+            print "Optimizing kernel parameters given data"
+            # Initilaize a GP model (used only for optmizing kernel hyperparamters)
+            self.m = GPy.models.GPRegression(np.array(xvals), np.array(zvals), self.kern)
+            self.m.initialize_parameter()
+
+            # Constrain the hyperparameters during optmization
+            self.m.constrain_positive('')
+            #self.m['rbf.variance'].constrain_bounded(0.01, 10)
+            #self.m['rbf.lengthscale'].constrain_bounded(0.01, 10)
+            self.m['Gaussian_noise.variance'].constrain_fixed(self.noise)
+
+            # Train the kernel hyperparameters
+            self.m.optimize_restarts(num_restarts = 2, messages = True)
+
+            # Save the hyperparemters to file
+            np.save(kernel_file, self.kern[:])
+        else:
+            raise ValueError("Failed to train kernel. No training data provided.")
+            
+    def visualize_model(self, x1lim, x2lim, title = ''):
+        if self.model is None:
+            print 'No samples have been collected. World model is equivalent to prior.'
+            return None
+        else:
+            print "Sample set size:", self.xvals.shape
+            fig = self.model.plot(figsize=(4, 3), title = title, xlim = x1lim, ylim = x2lim)
+            
+    def kernel_plot(self):
+        ''' Visualize the learned GP kernel '''        
+        _ = self.kern.plot()
+        plt.ylim([-10, 10])
+        plt.xlim([-10, 10])
+        plt.show()
+
+    def posterior_samples(self, xvals, size=10, full_cov = True):
+        fsim = self.model.posterior_samples_f(xvals, size, full_cov=full_cov)
+        return fsim
 
 
 class Environment:
@@ -51,7 +213,7 @@ class Environment:
         self.x2max = float(ranges[3]) 
         
         # Intialize a GP model of the environment
-        self.GP = gp_lib.GPModel(ranges = ranges, lengthscale = lengthscale, variance = variance, noise=noise, dimension = dim)         
+        self.GP = GPModel( lengthscale = lengthscale, variance = variance)         
                             
         # Generate a set of discrete grid points, uniformly spread across the environment
         x1 = np.linspace(self.x1min, self.x1max, NUM_PTS)
@@ -235,7 +397,6 @@ class Dubins_EqualPath_Generator(Path_Generator):
 
         for key,path in true_coords.items():
             ftemp = []
-            # print(path)
             for c in path:
                 if(len(coords[key])>0):
                     if c[0] == coords[key][-1][0] and c[1] == coords[key][-1][1]:
@@ -406,13 +567,12 @@ class Evaluation:
         self.metrics['MSE'][t] = self.MSE(robot_model, NTEST = 25)
         # self.metrics['instant_regret'][t] = self.inst_regret(t, all_paths, selected_path, robot_model)
     
-    def plot_metrics(self):
-        # Asumme that all metrics have the same time as MSE; not necessary
+    def save_metric(self):
         time = np.array(self.metrics['MSE'].keys())
         
         ''' Metrics that require a ground truth global model to compute'''        
         MSE = np.array(self.metrics['MSE'].values())
-        # regret = np.cumsum(np.array(self.metrics['instant_regret'].values()))
+        regret = np.cumsum(np.array(self.metrics['instant_regret'].values()))
         mean = np.cumsum(np.array(self.metrics['mean_reward'].values()))
         hotspot_info = np.cumsum(np.array(self.metrics['hotspot_info_reward'].values()))
         
@@ -420,36 +580,65 @@ class Evaluation:
         info_gain = np.cumsum(np.array(self.metrics['info_gain_reward'].values()))        
         UCB = np.cumsum(np.array(self.metrics['aquisition_function'].values()))
         
-        fig, ax = plt.subplots(figsize=(4, 3))
-        ax.set_title('Accumulated UCB Aquisition Function')             
-        plt.plot(time, UCB, 'g')
-        fig.savefig('./figures/' + self.reward_function + '/UCB.png')
+        return MSE, regret, mean, hotspot_info, info_gain, UCB
+        
+    def plot_metrics(self, iteration, grad_step):
+        # Asumme that all metrics have the same time as MSE; not necessary
+        time = np.array(self.metrics['MSE'].keys())
+        
+        ''' Metrics that require a ground truth global model to compute'''        
+        MSE = np.array(self.metrics['MSE'].values())
+        regret = np.cumsum(np.array(self.metrics['instant_regret'].values()))
+        mean = np.cumsum(np.array(self.metrics['mean_reward'].values()))
+        hotspot_info = np.cumsum(np.array(self.metrics['hotspot_info_reward'].values()))
+        
+        ''' Metrics that the robot can compute online '''
+        info_gain = np.cumsum(np.array(self.metrics['info_gain_reward'].values()))        
+        UCB = np.cumsum(np.array(self.metrics['aquisition_function'].values()))
+        
 
-        fig, ax = plt.subplots(figsize=(4, 3))
-        ax.set_title('Accumulated Information Gain')                             
-        plt.plot(time, info_gain, 'k')        
-        fig.savefig('./figures/' + self.reward_function + '/Accumul_Info_Gain.png')
+        if not os.path.exists('./figures/gradient/' + str(self.reward_function)):
+            os.makedirs('./figures/gradient/' + str(self.reward_function))
+        ''' Save the relevent metrics as csv files '''
+        np.savetxt('./figures/gradient/' + self.reward_function + '/metrics_grad_step' + str(grad_step)+ '_iter_' + str(iteration) +'.txt', \
+            (time.T, info_gain.T, MSE.T, hotspot_info.T,UCB.T, regret.T, mean.T ), fmt='%s')
 
-        fig, ax = plt.subplots(figsize=(4, 3))
-        ax.set_title('Accumulated Mean Reward')                     
-        plt.plot(time, mean, 'b')      
-        fig.savefig('./figures/' + self.reward_function + '/Accumul_Mean_reward.png')
+        # for i in range(0, self.num_stars):
+        #     f = open('./figures/'+self.reward_function + '/stars.csv', "a")
+        #     np.savetxt(f, (star_obs[i].T, star_obs_loc_x[i].T, star_obs_loc_y[i].T))
+        #     f.close()
 
 
-        fig, ax = plt.subplots(figsize=(4, 3))
-        ax.set_title('Accumulated Hotspot Information Gain Reward')                             
-        plt.plot(time, hotspot_info, 'r')          
-        fig.savefig('./figures/' + self.reward_function + '/Accumul_Hotspot_Info_Gain.png')
+        # fig, ax = plt.subplots(figsize=(4, 3))
+        # ax.set_title('Accumulated UCB Aquisition Function')             
+        # plt.plot(time, UCB, 'g')
+        # fig.savefig('./figures/gradient/' + self.reward_function + '/UCB.png')
 
-        fig, ax = plt.subplots(figsize=(4, 3))
-        ax.set_title('Average Regret w.r.t. ' + self.reward_function + ' Reward')                     
-        plt.plot(time, regret/time, 'b')        
-        fig.savefig('./figures/' + self.reward_function + '/Regret_Time.png')
+        # fig, ax = plt.subplots(figsize=(4, 3))
+        # ax.set_title('Accumulated Information Gain')                             
+        # plt.plot(time, info_gain, 'k')        
+        # fig.savefig('./figures/gradient/' + self.reward_function + '/Accumul_Info_Gain.png')
 
-        fig, ax = plt.subplots(figsize=(4, 3))
-        ax.set_title('Map MSE at 100 Random Test Points')                             
-        plt.plot(time, MSE, 'r')  
-        fig.savefig('./figures/' + self.reward_function + '/Map_MSE.png')
+        # fig, ax = plt.subplots(figsize=(4, 3))
+        # ax.set_title('Accumulated Mean Reward')                     
+        # plt.plot(time, mean, 'b')      
+        # fig.savefig('./figures/gradient/' + self.reward_function + '/Accumul_Mean_reward.png')
+
+
+        # fig, ax = plt.subplots(figsize=(4, 3))
+        # ax.set_title('Accumulated Hotspot Information Gain Reward')                             
+        # plt.plot(time, hotspot_info, 'r')          
+        # fig.savefig('./figures/gradient/' + self.reward_function + '/Accumul_Hotspot_Info_Gain.png')
+
+        # # fig, ax = plt.subplots(figsize=(4, 3))
+        # # ax.set_title('Average Regret w.r.t. ' + self.reward_function + ' Reward')                     
+        # # plt.plot(time, regret/time, 'b')        
+        # # fig.savefig('./figures/' + self.reward_function + '/Regret_Time.png')
+
+        # fig, ax = plt.subplots(figsize=(4, 3))
+        # ax.set_title('Map MSE at 100 Random Test Points')                             
+        # plt.plot(time, MSE, 'r')  
+        # fig.savefig('./figures/gradient/' + self.reward_function + '/Map_MSE.png')
 
         # plt.show()          
     
@@ -546,22 +735,26 @@ def hotspot_info_UCB(time, xvals, robot_model):
                               
 class MCTS():
     '''Class that establishes a MCTS for nonmyopic planning'''
-    def __init__(self, computation_budget, belief, initial_pose, planning_limit, frontier_size, path_generator, aquisition_function, time):
+    def __init__(self, ranges, computation_budget, belief, initial_pose, planning_limit, frontier_size, path_generator, aquisition_function, time, gradient_on, grad_step):
         '''Initialize with constraints for the planning, including whether there is 
            a budget or planning horizon
            budget - length, time, etc to consider
            belief - GP model of the robot current belief state
            initial_pose - (x,y,rho) for vehicle'''
+        self.ranges = ranges
         self.budget = computation_budget
         self.GP = belief
         self.cp = initial_pose
         self.limit = planning_limit
         self.frontier_size = frontier_size
         self.path_generator = path_generator
+        # self.default_path_generator = Path_Generator(frontier_size, )
         self.spent = 0
         self.tree = None
         self.aquisition_function = aquisition_function
         self.t = time
+        self.gradient_on = gradient_on
+        self.grad_step = grad_step
 
     def get_actions(self):
         self.tree = self.initialize_tree()
@@ -571,14 +764,109 @@ class MCTS():
             current_node = self.tree_policy() #Find maximum UCT node (which is leaf node)
             # print(current_node)
             sequence = self.rollout_policy(current_node, self.budget) #Add node
-
+            # print("sequence")
+            # print(sequence)
             reward = self.get_reward(sequence)
-            self.update_tree(reward, sequence)
+            # print("cur_reward : " + str(reward))
+            value_grad = self.get_value_grad(current_node, sequence, reward)
+            # if(len(self.tree[sequence[0]])==4):
+            #     self.tree[sequence[0]] = (self.tree[sequence[0]][0],self.tree[sequence[0]][1], self.tree[sequence[0]][2], self.tree[sequence[0]][3], value_grad )
 
+            self.update_tree(reward, sequence, value_grad)
+            ###TODO: After Finish Build functions for update
+            # if(self.gradient_on):
+            #     self.update_action(reward, sequence, None)
+            # else:
+            #     self.update_tree(reward, sequence, value_grad)
+            
         # print(self.tree)
         # self.visualize_tree()
         best_sequence, cost = self.get_best_child()
-        return self.tree[best_sequence][0], cost
+        # print("best_sequence: ")
+        # print(best_sequence)
+        # print(self.tree[best_sequence])
+
+        # update_ver = self.update_action(self.tree[best_sequence])
+        if(self.gradient_on == True):
+            update_ver = self.update_action(self.tree[best_sequence])
+            return update_ver[0], cost
+        else:
+            return self.tree[best_sequence][0], cost
+
+    '''
+    Make sure update position does not go out of the ranges
+    '''
+    def update_action(self,best_sequence):
+        grad_val = best_sequence[-1][:]
+        grad_x = grad_val[0]
+        grad_y = grad_val[1]
+
+        # step_size = 0.05
+        step_size = self.grad_step
+        last_action = best_sequence[0][-1][:]
+
+        last_action_x = last_action[0] + step_size * grad_x
+        last_action_y = last_action[1] + step_size * grad_y
+
+        if(last_action_x < self.ranges[0]):
+            last_action_x = self.ranges[0] + 0.1
+        elif(last_action_x > self.ranges[1]):
+            last_action_x = self.ranges[1] - 0.1
+        
+        if(last_action_y < self.ranges[2]):
+            last_action_y = self.ranges[2] + 0.1
+        elif(last_action_y > self.ranges[3]):
+            last_action_y = self.ranges[3] - 0.1
+
+        last_action_update = (last_action_x, last_action_y, last_action[2])
+
+        best_sequence[0][-1] = last_action_update
+
+        # print("Modified")
+        # print(best_sequence)
+
+        return best_sequence
+
+    def get_value_grad(self,cur_node, cur_seq, cur_reward): #best_seq: tuple (path sequence, path cost, reward, number of queries(called))
+        
+        init_node = self.tree[cur_seq[0][:]]
+        path_seq = []
+        for seq in cur_seq:
+            for tmp_path_seq in self.tree[seq][0][:]:
+                path_seq.append(tmp_path_seq)
+        cur_node_reward = init_node[2]
+        num_queri = init_node[3]
+        
+        if(len(path_seq)>=2):
+            final_action = path_seq[-1]
+            new_x_seq = path_seq[:]
+            new_y_seq = path_seq[:]
+
+            x = final_action[0]
+            y = final_action[1]
+            yaw = final_action[2]
+            eps = 0.1
+            step = 1.0
+            x_dif = x + eps * step 
+            y_dif = y + eps * step
+
+            new_x_action = (x_dif, y, yaw)
+            new_y_action = (x, y_dif, yaw)
+
+            new_x_seq[-1] = new_x_action
+            new_y_seq[-1] = new_y_action
+            reward_x = self.get_reward(new_x_seq)
+            reward_y = self.get_reward(new_y_seq)
+
+            grad_x = (reward_x- cur_reward)/ eps
+            grad_y = (reward_y - cur_reward) / eps
+            # print("GRAD_X: "+ str(grad_x))
+            # print("GRAD_Y: "+ str(grad_y))
+
+        # print(init_node)
+        # print(cur_reward)    
+        
+        return [grad_x, grad_y]
 
     def visualize_tree(self):
         ranges = (0.0, 20.0, 0.0, 20.0)
@@ -590,7 +878,7 @@ class MCTS():
             if(type(cp)==tuple):
                 # print(cp)
                 x = cp[0]
-            # print('x ' + str(type(x)))
+            # print('x ' + str(type(x))
                 y = cp[1]
                 plt.plot(x, y,marker='*')
         plt.show()
@@ -600,7 +888,7 @@ class MCTS():
         tree = {}
         #(pose, number of queries)
         tree['root'] = (self.cp, 0)
-        actions = self.path_generator.get_path_set(self.cp)
+        actions, _ = self.path_generator.get_path_set(self.cp)
         for action, samples in actions.items():
             #(samples, cost, reward, number of times queried)
             cost = np.sqrt((self.cp[0]-samples[-1][0])**2 + (self.cp[1]-samples[-1][1])**2)
@@ -629,7 +917,7 @@ class MCTS():
         sequence = [node] #include the child node
         #TODO use the cost metric to signal action termination, for now using horizon
         for i in xrange(self.limit):
-            actions = self.path_generator.get_path_set(self.tree[node][0][-1]) #plan from the last point in the sample
+            actions, _ = self.path_generator.get_path_set(self.tree[node][0][-1]) #plan from the last point in the sample
             a = np.random.randint(0,len(actions)) #choose a random path
             #TODO add cost metrics
 #             best_path = actions[a]
@@ -646,16 +934,24 @@ class MCTS():
             sequence.append(node)
         return sequence #return the sequence of nodes that are made
 
-    def update_tree(self, reward, sequence):
+    def update_tree(self, reward, sequence, value_grad):
         '''Propogate the reward for the sequence'''
         #TODO update costs as well
         self.tree['root'] = (self.tree['root'][0], self.tree['root'][1]+1)
         for seq in sequence:
-            samples, cost, rew, queries = self.tree[seq]
+            # value_grad = 0
+            if(len(self.tree[seq])>4):
+                samples, cost, rew, queries, value_grad = self.tree[seq]
+            else:
+                samples, cost, rew, queries = self.tree[seq]
             queries += 1
             n = queries
             rew = ((n-1)*rew+reward)/n
             self.tree[seq] = (samples, cost, rew, queries)
+            if(value_grad!=None):
+                # print("In Here!")
+                self.tree[seq] = (samples, cost, rew, queries, value_grad)
+
 
     def get_reward(self, sequence):
         '''Evaluate the sequence to get the reward, defined by the percentage of entropy reduction'''
@@ -667,8 +963,16 @@ class MCTS():
         samples = []
         obs = []
         for seq in sequence:
-            samples.append(self.tree[seq][0])
+            # print("Type")
+            # print(str(type(seq)))
+            if(type(seq)== tuple):
+                samples.append([seq])
+            else:
+                samples.append(self.tree[seq][0])
         obs = list(chain.from_iterable(samples))
+        # print("###################################################3")
+        # print("Samples: ")
+        # print(obs)
         if(self.aquisition_function==aqlib.mves ):
             return self.aquisition_function(time = self.t, xvals = obs, param= [None], robot_model = sim_world)
         else:
@@ -764,7 +1068,7 @@ class Robot:
             raise ValueError('Only \'hotspot_info\' and \'mean\' and \'info_gain\' reward fucntions supported.')
 
         # Initialize the robot's GP model with the initial kernel parameters
-        self.GP = gp_lib.GPModel(ranges = self.ranges, lengthscale = init_lengthscale, variance = init_variance)
+        self.GP = GPModel( lengthscale = init_lengthscale, variance = init_variance)
                 
         # If both a kernel training dataset and a prior dataset are provided, train the kernel using both
         if  kernel_dataset is not None and prior_dataset is not None:
@@ -899,10 +1203,15 @@ class Robot:
             plt.plot(f[:,0], f[:,1], c=c, marker='*')
         plt.show()
     
-    def plot_information(self):
+    def plot_information(self, iteration, grad_step):
         ''' Visualizes the accumulation of reward and aquisition functions ''' 
-        self.eval.plot_metrics()
+        self.eval.plot_metrics(iteration, grad_step)
 
+    def save_information(self):
+        MSE, regret, mean, hotspot_info, info_gain, UCB = self.eval.save_metric()
+        
+
+        return MSE, regret, mean, hotspot_info, info_gain, UCB
 
 class Nonmyopic_Robot(Robot):
     '''This robot inherits from the Robot class, but uses a MCTS in order to perform global horizon planning'''
@@ -911,7 +1220,7 @@ class Nonmyopic_Robot(Robot):
             kernel_dataset = None, prior_dataset = None, init_lengthscale = 10.0, init_variance = 100.0, noise = 0.05, 
             path_generator = 'default', frontier_size = 6, horizon_length = 5, turning_radius = 1, sample_step = 0.5, 
             evaluation = None , f_rew = 'mean', computation_budget = 60, rollout_length = 6, input_limit = [0.0, 10.0, -30.0, 30.0],
-             sample_number= 10, step_time = 5.0, is_save_fig = False):
+             sample_number= 10, step_time = 5.0, is_save_fig = False, gradient_on = False, grad_step = 0.05):
         ''' Initialize the robot class with a GP model, initial location, path sets, and prior dataset'''
         self.ranges = ranges
         self.eval = evaluation
@@ -921,6 +1230,8 @@ class Nonmyopic_Robot(Robot):
         self.fs = frontier_size
         self.save_fig = is_save_fig
         self.f_rew = f_rew
+        self.gradient_on = gradient_on
+        self.grad_step = grad_step
 
         if f_rew == 'hotspot_info':
             self.aquisition_function = hotspot_info_UCB
@@ -935,7 +1246,7 @@ class Nonmyopic_Robot(Robot):
             raise ValueError('Only \'hotspot_info\' and \'mean\' and \'info_gain\' reward fucntions supported.')
         
         # Initialize the robot's GP model with the initial kernel parameters
-        self.GP = gp_lib.GPModel(ranges = self.ranges, lengthscale = init_lengthscale, variance = init_variance, dimension=2)
+        self.GP = GPModel(lengthscale = init_lengthscale, variance = init_variance)
                 
         # If both a kernel training dataset and a prior dataset are provided, train the kernel using both
         if  kernel_dataset is not None and prior_dataset is not None:
@@ -954,7 +1265,7 @@ class Nonmyopic_Robot(Robot):
         
         # Incorporate the prior dataset into the model
         if prior_dataset is not None:
-            self.GP.add_data(prior_dataset[0], prior_dataset[1]) 
+            self.GP.set_data(prior_dataset[0], prior_dataset[1]) 
         
         # The path generation class for the robot
         path_options = {'default':Path_Generator(frontier_size, horizon_length, turning_radius, sample_step, ranges),
@@ -974,19 +1285,19 @@ class Nonmyopic_Robot(Robot):
                  
         for t in xrange(T):
             #computation_budget, belief, initial_pose, planning_limit, frontier_size, path_generator, aquisition_function, time
-            #FIXME MCTS
-            # mcts = MCTS(self.comp_budget, self.GP, self.loc, self.roll_length, self.fs, self.path_generator, self.aquisition_function, t)
-            # best_path, cost = mcts.get_actions()
+            # FIXME MCTS
+            mcts = MCTS(self.ranges, self.comp_budget, self.GP, self.loc, self.roll_length, self.fs, self.path_generator, self.aquisition_function, t, self.gradient_on, self.grad_step)
+            best_path, cost = mcts.get_actions()
 
-            mcts = mc_lib.cMCTS(self.comp_budget, self.GP, self.loc, self.roll_length, self.path_generator, self.aquisition_function, self.f_rew, t, None, False, 'dpw')
-            # best_path, best, cost = mcts.get_best_child()      
-            best_path, best_dense_path, best_val, all_paths, all_values, self.max_locs, self.max_val, self.target = mcts.choose_trajectory(t=t)
+            # mcts = mc_lib.cMCTS(self.comp_budget, self.GP, self.loc, self.roll_length, self.path_generator, self.aquisition_function, self.f_rew, t, None, False, 'dpw')
+            # # best_path, best, cost = mcts.get_best_child()      
+            # sampling_path, best_path, best_val, all_paths, all_values, self.max_locs, self.max_val, self.target = mcts.choose_trajectory(t=t)
 #             print best_path
             data = np.array(best_path)
             x1 = data[:,0]
             x2 = data[:,1]
             xlocs = np.vstack([x1, x2]).T
-            all_paths = self.path_generator.get_path_set(self.loc)
+            all_paths, _ = self.path_generator.get_path_set(self.loc)
             self.eval.update_metrics(t, self.GP, all_paths, best_path) 
             self.collect_observations(xlocs)
             self.trajectory.append(best_path)
@@ -996,9 +1307,9 @@ class Nonmyopic_Robot(Robot):
 
             if len(best_path) == 1:
                 self.loc = (best_path[-1][0],best_path[-1][1],best_path[-1][2]-1.14)
-            elif best_path[-1][0] < -9.5 or best_path[-1][0] > 9.5:
+            elif best_path[-1][0] < self.ranges[0] + 0.5 or best_path[-1][0] > self.ranges[1] - 0.5:
                 self.loc = (best_path[-1][0],best_path[-1][1],best_path[-1][2]-1.14)
-            elif best_path[-1][1] < -9.5 or best_path[-1][0] >9.5:
+            elif best_path[-1][1] < self.ranges[2] + 0.5 or best_path[-1][0] > self.ranges[3] - 0.5:
                 self.loc = (best_path[-1][0],best_path[-1][1],best_path[-1][2]-1.14)
             else:
                 self.loc = best_path[-1]
@@ -1023,13 +1334,13 @@ class Nonmyopic_Robot(Robot):
         plt.close()
 
 class Planning_Result():
-    def __init__(self, planning_type, ranges, start_loc, input_limit, sample_number, time_step, display):
-
+    def __init__(self, planning_type, ranges, start_loc, input_limit, sample_number, time_step, display, gradient_on, gradient_step, iteration):
+        self.iteration = iteration
         self.type = planning_type
         if(planning_type=='coverage'):
             self.coverage_planning(ranges, start_loc, time_step)
         elif(planning_type=='non_myopic'):
-            self.non_myopic_planning(ranges, start_loc, input_limit, sample_number, time_step, display)
+            self.non_myopic_planning(ranges, start_loc, input_limit, sample_number, time_step, display, gradient_on, gradient_step)
         elif(planning_type=='myopic'):
             self.myopic_planning(ranges, start_loc)
 
@@ -1055,7 +1366,7 @@ class Planning_Result():
         robot.visualize_trajectory()
         # robot.plot_information()
 
-    def non_myopic_planning(self, ranges_, start_loc_, input_limit_, sample_number_,time_step, display):
+    def non_myopic_planning(self, ranges_, start_loc_, input_limit_, sample_number_,time_step, display, gradient_on, gradient_step):
         robot = Nonmyopic_Robot(sample_world = world.sample_value, 
                         start_loc = start_loc_, 
                         ranges = ranges_,
@@ -1073,13 +1384,14 @@ class Planning_Result():
                         evaluation = evaluation, 
                         f_rew = reward_function,
                         computation_budget = 2.0,
-                        rollout_length = 4, input_limit=input_limit_, sample_number=sample_number_,
-                        step_time = 5.0, is_save_fig=display)
+                        rollout_length = 3, input_limit=input_limit_, sample_number=sample_number_,
+                        step_time = 5.0, is_save_fig=display, gradient_on= gradient_on, grad_step = gradient_step)
 
         robot.nonmyopic_planner(T = time_step)
-        robot.visualize_world_model()
-        robot.visualize_trajectory()
-        # robot.plot_information()
+        # robot.visualize_world_model()
+        # robot.visualize_trajectory()
+        robot.plot_information(self.iteration, gradient_step)
+        # return MSE, regret, mean, hotspot_info, info_gain, UCB
 
     def coverage_planning(self, ranges_, start_loc_):
         sample_step = 0.5
@@ -1139,7 +1451,7 @@ class Planning_Result():
         # for each point in the path of the world, query for an observation, use that observation to update the GP, and
         # continue. log everything to make comparisons.
         # robot model
-        rob_mod = gp_lib.GPModel(ranges = ranges, lengthscale = 1.0, variance = 100.0)
+        rob_mod = GPModel(lengthscale = 1.0, variance = 100.0)
 
         #plotting params
         x1vals = np.linspace(ranges[0], ranges[1], 100)
@@ -1179,7 +1491,7 @@ if __name__=="__main__":
 
 
     ''' Options include mean, info_gain, and hotspot_info, mes'''
-    reward_function = 'mes'
+    reward_function = 'mean'
 
     world = Environment(ranges = (0., 20., 0., 20.), # x1min, x1max, x2min, x2max constraints
                         NUM_PTS = 20, 
@@ -1199,15 +1511,21 @@ if __name__=="__main__":
     data = np.vstack([x1observe.ravel(), x2observe.ravel()]).T
     observations = world.sample_value(data)
 
-    start_loc = (10.0, 10.0, 0.0)
+    start_loc = (0.5, 0.5, 0.0)
     input_limit = [0.0, 10.0, -30.0, 30.0] #Limit of actuation 
     sample_number = 10 #Number of sample actions 
 
     planning_type = 'non_myopic'
     time_step = 150
-    display = True
-    # print("HellO")
-    planning = Planning_Result(planning_type, ranges, start_loc, input_limit, sample_number, time_step, display)
+    display = False
+    gradient_on = True
+
+    gradient_step_list = [0.0, 0.05, 0.1, 0.15, 0.20]
+    
+    for iteration in range(5):
+        for gradient_step in gradient_step_list:
+            print('iteration ' + str(iteration) + ' gradient_step ' + str(gradient_step))
+            planning = Planning_Result(planning_type, ranges, start_loc, input_limit, sample_number, time_step, display, gradient_on, gradient_step, iteration)
 
 
     

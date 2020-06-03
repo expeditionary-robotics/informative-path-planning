@@ -92,12 +92,13 @@ class MCTS(object):
             
         time_start = time.time()            
         # while we still have time to compute, generate the tree
-        while i < self.comp_budget:#time.time() - time_start < self.comp_budget:
+        while time.time() - time_start < self.comp_budget:#i < self.comp_budget:
             i += 1
             current_node = self.tree_policy()
             sequence = self.rollout_policy(current_node)
             reward, cost = self.get_reward(sequence)
             self.update_tree(reward, cost, sequence)
+            print(1)
 
         time_end = time.time()
         print "Rollouts completed in", str(time_end - time_start) +  "s", 
@@ -381,6 +382,7 @@ class Tree(object):
             # Sample a new set of observations and form a new belief
             #xobs = current_node.action
             obs = np.array(current_node.action)
+            print(obs)
             xobs = np.vstack([obs[:,0], obs[:,1]]).T
 
             if self.f_rew == 'mes' or self.f_rew == 'maxs-mes':
@@ -422,10 +424,16 @@ class Tree(object):
                     zobs = np.reshape(zobs, (n_points, 1))
                 else:
                     zobs = belief.posterior_samples(xobs, full_cov = False, size = 1)
+                    n_points, input_dim = xobs.shape
+                    zobs = np.reshape(zobs, (n_points,1))
 
+                # print(xobs)
+                # print(type(zobs))
                 belief.add_data(xobs, zobs)
             else:
                 zobs = belief.posterior_samples(xobs, full_cov = False, size = 1)
+                n_points, input_dim = xobs.shape
+                zobs = np.reshape(zobs, (n_points,1))
 
             belief.add_data(xobs, zobs)
             pose_new = current_node.dense_path[-1]
@@ -455,7 +463,11 @@ class Tree(object):
         return random.choice([key for key in vals.keys() if vals[key] == max(vals.values())])
         
     def build_action_children(self, parent):
+        # print(self.path_generator.get_path_set(parent.pose))
+        # print(self.path_generator)
         actions, dense_paths = self.path_generator.get_path_set(parent.pose)
+        # actions = self.path_generator.get_path_set(parent.pose)
+        # dense_paths = [0]
         if len(actions) == 0:
             print "No actions!", 
             return
@@ -640,6 +652,7 @@ class cMCTS(MCTS):
         super(cMCTS, self).__init__(computation_budget, belief, initial_pose, rollout_length, path_generator, aquisition_function, f_rew, T, aq_param, use_cost)
         self.tree_type = tree_type
         self.aq_param = aq_param
+        # self.GP = belief
 
         # The differnt constatns use logarthmic vs polynomical exploriation
         if self.f_rew == 'mean':
@@ -668,6 +681,7 @@ class cMCTS(MCTS):
         if self.f_rew == 'mes':
             self.max_val, self.max_locs, self.target  = sample_max_vals(self.GP, t = t, visualize=True)
             param = (self.max_val, self.max_locs, self.target)
+            print("Hello")
         elif self.f_rew == 'exp_improve':
             param = [self.current_max]
         elif self.f_rew == 'naive' or self.f_rew == 'naive_value':
@@ -689,7 +703,7 @@ class cMCTS(MCTS):
         time_start = time.time()            
         # while we still have time to compute, generate the tree
         i = 0
-        while i < self.comp_budget:#time.time() - time_start < self.comp_budget:
+        while time.time() - time_start < self.comp_budget:#i < self.comp_budget:
             i += 1
             gp = copy.copy(self.GP)
             self.tree.get_next_leaf(gp)
@@ -701,16 +715,17 @@ class cMCTS(MCTS):
         print "Number of rollouts:", i
         self.tree.print_tree()
 
-        print [(node.nqueries, node.reward/node.nqueries) for node in self.tree.root.children]
+        print [(node.nqueries, node.reward/(node.nqueries+0.1)) for node in self.tree.root.children]
 
-        #best_child = self.tree.root.children[np.argmax([node.nqueries for node in self.tree.root.children])]
+        # best_child = self.tree.root.children[np.argmax([node.nqueries for node in self.tree.root.children])]
         best_child = random.choice([node for node in self.tree.root.children if node.nqueries == max([n.nqueries for n in self.tree.root.children])])
         all_vals = {}
         for i, child in enumerate(self.tree.root.children):
-            all_vals[i] = child.reward / float(child.nqueries)
+            all_vals[i] = child.reward / (float(child.nqueries)+0.1)
+            # print(str(i) + " is " + str(all_vals[i]))
 
         paths, dense_paths = self.path_generator.get_path_set(self.cp)
-        return best_child.action, best_child.dense_path, best_child.reward/float(best_child.nqueries), paths, all_vals, self.max_locs, self.max_val, self.target
+        return best_child.action, best_child.dense_path, best_child.reward/(float(best_child.nqueries)+1.0), paths, all_vals, self.max_locs, self.max_val, self.target
 
         # get the best action to take with most promising futures, base best on whether to
         # consider cost
