@@ -582,7 +582,7 @@ class Evaluation:
         
         return MSE, regret, mean, hotspot_info, info_gain, UCB
         
-    def plot_metrics(self, iteration, grad_step):
+    def plot_metrics(self, iteration, range_max, grad_step):
         # Asumme that all metrics have the same time as MSE; not necessary
         time = np.array(self.metrics['MSE'].keys())
         
@@ -600,7 +600,8 @@ class Evaluation:
         if not os.path.exists('./figures/gradient/' + str(self.reward_function)):
             os.makedirs('./figures/gradient/' + str(self.reward_function))
         ''' Save the relevent metrics as csv files '''
-        np.savetxt('./figures/gradient/' + self.reward_function + '/metrics_grad_step' + str(grad_step)+ '_iter_' + str(iteration) +'.txt', \
+        np.savetxt('./figures/gradient/' + self.reward_function + '/metrics_grad_step_' + str(grad_step)+ ' range_max_' + str(range_max) \
+            + ' iter_' + str(iteration) +'.txt', \
             (time.T, info_gain.T, MSE.T, hotspot_info.T,UCB.T, regret.T, mean.T ), fmt='%s')
 
         # for i in range(0, self.num_stars):
@@ -1203,9 +1204,9 @@ class Robot:
             plt.plot(f[:,0], f[:,1], c=c, marker='*')
         plt.show()
     
-    def plot_information(self, iteration, grad_step):
+    def plot_information(self, iteration, range_max, grad_step):
         ''' Visualizes the accumulation of reward and aquisition functions ''' 
-        self.eval.plot_metrics(iteration, grad_step)
+        self.eval.plot_metrics(iteration, range_max, grad_step)
 
     def save_information(self):
         MSE, regret, mean, hotspot_info, info_gain, UCB = self.eval.save_metric()
@@ -1390,7 +1391,8 @@ class Planning_Result():
         robot.nonmyopic_planner(T = time_step)
         # robot.visualize_world_model()
         # robot.visualize_trajectory()
-        robot.plot_information(self.iteration, gradient_step)
+        range_max = ranges_[1]
+        robot.plot_information(self.iteration, range_max, gradient_step)
         # return MSE, regret, mean, hotspot_info, info_gain, UCB
 
     def coverage_planning(self, ranges_, start_loc_):
@@ -1489,43 +1491,89 @@ if __name__=="__main__":
     # fileHandler = log.FileHandler('./log/file.log')
     # streamHandler = log.StreamHandler()
 
+    range_exp = True
+    range_max_list = [20.0, 50.0, 100.0, 200.0]
+    if(range_exp):
+        for range_max in range_max_list:
+            ranges = (0., range_max, 0., range_max)
+            start_loc = (0.5, 0.5, 0.0)
+            time_step = 150
+            display = False
+            gradient_on = True
 
-    ''' Options include mean, info_gain, and hotspot_info, mes'''
-    reward_function = 'mean'
+            gradient_step_list = [0.0, 0.05, 0.1, 0.15, 0.20]
 
-    world = Environment(ranges = (0., 20., 0., 20.), # x1min, x1max, x2min, x2max constraints
-                        NUM_PTS = 20, 
-                        variance = 100.0, 
-                        lengthscale = 3.0, 
-                        visualize = False,
-                        seed = 1)
+            ''' Options include mean, info_gain, and hotspot_info, mes'''
+            reward_function = 'mean'
 
-    evaluation = Evaluation(world = world, 
-                            reward_function = reward_function)
+            world = Environment(ranges = ranges, # x1min, x1max, x2min, x2max constraints
+                                NUM_PTS = 20, 
+                                variance = 100.0, 
+                                lengthscale = 3.0, 
+                                visualize = False,
+                                seed = 1)
 
-    # Gather some prior observations to train the kernel (optional)
-    ranges = (0., 20., 0., 20.)
-    x1observe = np.linspace(ranges[0], ranges[1], 5)
-    x2observe = np.linspace(ranges[2], ranges[3], 5)
-    x1observe, x2observe = np.meshgrid(x1observe, x2observe, sparse = False, indexing = 'xy')  
-    data = np.vstack([x1observe.ravel(), x2observe.ravel()]).T
-    observations = world.sample_value(data)
+            evaluation = Evaluation(world = world, 
+                                    reward_function = reward_function)
 
-    start_loc = (0.5, 0.5, 0.0)
-    input_limit = [0.0, 10.0, -30.0, 30.0] #Limit of actuation 
-    sample_number = 10 #Number of sample actions 
+            # Gather some prior observations to train the kernel (optional)
 
-    planning_type = 'non_myopic'
-    time_step = 150
-    display = False
-    gradient_on = True
+            x1observe = np.linspace(ranges[0], ranges[1], 5)
+            x2observe = np.linspace(ranges[2], ranges[3], 5)
+            x1observe, x2observe = np.meshgrid(x1observe, x2observe, sparse = False, indexing = 'xy')  
+            data = np.vstack([x1observe.ravel(), x2observe.ravel()]).T
+            observations = world.sample_value(data)
 
-    gradient_step_list = [0.0, 0.05, 0.1, 0.15, 0.20]
-    
-    for iteration in range(5):
-        for gradient_step in gradient_step_list:
-            print('iteration ' + str(iteration) + ' gradient_step ' + str(gradient_step))
-            planning = Planning_Result(planning_type, ranges, start_loc, input_limit, sample_number, time_step, display, gradient_on, gradient_step, iteration)
+            # input_limit = [0.0, 10.0, -30.0, 30.0] #Limit of actuation 
+            # sample_number = 10 #Number of sample actions 
+
+            planning_type = 'non_myopic'
+            
+            for iteration in range(5):
+                for gradient_step in gradient_step_list:
+                    print('range_max ' + str(range_max)+ ' iteration ' + str(iteration) + ' gradient_step ' + str(gradient_step))
+                    planning = Planning_Result(planning_type, ranges, start_loc, input_limit, sample_number, time_step, display, gradient_on, gradient_step, iteration)
+
+    else:
+        ranges = (0., 20., 0., 20.)
+        start_loc = (0.5, 0.5, 0.0)
+        time_step = 150
+        display = False
+        gradient_on = True
+
+        gradient_step_list = [0.0, 0.05, 0.1, 0.15, 0.20]
+
+        ''' Options include mean, info_gain, and hotspot_info, mes'''
+        reward_function = 'mean'
+
+        world = Environment(ranges = ranges, # x1min, x1max, x2min, x2max constraints
+                            NUM_PTS = 20, 
+                            variance = 100.0, 
+                            lengthscale = 3.0, 
+                            visualize = False,
+                            seed = 1)
+
+        evaluation = Evaluation(world = world, 
+                                reward_function = reward_function)
+
+        # Gather some prior observations to train the kernel (optional)
+
+        # ranges = (0., 20., 0., 20.)
+        x1observe = np.linspace(ranges[0], ranges[1], 5)
+        x2observe = np.linspace(ranges[2], ranges[3], 5)
+        x1observe, x2observe = np.meshgrid(x1observe, x2observe, sparse = False, indexing = 'xy')  
+        data = np.vstack([x1observe.ravel(), x2observe.ravel()]).T
+        observations = world.sample_value(data)
+
+        # input_limit = [0.0, 10.0, -30.0, 30.0] #Limit of actuation 
+        # sample_number = 10 #Number of sample actions 
+
+        planning_type = 'non_myopic'
+        
+        for iteration in range(5):
+            for gradient_step in gradient_step_list:
+                print('iteration ' + str(iteration) + ' gradient_step ' + str(gradient_step))
+                planning = Planning_Result(planning_type, ranges, start_loc, input_limit, sample_number, time_step, display, gradient_on, gradient_step, iteration)
 
 
     
