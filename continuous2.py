@@ -612,7 +612,7 @@ class Evaluation:
             + ' iter_' + str(iteration) +'_UCB' + '.txt', UCB.T, fmt='%s')
         np.savetxt('./figures/gradient/' + self.reward_function + '/metrics_grad_step_' + str(grad_step)+ ' range_max_' + str(range_max) \
             + ' iter_' + str(iteration) +'_mean' + '.txt', mean.T, fmt='%s')
-# , info_gain.T, MSE.T, hotspot_info.T,UCB.T, regret.T, mean.T )
+
         # for i in range(0, self.num_stars):
         #     f = open('./figures/'+self.reward_function + '/stars.csv', "a")
         #     np.savetxt(f, (star_obs[i].T, star_obs_loc_x[i].T, star_obs_loc_y[i].T))
@@ -1352,7 +1352,7 @@ class Planning_Result():
         elif(planning_type=='non_myopic'):
             self.non_myopic_planning(ranges, start_loc, input_limit, sample_number, time_step, display, gradient_on, gradient_step)
         elif(planning_type=='myopic'):
-            self.myopic_planning(ranges, start_loc, time_step)
+            self.myopic_planning(ranges, start_loc)
 
     def myopic_planning(self, ranges_, start_loc_, time_step):
         robot = Robot(sample_world = world.sample_value, 
@@ -1404,7 +1404,7 @@ class Planning_Result():
         robot.plot_information(self.iteration, range_max, gradient_step)
         # return MSE, regret, mean, hotspot_info, info_gain, UCB
 
-    def coverage_planning(self, ranges_, start_loc_, time_step):
+    def coverage_planning(self, ranges_, start_loc_):
         sample_step = 0.5
         # ranges = (0., 10., 0., 10.)
         ranges = ranges_
@@ -1500,7 +1500,7 @@ if __name__=="__main__":
     # fileHandler = log.FileHandler('./log/file.log')
     # streamHandler = log.StreamHandler()
 
-    range_exp = False
+    range_exp = True
     range_max_list = [20.0, 50.0, 100.0, 200.0]
     if(range_exp):
         for range_max in range_max_list:
@@ -1510,7 +1510,7 @@ if __name__=="__main__":
             display = False
             gradient_on = True
 
-            gradient_step_list = [0.0, 0.05, 0.1, 0.15, 0.20]
+            gradient_step_list = [0.025, 0.075, 0.04, 0.3, 0.35, 0.4]
 
             ''' Options include mean, info_gain, and hotspot_info, mes'''
             reward_function = 'mean'
@@ -1547,8 +1547,8 @@ if __name__=="__main__":
         ranges = (0., 20., 0., 20.)
         start_loc = (0.5, 0.5, 0.0)
         time_step = 150
-        display = True
-        gradient_on = False
+        display = False
+        gradient_on = True
 
         gradient_step_list = [0.0, 0.05, 0.1, 0.15, 0.20]
 
@@ -1574,16 +1574,15 @@ if __name__=="__main__":
         data = np.vstack([x1observe.ravel(), x2observe.ravel()]).T
         observations = world.sample_value(data)
 
-        input_limit = [0.0, 10.0, -30.0, 30.0] #Limit of actuation 
-        sample_number = 10 #Number of sample actions 
+        # input_limit = [0.0, 10.0, -30.0, 30.0] #Limit of actuation 
+        # sample_number = 10 #Number of sample actions 
 
-        planning_type = 'myopic'
-        planning = Planning_Result(planning_type, ranges, start_loc, input_limit, sample_number, time_step, display, gradient_on, 0, 0)
+        planning_type = 'non_myopic'
         
-        # for iteration in range(5):
-        #     for gradient_step in gradient_step_list:
-        #         print('iteration ' + str(iteration) + ' gradient_step ' + str(gradient_step))
-        #         planning = Planning_Result(planning_type, ranges, start_loc, input_limit, sample_number, time_step, display, gradient_on, gradient_step, iteration)
+        for iteration in range(5):
+            for gradient_step in gradient_step_list:
+                print('iteration ' + str(iteration) + ' gradient_step ' + str(gradient_step))
+                planning = Planning_Result(planning_type, ranges, start_loc, input_limit, sample_number, time_step, display, gradient_on, gradient_step, iteration)
 
 
     

@@ -1191,7 +1191,7 @@ class Planning_Result():
         elif(planning_type=='non_myopic'):
             self.non_myopic_planning(ranges, start_loc, input_limit, sample_number, time_step, display)
         elif(planning_type=='myopic'):
-            self.myopic_planning(ranges, start_loc)
+            self.myopic_planning(ranges, start_loc, time_step)
 
     def myopic_planning(self, ranges_, start_loc_, time_step):
         robot = Robot(sample_world = world.sample_value, 
@@ -1363,9 +1363,9 @@ if __name__=="__main__":
     input_limit = [0.0, 10.0, -30.0, 30.0] #Limit of actuation 
     sample_number = 10 #Number of sample actions 
 
-    planning_type = 'non_myopic'
+    planning_type = 'myopic'
     time_step = 150
-    display = False
+    display = True
     planning = Planning_Result(planning_type, ranges, start_loc, input_limit, sample_number, time_step, display)
 
 

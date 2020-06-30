@@ -237,7 +237,7 @@ def make_plots(mean_data, mes_data, ei_data, param, title, d=20, plot_confidence
 
 
 def playback(playback_locs, playback_samples, max_val, column_names):
-    ''' Gather noisy samples of the environment and updates the robot's GP model  
+    ''' Gather noisy samples of the environmen t and updates the robot's GP model  
     Input: 
         T (int > 0): the length of the planning horization (number of planning iterations)'''
 
