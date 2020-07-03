@@ -13,6 +13,7 @@ using namespace std;
 
 namespace grid_map {
 
+//Constructor with Position 
 LineIterator::LineIterator(const grid_map::GridMap& gridMap, const Position& start,
                            const Position& end)
 {
@@ -26,6 +27,7 @@ LineIterator::LineIterator(const grid_map::GridMap& gridMap, const Position& sta
   }
 }
 
+//Constructor with Index
 LineIterator::LineIterator(const grid_map::GridMap& gridMap, const Index& start, const Index& end)
 {
   initialize(gridMap, start, end);
@@ -60,6 +62,7 @@ const Index& LineIterator::operator *() const
 {
   return index_;
 }
+
 
 LineIterator& LineIterator::operator ++()
 {
