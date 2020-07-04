@@ -9,7 +9,9 @@ using namespace std;
 namespace RayTracer{
     
     struct Pose{
-        double x; double y; double yaw;
+        double x; 
+        double y; 
+        double yaw;
     };
 
     class Lidar_sensor{
@@ -33,8 +35,9 @@ namespace RayTracer{
             grid_map::GridMap init_belief_map();
             
             void get_measurement(Pose& cur_pos);//Lidar measurement from current pose. 
-            void gen_single_ray(grid_map::Position& start_pos, grid_map::Position& end_pos); //Single raycasting
-            void update_map(vector<grid_map::Index> index_vec); //
+            pair<vector<grid_map::Index>, grid_map::Index> gen_single_ray(grid_map::Position& start_pos, grid_map::Position& end_pos); //Single raycasting
+            void update_map(vector<grid_map::Index>& free_vec, vector<grid_map::Index>& index_vec); //
+            double inverse_sensor(double cur_val, double meas_val);
     };
 
     class RayTracer{

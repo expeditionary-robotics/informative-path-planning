@@ -10,15 +10,15 @@ namespace RayTracer{
         vector<string>& x = name;
         grid_map::GridMap map(x);
 
-        grid_map::Length len;
-        len.x = 100.0; len.y = 100.0;
-        grid_map::Position zero; //Zero Position of belief grid
-        zero.x = 0.0; zero.y = 0.0;
+        grid_map::Length len(100.0, 100.0);
+        // len.x = 100.0; len.y = 100.0;
+        grid_map::Position zero(0.0, 0.0); //Zero Position of belief grid
+        // zero.x = 0.0; zero.y = 0.0;
         map.setGeometry(len, resol_, zero);
         map.add("base", 0.5); //Initialize map of prob. value with 0.5 (unknown)
     }
 
-    void Lidar_sensor::gen_single_ray(grid_map::Position& start_pos, grid_map::Position& end_pos) //Single raycasting
+    pair<vector<grid_map::Index>, grid_map::Index> Lidar_sensor::gen_single_ray(grid_map::Position& start_pos, grid_map::Position& end_pos) //Single raycasting
     {   
         //TODO: Transform position to index
 
@@ -32,19 +32,56 @@ namespace RayTracer{
 
     void Lidar_sensor::get_measurement(Pose& cur_pos)
     {
+        grid_map::Position start_pos(cur_pos.x, cur_pos.y);
+        // start_pos.x = cur_pos.x; 
+        // start_pos.y = cur_pos.y;
+        vector<grid_map::Index> lidar_free_vec; //Free voxels
+        vector<grid_map::Index> lidar_collision_vec; //Occupied voxels
+        lidar_free_vec.clear();
+        lidar_collision_vec.clear();
+
         int ray_num = floor( (hangle_max_ - hangle_min_)/angle_resol_ );
         for(int i=0; i< ray_num; i++)
-        {
+        {   
+            double angle = cur_pos.yaw + angle_resol_ * ray_num;
+            double end_pos_x = cur_pos.x + range_max_ * cos(angle);
+            double end_pos_y = cur_pos.y + range_max_ * sin(angle);
+            grid_map::Position end_pos(end_pos_x, end_pos_y);
+            pair< vector<grid_map::Index>, grid_map::Index> idx = gen_single_ray(start_pos, end_pos);
 
+            lidar_free_vec.insert(lidar_free_vec.end(), idx.first.begin(), idx.first.end()); //Concatenate two vectors
+            lidar_collision_vec.push_back(idx.second);
         }     
-
+        update_map(lidar_free_vec, lidar_collision_vec);
     }
 
-    void Lidar_sensor::update_map(vector<grid_map::Index> index_vec)
+    void Lidar_sensor::update_map(vector<grid_map::Index>& free_vec, vector<grid_map::Index>& occupied_vec)
+    {        
+        double free = 0.1; double occupied = 0.9;
+        double cur_occ_val; double update_occ_val;
+        
+        //Inverse sensor model
+        //1. Free voxels
+        for(vector<grid_map::Index>::iterator iter = free_vec.begin(); iter!=free_vec.end(); iter++)
+        {
+            cur_occ_val = belief_map_.at("base", *iter);
+            update_occ_val = inverse_sensor(cur_occ_val, free);
+        }
+        //2. Occupied voxels
+        for(vector<grid_map::Index>::iterator iter = occupied_vec.begin(); iter!=occupied_vec.end(); iter++)
+        {
+            cur_occ_val = belief_map_.at("base", *iter);
+            update_occ_val = inverse_sensor(cur_occ_val, occupied);
+        }
+
+        // Update belief 
+        // belief_map_.at("base", cur_idx) = value; 
+    }
+
+    double Lidar_sensor::inverse_sensor(double cur_val, double meas_val)
     {
-        // belief_map_
-    }
 
+    }
     /**
      * @brief RayTracing and return lidar values.  
      * 
@@ -54,6 +91,7 @@ namespace RayTracer{
      */
     void RayTracer::raytracing(Lidar_sensor sensor, grid_map::Index startIndex, grid_map::Index endIndex)
     {
+        // for 
         for (grid_map::GridMapIterator iterator(gt_map_); !iterator.isPastEnd(); ++iterator) {
             cout << "The value at index " << (*iterator).transpose() << " is " << gt_map_.at("layer", *iterator) << endl;
         }
