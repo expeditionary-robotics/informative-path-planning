@@ -18,17 +18,6 @@ namespace RayTracer{
         map.add("base", 0.5); //Initialize map of prob. value with 0.5 (unknown)
     }
 
-    pair<vector<grid_map::Index>, grid_map::Index> Lidar_sensor::gen_single_ray(grid_map::Position& start_pos, grid_map::Position& end_pos) //Single raycasting
-    {   
-        //TODO: Transform position to index
-
-        int start_idxx = 0; int start_idxy = 1;
-        int end_idxx = 0; int end_idxy = 1;
-        grid_map::Index startIndex(start_idxx, start_idxy);
-        grid_map::Index endIndex(end_idxx, end_idxy);
-
-
-    }
 
     void Lidar_sensor::get_measurement(Pose& cur_pos)
     {
@@ -47,7 +36,7 @@ namespace RayTracer{
             double end_pos_x = cur_pos.x + range_max_ * cos(angle);
             double end_pos_y = cur_pos.y + range_max_ * sin(angle);
             grid_map::Position end_pos(end_pos_x, end_pos_y);
-            pair< vector<grid_map::Index>, grid_map::Index> idx = gen_single_ray(start_pos, end_pos);
+            pair< vector<grid_map::Index>, grid_map::Index> idx = gen_single_ray(start_pos, end_pos); //Return free voxel index & Occupied voxel index
 
             lidar_free_vec.insert(lidar_free_vec.end(), idx.first.begin(), idx.first.end()); //Concatenate two vectors
             lidar_collision_vec.push_back(idx.second);
@@ -80,21 +69,62 @@ namespace RayTracer{
 
     double Lidar_sensor::inverse_sensor(double cur_val, double meas_val)
     {
+        double log_cur = log(cur_val / (1.0 - cur_val));
+        double log_prior = log( 0.5/ 0.5); 
+        double log_meas = log(meas_val / (1.0 - meas_val));
 
+        double log_update = log_meas + log_cur - log_prior;
+
+        return 1.0-1.0/(1.0+exp(log_update));
     }
+
+    pair<vector<grid_map::Index>, grid_map::Index> Lidar_sensor::gen_single_ray(grid_map::Position& start_pos, grid_map::Position& end_pos) //Single raycasting
+    {   
+        //TODO: Transform position to index
+        int start_idxx = 0; int start_idxy = 1;
+        int end_idxx = 0; int end_idxy = 1;
+        grid_map::Index startIndex(start_idxx, start_idxy);
+        grid_map::Index endIndex(end_idxx, end_idxy);
+        
+        // RayTracer raytracer; 
+        // pair<vector<grid_map::Index>, bool> result = raytracer.raytracing(this, startIndex, endIndex);
+    }
+
     /**
-     * @brief RayTracing and return lidar values.  
+     * @brief RayTracing and return pair of voxel indices & whether collision occured. If 2nd element is true, beam is collided & 
+     *        the last element of vector is occupied voxel. 
      * 
      * @param sensor 
      * @param startIndex 
      * @param endIndex 
      */
-    void RayTracer::raytracing(Lidar_sensor sensor, grid_map::Index startIndex, grid_map::Index endIndex)
+    pair<vector<grid_map::Index>, bool> RayTracer::raytracing(Lidar_sensor& sensor, grid_map::Index& startIndex, grid_map::Index& endIndex)
     {
-        // for 
-        for (grid_map::GridMapIterator iterator(gt_map_); !iterator.isPastEnd(); ++iterator) {
-            cout << "The value at index " << (*iterator).transpose() << " is " << gt_map_.at("layer", *iterator) << endl;
+        grid_map::LineIterator ray_tracer(gt_map_, startIndex, endIndex);
+        vector<grid_map::Index> free_voxel;
+        free_voxel.clear();
+        grid_map::Index occupied_idx;
+
+        for(ray_tracer; !ray_tracer.isPastEnd(); ++ray_tracer)
+        {
+            if(gt_map_.at("base", *ray_tracer) > 0.95) //Occupied Voxels
+            {
+                occupied_idx = *ray_tracer;
+                free_voxel.push_back(occupied_idx);
+                pair<vector<grid_map::Index>, bool> return_pair = make_pair(free_voxel, true);
+                return return_pair;
+            }
+            else
+            {
+                free_voxel.push_back(*ray_tracer);
+            }
         }
+        pair<vector<grid_map::Index>, bool> return_pair = make_pair(free_voxel, false);
+
+        // // for 
+        // for (grid_map::GridMapIterator iterator(gt_map_); !iterator.isPastEnd(); ++iterator) {
+        //     cout << "The value at index " << (*iterator).transpose() << " is " << gt_map_.at("layer", *iterator) << endl;
+        // }
 
     }
 }

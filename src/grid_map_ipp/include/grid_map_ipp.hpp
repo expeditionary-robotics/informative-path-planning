@@ -41,15 +41,18 @@ namespace RayTracer{
     };
 
     class RayTracer{
-        private:
-            
-            grid_map::GridMap gt_map_;
-            grid_map::LineIterator raytracer_;
+        private:            
+            grid_map::GridMap& gt_map_;
+            // grid_map::LineIterator raytracer_;
 
         public:
+            // RayTracer(grid_map::Index &startIndex, grid_map::Index &endIndex)
+            // {
+            //     // raytracer_(startIndex, endIndex);
+            // }
             void set_gt_map(grid_map::Matrix &data);
             void set_raytracer();
-            void raytracing(Lidar_sensor sensor, grid_map::Index startIndex, grid_map::Index endIndex);
+            pair<vector<grid_map::Index>, bool> raytracing(Lidar_sensor& sensor, grid_map::Index& startIndex, grid_map::Index& endIndex);
             grid_map::Index get_final();
     };
 }
