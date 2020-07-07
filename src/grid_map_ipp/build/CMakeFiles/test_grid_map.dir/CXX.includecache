@@ -1,0 +1,20 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/dabinkim/code/informative-path-planning/src/grid_map_ipp/src/gt_map.cpp
+grid_map_core/GridMap.hpp
+/home/dabinkim/code/informative-path-planning/src/grid_map_ipp/src/grid_map_core/GridMap.hpp
+iostream
+-
+Eigen/Dense
+-
+list
+-
+vector
+-
+

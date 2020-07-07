@@ -7,8 +7,9 @@ from continuous import *
 if __name__ == "__main__":
     range_max = 100.0
     ranges = (0., range_max, 0., range_max)
-    world = BlockWorld(extent = ranges, num_blocks=3, dim_blocks=(5., 5.), centers = None )
-    world.draw_obstacles()
+    # obstacle_world = BlockWorld(extent = ranges, num_blocks=20, dim_blocks=(10., 10.), centers = None )
+    obstacle_world = FreeWorld()
+    # obstacle_world.draw_obstacles()
 
     start_loc = (0.5, 0.5, 0.0)
     time_step = 150
@@ -46,7 +47,7 @@ if __name__ == "__main__":
     gradient_step = 0.0    
     print('range_max ' + str(range_max)+ ' iteration '+ ' gradient_step ' + str(gradient_step))
     iteration = 1
-    planning = Planning_Result(planning_type, ranges, start_loc, input_limit, sample_number, time_step, display, gradient_on, gradient_step, iteration)
+    planning = Planning_Result(planning_type, world, obstacle_world, evaluation, reward_function, ranges, start_loc, input_limit, sample_number, time_step, display, gradient_on, gradient_step, iteration)
 
 
 # if __name__ == "__main__":

@@ -745,7 +745,7 @@ def hotspot_info_UCB(time, xvals, robot_model):
                               
 class MCTS():
     '''Class that establishes a MCTS for nonmyopic planning'''
-    def __init__(self, ranges, computation_budget, belief, initial_pose, planning_limit, frontier_size, path_generator, aquisition_function, time, gradient_on, grad_step):
+    def __init__(self, ranges, obstacle_world, computation_budget, belief, initial_pose, planning_limit, frontier_size, path_generator, aquisition_function, time, gradient_on, grad_step):
         '''Initialize with constraints for the planning, including whether there is 
            a budget or planning horizon
            budget - length, time, etc to consider
@@ -758,6 +758,7 @@ class MCTS():
         self.limit = planning_limit
         self.frontier_size = frontier_size
         self.path_generator = path_generator
+        self.obstacle_world = obstacle_world
         # self.default_path_generator = Path_Generator(frontier_size, )
         self.spent = 0
         self.tree = None
@@ -772,10 +773,9 @@ class MCTS():
         
         while time.clock() - time_start < self.budget:
             current_node = self.tree_policy() #Find maximum UCT node (which is leaf node)
-            # print(current_node)
+            
             sequence = self.rollout_policy(current_node, self.budget) #Add node
-            # print("sequence")
-            # print(sequence)
+            
             reward = self.get_reward(sequence)
             # print("cur_reward : " + str(reward))
             value_grad = self.get_value_grad(current_node, sequence, reward)
@@ -893,13 +893,28 @@ class MCTS():
                 plt.plot(x, y,marker='*')
         plt.show()
 
+    def collision_check(self, path_dict):
+        free_paths = {}
+        for key,path in path_dict.items():
+            is_collision = 0
+            for pt in path:
+                if(self.obstacle_world.in_obstacle(pt, 3.0)):
+                    is_collision = 1
+                    print("Collision Occured!")
+            if(is_collision == 0):
+                free_paths[key] = path
+        
+        return free_paths 
+    
     def initialize_tree(self):
         '''Creates a tree instance, which is a dictionary, that keeps track of the nodes in the world'''
         tree = {}
         #(pose, number of queries)
         tree['root'] = (self.cp, 0)
         actions, _ = self.path_generator.get_path_set(self.cp)
-        for action, samples in actions.items():
+        feas_actions = self.collision_check(actions)
+
+        for action, samples in feas_actions.items():
             #(samples, cost, reward, number of times queried)
             cost = np.sqrt((self.cp[0]-samples[-1][0])**2 + (self.cp[1]-samples[-1][1])**2)
             tree['child '+ str(action)] = (samples, cost, 0, 0)
@@ -916,7 +931,8 @@ class MCTS():
         leaf_eval = {}
         for i in xrange(self.frontier_size):
             node = 'child '+ str(i)
-            leaf_eval[node] = self.tree[node][2] + 0.1*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][3])
+            if(node in self.tree): #If 'node' string key value is in current tree. 
+                leaf_eval[node] = self.tree[node][2] + 0.1*np.sqrt(2*(np.log(self.tree['root'][1]))/self.tree[node][3])
 #         print max(leaf_eval, key=leaf_eval.get)
         
         # print(max(leaf_eval, key=leaf_eval.get))
@@ -928,7 +944,12 @@ class MCTS():
         #TODO use the cost metric to signal action termination, for now using horizon
         for i in xrange(self.limit):
             actions, _ = self.path_generator.get_path_set(self.tree[node][0][-1]) #plan from the last point in the sample
+            # feas_actions = self.collision_check(actions)
             a = np.random.randint(0,len(actions)) #choose a random path
+            # while(not (a in feas_actions)):
+            #     a = np.random.randint(0,len(actions)) #choose a random path
+            
+            
             #TODO add cost metrics
 #             best_path = actions[a]
 #             if len(best_path) == 1:
@@ -1036,10 +1057,11 @@ class MCTS():
         best = -1000
         best_child = None
         for i in xrange(self.frontier_size):
-            r = self.tree['child '+ str(i)][2]
-            if r > best:
-                best = r
-                best_child = 'child '+ str(i)
+            if('child '+ str(i) in self.tree):
+                r = self.tree['child '+ str(i)][2]
+                if r > best:
+                    best = r
+                    best_child = 'child '+ str(i)
         return best_child, 0
 
 class Robot:
@@ -1058,7 +1080,7 @@ class Robot:
         * init_lengthscale (float) the lengthscale parameter of the squared exponential kernel
         * noise (float) the sensor noise parameter of the squared exponential kernel '''
     
-    def __init__(self, sample_world, start_loc = (0.0, 0.0, 0.0), ranges = (-10., 10., -10., 10.), kernel_file = None, 
+    def __init__(self, sample_world, obstacle_world, start_loc = (0.0, 0.0, 0.0), ranges = (-10., 10., -10., 10.), kernel_file = None, 
             kernel_dataset = None, prior_dataset = None, init_lengthscale = 10.0, init_variance = 100.0, noise = 0.05, 
             path_generator = 'default', frontier_size = 6, horizon_length = 5, turning_radius = 1, sample_step = 0.5, 
             evaluation = None, f_rew = 'mean'):
@@ -1067,7 +1089,8 @@ class Robot:
         self.eval = evaluation
         self.loc = start_loc # Initial location of the robot      
         self.sample_world = sample_world # A function handel that allows the robot to sample from the environment 
-        
+        self.obstacle_World = obstacle_world
+
         if f_rew == 'hotspot_info':
             self.aquisition_function = hotspot_info_UCB
         elif f_rew == 'mean':
@@ -1226,7 +1249,7 @@ class Robot:
 class Nonmyopic_Robot(Robot):
     '''This robot inherits from the Robot class, but uses a MCTS in order to perform global horizon planning'''
     
-    def __init__(self, sample_world, start_loc = (0.0, 0.0, 0.0), ranges = (-10., 10., -10., 10.), kernel_file = None, 
+    def __init__(self, sample_world, obstacle_world, start_loc = (0.0, 0.0, 0.0), ranges = (-10., 10., -10., 10.), kernel_file = None, 
             kernel_dataset = None, prior_dataset = None, init_lengthscale = 10.0, init_variance = 100.0, noise = 0.05, 
             path_generator = 'default', frontier_size = 6, horizon_length = 5, turning_radius = 1, sample_step = 0.5, 
             evaluation = None , f_rew = 'mean', computation_budget = 60, rollout_length = 6, input_limit = [0.0, 10.0, -30.0, 30.0],
@@ -1236,6 +1259,7 @@ class Nonmyopic_Robot(Robot):
         self.eval = evaluation
         self.loc = start_loc # Initial location of the robot      
         self.sample_world = sample_world # A function handel that allows the robot to sample from the environment 
+        self.obstacle_World = obstacle_world # Environment model which needs to check collision 
         self.total_value = {}
         self.fs = frontier_size
         self.save_fig = is_save_fig
@@ -1296,7 +1320,7 @@ class Nonmyopic_Robot(Robot):
         for t in xrange(T):
             #computation_budget, belief, initial_pose, planning_limit, frontier_size, path_generator, aquisition_function, time
             # FIXME MCTS
-            mcts = MCTS(self.ranges, self.comp_budget, self.GP, self.loc, self.roll_length, self.fs, self.path_generator, self.aquisition_function, t, self.gradient_on, self.grad_step)
+            mcts = MCTS(self.ranges, self.obstacle_World, self.comp_budget, self.GP, self.loc, self.roll_length, self.fs, self.path_generator, self.aquisition_function, t, self.gradient_on, self.grad_step)
             best_path, cost = mcts.get_actions()
 
             # mcts = mc_lib.cMCTS(self.comp_budget, self.GP, self.loc, self.roll_length, self.path_generator, self.aquisition_function, self.f_rew, t, None, False, 'dpw')
@@ -1308,7 +1332,10 @@ class Nonmyopic_Robot(Robot):
             x2 = data[:,1]
             xlocs = np.vstack([x1, x2]).T
             all_paths, _ = self.path_generator.get_path_set(self.loc)
-            self.eval.update_metrics(t, self.GP, all_paths, best_path) 
+
+            free_paths = self.collision_check(all_paths)
+            
+            self.eval.update_metrics(t, self.GP, free_paths, best_path) 
             self.collect_observations(xlocs)
             self.trajectory.append(best_path)
 
@@ -1323,6 +1350,19 @@ class Nonmyopic_Robot(Robot):
                 self.loc = (best_path[-1][0],best_path[-1][1],best_path[-1][2]-1.14)
             else:
                 self.loc = best_path[-1]
+    
+    def collision_check(self, path_dict):
+        free_paths = {}
+        for key,path in path_dict.items():
+            is_collision = 0
+            for pt in path:
+                if(self.obstacle_World.in_obstacle(pt, 3.0)):
+                    is_collision = 1
+                    print("Collision Occured!")
+            if(is_collision == 0):
+                free_paths[key] = path
+        
+        return free_paths 
         
     def save_figure(self, t):
         rob_mod = self.GP
@@ -1338,15 +1378,25 @@ class Nonmyopic_Robot(Robot):
         ax.set_xlim(ranges[0:2])
         ax.set_ylim(ranges[2:])
         plot = ax.contourf(x1, x2, observations.reshape(x1.shape), cmap = 'viridis', vmin = -25, vmax = 25, levels=np.linspace(-25, 25, 15))
+        # self.obstacle_World.draw_obstacles()
+        for obs in self.obstacle_World.obstacles:
+            x,y = obs.exterior.xy
+            ax.plot(x,y)
+        
         if rob_mod.xvals is not None:
             scatter = ax.scatter(rob_mod.xvals[:, 0], rob_mod.xvals[:, 1], c='k', s = 20.0, cmap = 'viridis')
             fig.savefig('./figures/nonmyopic/' + str(t) + '.png')
         plt.close()
 
 class Planning_Result():
-    def __init__(self, planning_type, ranges, start_loc, input_limit, sample_number, time_step, display, gradient_on, gradient_step, iteration):
+    def __init__(self, planning_type, world, obstacle_world, evaluation, reward_function, ranges, start_loc, input_limit, sample_number, time_step, display, gradient_on, gradient_step, iteration):
         self.iteration = iteration
         self.type = planning_type
+        self.world = world
+        self.obstacle_world = obstacle_world
+        self.evaluation = evaluation
+        self.reward_function = reward_function
+
         if(planning_type=='coverage'):
             self.coverage_planning(ranges, start_loc, time_step)
         elif(planning_type=='non_myopic'):
@@ -1377,7 +1427,7 @@ class Planning_Result():
         # robot.plot_information()
 
     def non_myopic_planning(self, ranges_, start_loc_, input_limit_, sample_number_,time_step, display, gradient_on, gradient_step):
-        robot = Nonmyopic_Robot(sample_world = world.sample_value, 
+        robot = Nonmyopic_Robot(sample_world = self.world.sample_value, obstacle_world= self.obstacle_world, 
                         start_loc = start_loc_, 
                         ranges = ranges_,
                         kernel_file = None,
@@ -1391,8 +1441,8 @@ class Planning_Result():
                         horizon_length = 5.0, 
                         turning_radius = 0.5, 
                         sample_step = 2.0,
-                        evaluation = evaluation, 
-                        f_rew = reward_function,
+                        evaluation = self.evaluation, 
+                        f_rew = self.reward_function,
                         computation_budget = 1.0,
                         rollout_length = 3, input_limit=input_limit_, sample_number=sample_number_,
                         step_time = 5.0, is_save_fig=display, gradient_on= gradient_on, grad_step = gradient_step)
