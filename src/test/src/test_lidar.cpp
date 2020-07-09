@@ -1,7 +1,8 @@
 #include "grid_map_core/GridMap.hpp"
 #include "grid_map_ros/grid_map_ros.hpp"
 #include <grid_map_msgs/GridMap.h>
-#include <ObstacleGridConverter.hpp>
+#include "grid_map_ipp/ObstacleGridConverter.hpp"
+#include "grid_map_ipp/grid_map_ipp.hpp"
 #include <nav_msgs/OccupancyGrid.h>
 #include <iostream>
 #include <Eigen/Dense>
@@ -37,6 +38,13 @@ int main(int argc, char** argv)
         obstacles.push_back(point);
     }
 
+    RayTracer::Pose cur_pose; 
+    cur_pose.x = 0.0; cur_pose.y = 0.0; cur_pose.yaw = 0.0;
+
+    double range_max = 5.0; double range_min = 0.5; 
+    double hangle_max = 180; double hangle_min = -180; double angle_resol = 5.0;
+    double resol = 1.0;
+    RayTracer::Lidar_sensor lidar(range_max, range_min, hangle_max, hangle_min, angle_resol, resol);
 
     // vector<string> name;
     // name.push_back("base");
@@ -71,23 +79,23 @@ int main(int argc, char** argv)
     //     }
     // }
 
-    ros::init(argc, argv, "test_gt_map");
-    ros::NodeHandle nh("");
-    ros::Publisher pub = nh.advertise<grid_map_msgs::GridMap>("grid_map", 1, true);
-    ros::Rate rate(30.0);
-    ros::Publisher pub_occ = nh.advertise<nav_msgs::OccupancyGrid>("occu_grid", 1, true);
-    while(nh.ok())
-    {
-        ros::Time time = ros::Time::now();
-        grid_map_msgs::GridMap message;
-        nav_msgs::OccupancyGrid occ_message;
-        GridMapRosConverter::toMessage(gt_map, message);
-        GridMapRosConverter::toOccupancyGrid(gt_map, "base", 0.0, 1.0, occ_message);
+    // ros::init(argc, argv, "test_gt_map");
+    // ros::NodeHandle nh("");
+    // ros::Publisher pub = nh.advertise<grid_map_msgs::GridMap>("grid_map", 1, true);
+    // ros::Rate rate(30.0);
+    // ros::Publisher pub_occ = nh.advertise<nav_msgs::OccupancyGrid>("occu_grid", 1, true);
+    // while(nh.ok())
+    // {
+    //     ros::Time time = ros::Time::now();
+    //     grid_map_msgs::GridMap message;
+    //     nav_msgs::OccupancyGrid occ_message;
+    //     GridMapRosConverter::toMessage(gt_map, message);
+    //     GridMapRosConverter::toOccupancyGrid(gt_map, "base", 0.0, 1.0, occ_message);
 
-        pub.publish(message);
-        pub_occ.publish(occ_message);
-        rate.sleep();    
-    }
+    //     pub.publish(message);
+    //     pub_occ.publish(occ_message);
+    //     rate.sleep();    
+    // }
 
     return 0;
 }

@@ -48,13 +48,36 @@ RM = /usr/bin/cmake -E remove -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/dabinkim/code/informative-path-planning/src/grid_map_ipp
+CMAKE_SOURCE_DIR = /home/dabinkim/code/informative_ws/src/informative-path-planning/src/grid_map_ipp
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/dabinkim/code/informative-path-planning/src/grid_map_ipp/build
+CMAKE_BINARY_DIR = /home/dabinkim/code/informative_ws/src/informative-path-planning/src/grid_map_ipp/build
 
 #=============================================================================
 # Targets provided globally by CMake.
+
+# Special rule for the target install/strip
+install/strip: preinstall
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing the project stripped..."
+	/usr/bin/cmake -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
+.PHONY : install/strip
+
+# Special rule for the target install/strip
+install/strip/fast: preinstall/fast
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing the project stripped..."
+	/usr/bin/cmake -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
+.PHONY : install/strip/fast
+
+# Special rule for the target edit_cache
+edit_cache:
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake cache editor..."
+	/usr/bin/ccmake -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
+.PHONY : edit_cache
+
+# Special rule for the target edit_cache
+edit_cache/fast: edit_cache
+
+.PHONY : edit_cache/fast
 
 # Special rule for the target rebuild_cache
 rebuild_cache:
@@ -67,22 +90,45 @@ rebuild_cache/fast: rebuild_cache
 
 .PHONY : rebuild_cache/fast
 
-# Special rule for the target edit_cache
-edit_cache:
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "No interactive CMake dialog available..."
-	/usr/bin/cmake -E echo No\ interactive\ CMake\ dialog\ available.
-.PHONY : edit_cache
+# Special rule for the target list_install_components
+list_install_components:
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Available install components are: \"Unspecified\""
+.PHONY : list_install_components
 
-# Special rule for the target edit_cache
-edit_cache/fast: edit_cache
+# Special rule for the target list_install_components
+list_install_components/fast: list_install_components
 
-.PHONY : edit_cache/fast
+.PHONY : list_install_components/fast
+
+# Special rule for the target install/local
+install/local: preinstall
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing only the local directory..."
+	/usr/bin/cmake -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
+.PHONY : install/local
+
+# Special rule for the target install/local
+install/local/fast: preinstall/fast
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing only the local directory..."
+	/usr/bin/cmake -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
+.PHONY : install/local/fast
+
+# Special rule for the target install
+install: preinstall
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Install the project..."
+	/usr/bin/cmake -P cmake_install.cmake
+.PHONY : install
+
+# Special rule for the target install
+install/fast: preinstall/fast
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Install the project..."
+	/usr/bin/cmake -P cmake_install.cmake
+.PHONY : install/fast
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/dabinkim/code/informative-path-planning/src/grid_map_ipp/build/CMakeFiles /home/dabinkim/code/informative-path-planning/src/grid_map_ipp/build/CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/dabinkim/code/informative_ws/src/informative-path-planning/src/grid_map_ipp/build/CMakeFiles /home/dabinkim/code/informative_ws/src/informative-path-planning/src/grid_map_ipp/build/CMakeFiles/progress.marks
 	$(MAKE) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/dabinkim/code/informative-path-planning/src/grid_map_ipp/build/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/dabinkim/code/informative_ws/src/informative-path-planning/src/grid_map_ipp/build/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -111,44 +157,71 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named test_grid_map
+# Target rules for targets named grid_map_ipp
 
 # Build rule for target.
-test_grid_map: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 test_grid_map
-.PHONY : test_grid_map
+grid_map_ipp: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 grid_map_ipp
+.PHONY : grid_map_ipp
 
 # fast build rule for target.
-test_grid_map/fast:
-	$(MAKE) -f CMakeFiles/test_grid_map.dir/build.make CMakeFiles/test_grid_map.dir/build
-.PHONY : test_grid_map/fast
+grid_map_ipp/fast:
+	$(MAKE) -f CMakeFiles/grid_map_ipp.dir/build.make CMakeFiles/grid_map_ipp.dir/build
+.PHONY : grid_map_ipp/fast
 
-src/gt_map.o: src/gt_map.cpp.o
+src/ObstacleGridConverter.o: src/ObstacleGridConverter.cpp.o
 
-.PHONY : src/gt_map.o
+.PHONY : src/ObstacleGridConverter.o
 
 # target to build an object file
-src/gt_map.cpp.o:
-	$(MAKE) -f CMakeFiles/test_grid_map.dir/build.make CMakeFiles/test_grid_map.dir/src/gt_map.cpp.o
-.PHONY : src/gt_map.cpp.o
+src/ObstacleGridConverter.cpp.o:
+	$(MAKE) -f CMakeFiles/grid_map_ipp.dir/build.make CMakeFiles/grid_map_ipp.dir/src/ObstacleGridConverter.cpp.o
+.PHONY : src/ObstacleGridConverter.cpp.o
 
-src/gt_map.i: src/gt_map.cpp.i
+src/ObstacleGridConverter.i: src/ObstacleGridConverter.cpp.i
 
-.PHONY : src/gt_map.i
+.PHONY : src/ObstacleGridConverter.i
 
 # target to preprocess a source file
-src/gt_map.cpp.i:
-	$(MAKE) -f CMakeFiles/test_grid_map.dir/build.make CMakeFiles/test_grid_map.dir/src/gt_map.cpp.i
-.PHONY : src/gt_map.cpp.i
+src/ObstacleGridConverter.cpp.i:
+	$(MAKE) -f CMakeFiles/grid_map_ipp.dir/build.make CMakeFiles/grid_map_ipp.dir/src/ObstacleGridConverter.cpp.i
+.PHONY : src/ObstacleGridConverter.cpp.i
 
-src/gt_map.s: src/gt_map.cpp.s
+src/ObstacleGridConverter.s: src/ObstacleGridConverter.cpp.s
 
-.PHONY : src/gt_map.s
+.PHONY : src/ObstacleGridConverter.s
 
 # target to generate assembly for a file
-src/gt_map.cpp.s:
-	$(MAKE) -f CMakeFiles/test_grid_map.dir/build.make CMakeFiles/test_grid_map.dir/src/gt_map.cpp.s
-.PHONY : src/gt_map.cpp.s
+src/ObstacleGridConverter.cpp.s:
+	$(MAKE) -f CMakeFiles/grid_map_ipp.dir/build.make CMakeFiles/grid_map_ipp.dir/src/ObstacleGridConverter.cpp.s
+.PHONY : src/ObstacleGridConverter.cpp.s
+
+src/grid_map_ipp.o: src/grid_map_ipp.cpp.o
+
+.PHONY : src/grid_map_ipp.o
+
+# target to build an object file
+src/grid_map_ipp.cpp.o:
+	$(MAKE) -f CMakeFiles/grid_map_ipp.dir/build.make CMakeFiles/grid_map_ipp.dir/src/grid_map_ipp.cpp.o
+.PHONY : src/grid_map_ipp.cpp.o
+
+src/grid_map_ipp.i: src/grid_map_ipp.cpp.i
+
+.PHONY : src/grid_map_ipp.i
+
+# target to preprocess a source file
+src/grid_map_ipp.cpp.i:
+	$(MAKE) -f CMakeFiles/grid_map_ipp.dir/build.make CMakeFiles/grid_map_ipp.dir/src/grid_map_ipp.cpp.i
+.PHONY : src/grid_map_ipp.cpp.i
+
+src/grid_map_ipp.s: src/grid_map_ipp.cpp.s
+
+.PHONY : src/grid_map_ipp.s
+
+# target to generate assembly for a file
+src/grid_map_ipp.cpp.s:
+	$(MAKE) -f CMakeFiles/grid_map_ipp.dir/build.make CMakeFiles/grid_map_ipp.dir/src/grid_map_ipp.cpp.s
+.PHONY : src/grid_map_ipp.cpp.s
 
 # Help Target
 help:
@@ -156,12 +229,19 @@ help:
 	@echo "... all (the default if no target is provided)"
 	@echo "... clean"
 	@echo "... depend"
-	@echo "... rebuild_cache"
-	@echo "... test_grid_map"
+	@echo "... install/strip"
 	@echo "... edit_cache"
-	@echo "... src/gt_map.o"
-	@echo "... src/gt_map.i"
-	@echo "... src/gt_map.s"
+	@echo "... rebuild_cache"
+	@echo "... list_install_components"
+	@echo "... grid_map_ipp"
+	@echo "... install/local"
+	@echo "... install"
+	@echo "... src/ObstacleGridConverter.o"
+	@echo "... src/ObstacleGridConverter.i"
+	@echo "... src/ObstacleGridConverter.s"
+	@echo "... src/grid_map_ipp.o"
+	@echo "... src/grid_map_ipp.i"
+	@echo "... src/grid_map_ipp.s"
 .PHONY : help
 
 

@@ -1,4 +1,4 @@
-#include <include/grid_map_ipp.hpp>
+#include <grid_map_ipp/grid_map_ipp.hpp>
 #include <Eigen/Dense>
 
 namespace RayTracer{
@@ -10,7 +10,7 @@ namespace RayTracer{
         vector<string>& x = name;
         grid_map::GridMap map(x);
 
-        grid_map::Length len(100.0, 100.0);
+        grid_map::Length len(map_size_x_, map_size_y_);
         // len.x = 100.0; len.y = 100.0;
         grid_map::Position zero(0.0, 0.0); //Zero Position of belief grid
         // zero.x = 0.0; zero.y = 0.0;
@@ -125,6 +125,5 @@ namespace RayTracer{
         // for (grid_map::GridMapIterator iterator(gt_map_); !iterator.isPastEnd(); ++iterator) {
         //     cout << "The value at index " << (*iterator).transpose() << " is " << gt_map_.at("layer", *iterator) << endl;
         // }
-
     }
 }
