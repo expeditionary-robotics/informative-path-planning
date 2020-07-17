@@ -11,6 +11,9 @@ namespace grid_map
 
         grid_map::GridMap gt_map(name);
         gt_map.setFrameId("map");
+        cout << map_size_x_ << endl;
+        cout << map_size_y_ << endl;
+        
         gt_map.setGeometry(Length(map_size_x_, map_size_y_), 1.00);
         gt_map.add("base", 0.0); //Set all values to zero.
 
@@ -18,6 +21,7 @@ namespace grid_map
         for (GridMapIterator it(gt_map); !it.isPastEnd(); ++it){
             Position position;
             gt_map.getPosition(*it, position);
+            // cout << position.x() << endl;
             double x = position.x() + map_size_x_/2.0; 
             double y = position.y() + map_size_y_/2.0;
             bool is_obs = false;
@@ -35,6 +39,7 @@ namespace grid_map
                 gt_map.at("base", *it) = 1.0; //Obstacle
             }
         }
+        return gt_map;
     } 
     
     nav_msgs::OccupancyGrid ObstacleGridConverter::OccupancyGridConverter()

@@ -1,3 +1,6 @@
+#ifndef OBSTACLEGRIDCONVERTER
+#define OBSTACLEGRIDCONVERTER
+
 #include <Eigen/Core>
 #include "grid_map_core/GridMap.hpp"
 #include "grid_map_ros/grid_map_ros.hpp"
@@ -29,3 +32,6 @@ namespace grid_map
         
     };
 }
+
+
+#endif

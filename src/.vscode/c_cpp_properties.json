@@ -1,0 +1,21 @@
+{
+    "configurations": [
+        {
+            "browse": {
+                "databaseFilename": "",
+                "limitSymbolsToIncludedHeaders": true
+            },
+            "includePath": [
+                "/opt/ros/melodic/include/**",
+                "/home/dabinkim/code/informative_ws/src/informative-path-planning/src/grid_map_ipp/include/**",
+                "/usr/include/**"
+            ],
+            "name": "ROS",
+            "intelliSenseMode": "gcc-x64",
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "gnu11",
+            "cppStandard": "gnu++14"
+        }
+    ],
+    "version": 4
+}

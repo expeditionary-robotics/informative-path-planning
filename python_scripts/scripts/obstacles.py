@@ -30,7 +30,10 @@ class BlockWorld():
 
 	def __init__(self, extent, num_blocks=1, dim_blocks=(2.,2.), centers=None):
 		'''
-		Input: extent (list of floats, range of the environment); num_blocks (int, number of blocks to generate in the world), dim_blocks (tuple of floats, size of the obstacle to be created), centers (tuple of list of tuples of floats, locations to place bocks; if none, they will be placed randomly)
+		Input: extent (list of floats, range of the environment); 
+		       num_blocks (int, number of blocks to generate in the world), 
+			   dim_blocks (tuple of floats, size of the obstacle to be created), 
+			   centers (tuple of list of tuples of floats, locations to place bocks; if none, they will be placed randomly)
 		'''
 
 		self.extent = extent

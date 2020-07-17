@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<launch>
+    <node name="test_lidar" pkg="grid_map_ipp" type="test_lidar" output="screen"/>
+    <node name="rviz" pkg="rviz" type ="rviz" output="screen"/>
+</launch>

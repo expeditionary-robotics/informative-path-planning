@@ -1,20 +1,21 @@
 <?xml version="1.0"?>
 <package>
-  <name>test_grid_map</name>
+  <name>grid_map_ipp</name>
   <version>1.0.0</version>
-  <description>The Autonomous Exploration Planner package</description>
+  <description>Grid map building package for Informative Path Planning</description>
 
-  <maintainer email="magse761@student.liu.se">Magnus Selin</maintainer>
+  <maintainer email="dabin404@snu.ac.kr">Dabin Kim</maintainer>
 
   <license>BSD-3-Clause</license>
 
-  <author>Magnus Selin</author>
+  <author>Dabin Kim</author>
 
   <buildtool_depend>catkin</buildtool_depend>
   
   <build_depend>roscpp</build_depend>
   <build_depend>grid_map_ros</build_depend>
   <build_depend>grid_map_msgs</build_depend>
+  <!-- <build_depend>grid_map_sdf</build_depend> -->
   <build_depend>geometry_msgs</build_depend>
   <build_depend>nav_msgs</build_depend>
   <build_depend>visualization_msgs</build_depend>
@@ -22,11 +23,12 @@
   <run_depend>roscpp</run_depend>
   <run_depend>grid_map_ros</run_depend>
   <run_depend>grid_map_msgs</run_depend>
+  <!-- <run_depend>grid_map_sdf</run_depend> -->
   <run_depend>geometry_msgs</run_depend>
   <run_depend>nav_msgs</run_depend>
   <run_depend>visualization_msgs</run_depend>
 
-  <export>
+  <!-- <export>
     <nodelet plugin="${prefix}/nodelet_plugins.xml" />
-  </export>
+  </export> -->
 </package>

@@ -30,13 +30,24 @@ from Path_Generator import *
 from Robot import *
 
 class Planning_Result():
-    def __init__(self, planning_type, world, obstacle_world, evaluation, reward_function, ranges, start_loc, input_limit, sample_number, time_step, display, gradient_on, gradient_step, iteration):
+    def __init__(self, planning_type, world, obstacle_world, evaluation, reward_function, ranges, start_loc, 
+                 input_limit, sample_number, time_step, grid_map, lidar, display, gradient_on, gradient_step, iteration):
         self.iteration = iteration
         self.type = planning_type
         self.world = world
         self.obstacle_world = obstacle_world
         self.evaluation = evaluation
         self.reward_function = reward_function
+
+        if grid_map is not None:
+            self.grid_map = grid_map
+        else:
+            self.grid_map = None
+        
+        if lidar is not None:
+            self.lidar = lidar
+        else:
+            self.lidar = None
 
         if(planning_type=='coverage'):
             self.coverage_planning(ranges, start_loc, time_step)
@@ -85,8 +96,15 @@ class Planning_Result():
                         evaluation = self.evaluation, 
                         f_rew = self.reward_function,
                         computation_budget = 1.0,
-                        rollout_length = 3, input_limit=input_limit_, sample_number=sample_number_,
-                        step_time = 5.0, is_save_fig=display, gradient_on= gradient_on, grad_step = gradient_step)
+                        rollout_length = 3, 
+                        input_limit=input_limit_, 
+                        sample_number=sample_number_,
+                        step_time = 5.0,
+                        grid_map = self.grid_map,
+                        lidar = self.lidar,
+                        is_save_fig=display, 
+                        gradient_on= gradient_on, 
+                        grad_step = gradient_step)
 
         robot.nonmyopic_planner(T = time_step)
         # robot.visualize_world_model()

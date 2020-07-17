@@ -22,6 +22,7 @@ from Evaluation import *
 from GPModel import *
 from MCTS import *
 import Path_Generator as pg
+import grid_map_ipp_module as grid 
 
 class Robot:
     '''The Robot class, which includes the vehicles current model of the world, path set represetnation, and
@@ -42,7 +43,8 @@ class Robot:
     def __init__(self, sample_world, obstacle_world, start_loc = (0.0, 0.0, 0.0), ranges = (-10., 10., -10., 10.), kernel_file = None, 
             kernel_dataset = None, prior_dataset = None, init_lengthscale = 10.0, init_variance = 100.0, noise = 0.05, 
             path_generator = 'default', frontier_size = 6, horizon_length = 5, turning_radius = 1, sample_step = 0.5, 
-            evaluation = None, f_rew = 'mean'):
+            evaluation = None , f_rew = 'mean', computation_budget = 60, rollout_length = 6, input_limit = [0.0, 10.0, -30.0, 30.0],
+             sample_number= 10, step_time = 5.0, grid_map = None, lidar = None, is_save_fig = False, gradient_on = False, grad_step = 0.05):
         ''' Initialize the robot class with a GP model, initial location, path sets, and prior dataset'''
         self.ranges = ranges
         self.eval = evaluation
@@ -80,7 +82,18 @@ class Robot:
         # Incorporate the prior dataset into the model
         if prior_dataset is not None:
             self.GP.set_data(prior_dataset[0], prior_dataset[1]) 
+
+        # Ego vehicle's Grid Map
+        if grid_map is not None:
+            self.grid_map = grid_map
         
+        #Lidar sensor class 
+        if lidar is not None:
+            self.lidar = lidar
+            self.is_lidar = True
+        else:
+            self.is_lidar = False
+
         # The path generation class for the robot
         path_options = {'default':Path_Generator(frontier_size, horizon_length, turning_radius, sample_step, ranges),
                         'dubins': Dubins_Path_Generator(frontier_size, horizon_length, turning_radius, sample_step, ranges),
@@ -212,8 +225,9 @@ class Nonmyopic_Robot(Robot):
             kernel_dataset = None, prior_dataset = None, init_lengthscale = 10.0, init_variance = 100.0, noise = 0.05, 
             path_generator = 'default', frontier_size = 6, horizon_length = 5, turning_radius = 1, sample_step = 0.5, 
             evaluation = None , f_rew = 'mean', computation_budget = 60, rollout_length = 6, input_limit = [0.0, 10.0, -30.0, 30.0],
-             sample_number= 10, step_time = 5.0, is_save_fig = False, gradient_on = False, grad_step = 0.05):
+             sample_number= 10, step_time = 5.0, grid_map = None, lidar = None, is_save_fig = False, gradient_on = False, grad_step = 0.05):
         ''' Initialize the robot class with a GP model, initial location, path sets, and prior dataset'''
+
         self.ranges = ranges
         self.eval = evaluation
         self.loc = start_loc # Initial location of the robot      
@@ -260,6 +274,17 @@ class Nonmyopic_Robot(Robot):
         if prior_dataset is not None:
             self.GP.set_data(prior_dataset[0], prior_dataset[1]) 
         
+        # Ego vehicle's Grid Map
+        if grid_map is not None:
+            self.grid_map = grid_map
+        
+        #Lidar sensor class 
+        if lidar is not None:
+            self.lidar = lidar
+            self.is_lidar = True
+        else:
+            self.is_lidar = False
+
         # The path generation class for the robot
         path_options = {'default':pg.Path_Generator(frontier_size, horizon_length, turning_radius, sample_step, ranges),
                         'dubins': pg.Dubins_Path_Generator(frontier_size, horizon_length, turning_radius, sample_step, ranges),
@@ -296,6 +321,7 @@ class Nonmyopic_Robot(Robot):
             
             self.eval.update_metrics(t, self.GP, free_paths, best_path) 
             self.collect_observations(xlocs)
+            self.collect_lidar_observations(xlocs)
             self.trajectory.append(best_path)
 
             if(self.save_fig == True):
@@ -310,14 +336,31 @@ class Nonmyopic_Robot(Robot):
             else:
                 self.loc = best_path[-1]
     
+    def collect_lidar_observations(self, xlocs):
+        ''' Gather lidar observations of the environment and updates the robot's belief grid map.
+        Input: 
+        * xobs (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2 '''
+
+        zobs = self.sample_world(xobs)       
+        self.GP.add_data(xobs, zobs)
+
     def collision_check(self, path_dict):
         free_paths = {}
+                    
         for key,path in path_dict.items():
             is_collision = 0
             for pt in path:
-                if(self.obstacle_World.in_obstacle(pt, 3.0)):
-                    is_collision = 1
-                    print("Collision Occured!")
+                if self.is_lidar:
+                    #Get occupancy prob. form current belief map 
+                    x, y = pt[0] - self.ranges[0]/2.0, pt[1] - self.ranges[2]/2.0 # (0,0) pt is Occupancy grid map's center
+                    occ_val = self.lidar.get_occ_value(x,y)
+                    if(occ_val > 0.15):
+                        is_collision = 1 
+                        print("Collision Occured!")
+                else:
+                    if(self.obstacle_World.in_obstacle(pt, 3.0)):
+                        is_collision = 1
+                        print("Collision Occured!")
             if(is_collision == 0):
                 free_paths[key] = path
         

@@ -1,7 +1,7 @@
 #include "grid_map_core/GridMap.hpp"
 #include "grid_map_ros/grid_map_ros.hpp"
 #include <grid_map_msgs/GridMap.h>
-#include <ObstacleGridConverter.hpp>
+#include <grid_map_ipp/ObstacleGridConverter.hpp>
 #include <nav_msgs/OccupancyGrid.h>
 #include <iostream>
 #include <Eigen/Dense>
@@ -36,56 +36,34 @@ int main(int argc, char** argv)
         Eigen::Array4d point((*iter).first - dim_x / 2.0, (*iter).second - dim_y / 2.0, (*iter).first + dim_x / 2.0, (*iter).second + dim_y / 2.0);
         obstacles.push_back(point);
     }
+    
 
+    grid_map::ObstacleGridConverter converter(100.0, 100.0, 5, obstacles);
+    grid_map::GridMap gt_map = converter.GridMapConverter();
 
-    // vector<string> name;
-    // name.push_back("base");
+    nav_msgs::OccupancyGrid occ_grid = converter.OccupancyGridConverter();
 
-    // grid_map::GridMap gt_map(name);
-    // gt_map.setFrameId("map");
-    // gt_map.setGeometry(Length(100.0, 100.0), 1.00);
-    // gt_map.add("base", 0.0);
-
-    // double buffer = 1.0;
-    // //Iteration and fill the obstacle region
-    // for (GridMapIterator it(gt_map); !it.isPastEnd(); ++it)
-    // {
-    //     Position position;
-    //     gt_map.getPosition(*it, position);
-    //     double x = position.x() + 50.0; 
-    //     double y = position.y() + 50.0;
-    //     bool is_obs = false;
-    //     //Check current pos. is inside any obstacles. If yes, it set the grid map value to 1.0
-    //     for (vector<Eigen::Array4d>::iterator iter=obstacles.begin(); iter!=obstacles.end(); iter++)
-    //     {
-    //         Eigen::Array4d size = (*iter);
-    //         if( x > size(0,0) - buffer && y >size(1,0) - buffer ){
-    //             if( x<size(2,0) + buffer && y < size(3,0) + buffer){
-    //                 is_obs = true;
-    //             }
-    //         }
-    //     }
-    //     if(is_obs)
-    //     {
-    //         gt_map.at("base", *it) = 1.0; //Obstacle
-    //     }
-    // }
 
     ros::init(argc, argv, "test_gt_map");
     ros::NodeHandle nh("");
     ros::Publisher pub = nh.advertise<grid_map_msgs::GridMap>("grid_map", 1, true);
     ros::Rate rate(30.0);
     ros::Publisher pub_occ = nh.advertise<nav_msgs::OccupancyGrid>("occu_grid", 1, true);
+
+    grid_map::Size size = gt_map.getSize();
+    cout<< size(0,0) << endl;
+
     while(nh.ok())
     {
         ros::Time time = ros::Time::now();
-        grid_map_msgs::GridMap message;
+        // grid_map_msgs::GridMap message;
         nav_msgs::OccupancyGrid occ_message;
-        GridMapRosConverter::toMessage(gt_map, message);
-        GridMapRosConverter::toOccupancyGrid(gt_map, "base", 0.0, 1.0, occ_message);
-
-        pub.publish(message);
-        pub_occ.publish(occ_message);
+        nav_msgs::OccupancyGrid &occ_m = occ_message;
+        
+        // GridMapRosConverter::toMessage(gt_map, message);
+        GridMapRosConverter::toOccupancyGrid(gt_map, "base", 0.0, 1.0, occ_m);
+        // pub.publish(message);
+        pub_occ.publish(occ_grid);
         rate.sleep();    
     }
 
