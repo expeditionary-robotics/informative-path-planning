@@ -3,6 +3,7 @@ import obstacles as obs
 import numpy as np
 import itertools as iter 
 import math 
+import os 
 
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -10,7 +11,7 @@ import matplotlib.colors as mcolors
 import matplotlib.collections as mcoll
 
 class visualization():
-    def __init__(self, mapsize, resol, lidar_belief):
+    def __init__(self, mapsize, resol, lidar_belief, save):
         '''
         - mapsize : Axis length of the map (m)
         - resol : Resolution of grid 
@@ -18,10 +19,18 @@ class visualization():
         '''
         self.mapsize = mapsize
         self.resol = resol
-        self.lidar = lidar_belief  
-    def visualization(self):
+        self.lidar = lidar_belief 
+        self.save = save #Bool value
+
+    def visualization(self, t):
         data = self.iterator()
-        self.show(data)
+        fig = self.show(data)
+
+        if self.save:
+            if not os.path.exists('../figures/nonmyopic/GridMap'):
+                os.makedirs('../figures/nonmyopic/GridMap')
+            fig.savefig('../figures/nonmyopic/GridMap/' + str(t) + '_gridmap.png')
+
 
     def iterator(self):
         num_idx = math.floor(self.mapsize/ self.resol) 
@@ -29,32 +38,34 @@ class visualization():
         # print(type(num_idx))
         for i in range(int(num_idx)):
             for j in range(int(num_idx)):
-                x = self.resol/2.0 + i * self.resol - self.mapsize/2.0 #Center position of each grid 
-                y = self.resol/2.0 + j * self.resol - self.mapsize/2.0
-                print(x,y)
+                x = self.resol/2.0 + i * self.resol 
+                y = self.resol/2.0 + j * self.resol
+
                 cur_val = self.lidar.get_occ_value(x, y)
                 if cur_val < 0.15:
-                    data[i,j] = 1.0
+                    data[j,i] = 1.0
                 elif cur_val > 0.85:
-                    data[i,j] = 0.0
+                    data[j,i] = 0.0
                 else:
-                    data[i,j] = 0.5
+                    data[j,i] = 0.5
                 
                 # print(data[i,j])
         return data 
 
     def show(self, data):
-        print(data)
         fig, ax = plt.subplots()
         cmap = mcolors.ListedColormap(['white', 'gray', 'black'])
         # bounds = [0.0, 1.0, 0.5]
         # norm = mcolors.BoundaryNorm(bounds, cmap.N)
-        im = ax.imshow(data, cmap="gray", vmin=0, vmax=1)
+        im = ax.imshow(data, cmap="gray", vmin=0, vmax=1, origin="lower")
         grid = np.arange(-self.resol/2.0, self.mapsize+1, self.resol)
         xmin, xmax, ymin, ymax = -self.resol/2.0, self.mapsize + self.resol/2.0, -self.resol/2.0, self.mapsize + self.resol/2.0
 
-        plt.show()
+        # plt.show()
+        return fig
         
+
+
 
         
 

@@ -103,7 +103,9 @@ namespace RayTracer{
             
             double get_occ_value(double x, double y)
             {
-                grid_map::Position pos(x,y);
+                Eigen::Vector2d pos_euc(x,y);
+                Eigen::Vector2d pos_grid = euc_to_gridref(pos_euc);
+                grid_map::Position pos(pos_grid(0), pos_grid(1));
                 // pos << x, y;
                 grid_map::Index idx;
                 belief_map_.getIndex(pos, idx);
@@ -113,6 +115,7 @@ namespace RayTracer{
             grid_map::GridMap get_belief_map(){
                 return belief_map_;
             }
+            Eigen::Vector2d euc_to_gridref(Eigen::Vector2d pos);
     };
 
 }

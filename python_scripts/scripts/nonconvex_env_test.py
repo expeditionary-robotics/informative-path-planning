@@ -4,6 +4,7 @@ import matplotlib
 from obstacles import *
 from continuous import *
 
+
 if __name__ == "__main__":
     range_max = 100.0
     ranges = (0., range_max, 0., range_max)

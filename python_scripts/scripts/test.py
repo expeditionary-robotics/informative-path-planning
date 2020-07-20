@@ -18,8 +18,8 @@ if __name__ == "__main__":
     ### Map size & Obstacles
     map_max = 100.0
     ranges = (0.0, map_max, 0.0, map_max)
-
-    block_size = 5.0
+    
+    block_size = 10.0
     center1 = (10.0, 20.0)
     center2 = 50.0, 30.0
     center3 = 60.0, 80.0
@@ -71,7 +71,7 @@ if __name__ == "__main__":
     2) Lidar sensor construction 
     '''
     start_loc = (0.5, 0.5, 0.0)
-    time_step = 150
+    time_step = 500
 
     cur_x = 1.0
     cur_y = 1.0
@@ -84,7 +84,7 @@ if __name__ == "__main__":
     '''
     Planning Setup 
     '''
-    display = False
+    display = True
     gradient_on = True
 
     gradient_step_list = [0.0, 0.05, 0.1, 0.15, 0.20]
@@ -98,12 +98,10 @@ if __name__ == "__main__":
                                grid_map, lidar, display, gradient_on, gradient_step, iteration)
 
 
-    
-
     sdf_map = grid.GridMap_SDF(1.0, map_max, map_max, 5, np_centers)
     sdf_map.generate_SDF("base")
     
     
-    visual = vis.visualization(map_max, 1.0, lidar)
-    # visual.show(data)
-    visual.visualization()
+    # visual = vis.visualization(map_max, 1.0, lidar)
+    # # visual.show(data)
+    # visual.visualization()

@@ -101,7 +101,7 @@ class Evaluation:
         #assert(value_max - value_selected >= 0)
         return value_max - value_selected
         
-    def MSE(self, robot_model, NTEST = 10):
+    def MSE(self, robot_model, NTEST = 100):
         ''' Compute the MSE on a set of test points, randomly distributed throughout the environment'''
         np.random.seed(0)
         x1 = np.random.random_sample((NTEST, 1)) * (self.world.x1max - self.world.x1min) + self.world.x1min
@@ -160,20 +160,20 @@ class Evaluation:
         UCB = np.cumsum(np.array(self.metrics['aquisition_function'].values()))
         
 
-        if not os.path.exists('./figures/gradient/' + str(self.reward_function)):
-            os.makedirs('./figures/gradient/' + str(self.reward_function))
+        if not os.path.exists('./result/' + str(self.reward_function)):
+            os.makedirs('./result/' + str(self.reward_function))
         ''' Save the relevent metrics as csv files '''
-        np.savetxt('./figures/gradient/' + self.reward_function + '/metrics_grad_step_' + str(grad_step)+ ' range_max_' + str(range_max) \
+        np.savetxt('./result/' + self.reward_function + '/metrics_grad_step_' + str(grad_step)+ 'range_max_' + str(range_max) \
             + ' iter_' + str(iteration) +'_time' + '.txt', time.T, fmt='%s')
-        np.savetxt('./figures/gradient/' + self.reward_function + '/metrics_grad_step_' + str(grad_step)+ ' range_max_' + str(range_max) \
+        np.savetxt('./result/' + self.reward_function + '/metrics_grad_step_' + str(grad_step)+ 'range_max_' + str(range_max) \
             + ' iter_' + str(iteration) +'_info_gain' + '.txt', info_gain.T, fmt='%s')
-        np.savetxt('./figures/gradient/' + self.reward_function + '/metrics_grad_step_' + str(grad_step)+ ' range_max_' + str(range_max) \
+        np.savetxt('./result/' + self.reward_function + '/metrics_grad_step_' + str(grad_step)+ 'range_max_' + str(range_max) \
             + ' iter_' + str(iteration) +'_MSE' + '.txt', MSE.T, fmt='%s')
-        np.savetxt('./figures/gradient/' + self.reward_function + '/metrics_grad_step_' + str(grad_step)+ ' range_max_' + str(range_max) \
+        np.savetxt('./result/' + self.reward_function + '/metrics_grad_step_' + str(grad_step)+ 'range_max_' + str(range_max) \
             + ' iter_' + str(iteration) +'_hotspot_info' + '.txt', hotspot_info.T, fmt='%s')
-        np.savetxt('./figures/gradient/' + self.reward_function + '/metrics_grad_step_' + str(grad_step)+ ' range_max_' + str(range_max) \
+        np.savetxt('./result/' + self.reward_function + '/metrics_grad_step_' + str(grad_step)+ 'range_max_' + str(range_max) \
             + ' iter_' + str(iteration) +'_UCB' + '.txt', UCB.T, fmt='%s')
-        np.savetxt('./figures/gradient/' + self.reward_function + '/metrics_grad_step_' + str(grad_step)+ ' range_max_' + str(range_max) \
+        np.savetxt('./result/' + self.reward_function + '/metrics_grad_step_' + str(grad_step)+ 'range_max_' + str(range_max) \
             + ' iter_' + str(iteration) +'_mean' + '.txt', mean.T, fmt='%s')
 # , info_gain.T, MSE.T, hotspot_info.T,UCB.T, regret.T, mean.T )
         # for i in range(0, self.num_stars):

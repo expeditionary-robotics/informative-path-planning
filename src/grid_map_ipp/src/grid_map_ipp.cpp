@@ -4,14 +4,35 @@
 
 namespace RayTracer{
 
-    void Lidar_sensor::get_measurement(Pose& cur_pos)
+    //Transform euclidean (x,y) position value to grid map reference frame
+    Eigen::Vector2d Lidar_sensor::euc_to_gridref(Eigen::Vector2d pos)
     {
-        grid_map::Position start_pos(cur_pos.x, cur_pos.y);
+        // cout << "WHAT?" << endl;
+        // pos(0) = pos(0) - map_size_x_/2.0;
+        // pos(1) = pos(1) - map_size_y_/2.0;
+        // cout << "WHAT2?" << endl;
+        //Rotation (-pi/2) w.r.t. z direction
+        Eigen::Vector2d grid_pos;
+        grid_pos(0) = pos(1) - map_size_x_ /2.0;
+        grid_pos(1) = -1.0*pos(0) + map_size_y_ /2.0;
+        // cout << "WHAT3?" << grid_pos(0) << " " << grid_pos(1) << endl;
+        return grid_pos;
+    }
+    
+    void Lidar_sensor::get_measurement(Pose& cur_pos)
+    {   /**
+        cur_pos : Eucliden reference frame
+        start_pos, end_pos : GridMap frame
+        **/
+
+        grid_map::Position pre_transform_pos(cur_pos.x, cur_pos.y);
+        grid_map::Position start_pos = euc_to_gridref(pre_transform_pos);
+        cout << start_pos(0) << " " << start_pos(1) << endl;
         grid_map::Index startIndex;
         belief_map_.getIndex(start_pos, startIndex);
         cout << startIndex(0) << " " << startIndex(1) << endl;
 
-        cout << "X " << cur_pos.x << " Y " << cur_pos.y << endl;
+        // cout << "X " << cur_pos.x << " Y " << cur_pos.y << endl;
         vector<grid_map::Index> lidar_free_vec; //Free voxels
         vector<grid_map::Index> lidar_collision_vec; //Occupied voxels
         lidar_free_vec.clear();
@@ -23,7 +44,23 @@ namespace RayTracer{
             double angle = cur_pos.yaw + angle_resol_ * i;
             double end_pos_x = cur_pos.x + range_max_ * cos(angle);
             double end_pos_y = cur_pos.y + range_max_ * sin(angle);
-            grid_map::Position end_pos(end_pos_x, end_pos_y);
+
+            //Make sure each ray stays in environment range. 
+            if(end_pos_x <0.0){
+                end_pos_x = 0.1;
+            }
+            if(end_pos_x >= map_size_x_){
+                end_pos_x = map_size_x_ - 0.5;
+            }
+            if(end_pos_y < 0.0){
+                end_pos_y = 0.1;
+            }
+            if(end_pos_y >= map_size_y_){
+                end_pos_y = map_size_y_ - 0.5;
+            }
+
+            grid_map::Position pre_transform_pos(end_pos_x, end_pos_y);
+            grid_map::Position end_pos(euc_to_gridref(pre_transform_pos));
             pair< vector<grid_map::Index>, bool> idx = gen_single_ray(start_pos, end_pos); //Return free voxel index & true: Occupied voxel
                                                                                            //                          false: no Occupied voxel
 

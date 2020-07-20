@@ -23,6 +23,8 @@ from GPModel import *
 from MCTS import *
 import Path_Generator as pg
 import grid_map_ipp_module as grid 
+import vis_grid_map as vis 
+
 
 class Robot:
     '''The Robot class, which includes the vehicles current model of the world, path set represetnation, and
@@ -321,9 +323,14 @@ class Nonmyopic_Robot(Robot):
             
             self.eval.update_metrics(t, self.GP, free_paths, best_path) 
             self.collect_observations(xlocs)
+            print("Prev.")
             self.collect_lidar_observations(xlocs)
             self.trajectory.append(best_path)
 
+            visual = vis.visualization(self.ranges[1], 1.0, self.lidar, True)
+            # visual.show(data)
+            visual.visualization(t)
+            
             if(self.save_fig == True):
                 self.save_figure(t)
 
@@ -336,13 +343,16 @@ class Nonmyopic_Robot(Robot):
             else:
                 self.loc = best_path[-1]
     
-    def collect_lidar_observations(self, xlocs):
+    def collect_lidar_observations(self, xobs):
         ''' Gather lidar observations of the environment and updates the robot's belief grid map.
         Input: 
         * xobs (float array): an nparray of floats representing observation locations, with dimension NUM_PTS x 2 '''
-
-        zobs = self.sample_world(xobs)       
-        self.GP.add_data(xobs, zobs)
+        for pt in xobs:
+            x = pt[0]
+            y = pt[1]
+            yaw = 0.0
+            pose = grid.Pose(x, y, yaw)
+            self.lidar.get_measurement(pose)
 
     def collision_check(self, path_dict):
         free_paths = {}
@@ -385,7 +395,10 @@ class Nonmyopic_Robot(Robot):
             x,y = obs.exterior.xy
             ax.plot(x,y)
         
+        if not os.path.exists('../figures/nonmyopic/GP'):
+            os.makedirs('../figures/nonmyopic/GP')
+
         if rob_mod.xvals is not None:
             scatter = ax.scatter(rob_mod.xvals[:, 0], rob_mod.xvals[:, 1], c='k', s = 20.0, cmap = 'viridis')
-            fig.savefig('./figures/nonmyopic/' + str(t) + '.png')
+            fig.savefig('../figures/nonmyopic/GP/' + str(t) + '.png')
         plt.close()

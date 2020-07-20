@@ -4,6 +4,22 @@ using namespace std;
 
 namespace grid_map
 {
+    Eigen::Vector2d ObstacleGridConverter::euc_to_gridref(Eigen::Vector2d pos)
+    {
+        Eigen::Vector2d grid_pos;
+        grid_pos(0) = pos(1) - map_size_y_ /2.0;
+        grid_pos(1) = -1.0*pos(0) + map_size_x_ /2.0;
+        return grid_pos;
+    }
+
+    Eigen::Vector2d ObstacleGridConverter::gridref_to_euc(Eigen::Vector2d pos)
+    {
+        Eigen::Vector2d euc_pos;
+        euc_pos(0) = -pos(1) + map_size_x_ /2.0;
+        euc_pos(1) = pos(0) + map_size_y_ /2.0;
+        return euc_pos;
+    }
+
     grid_map::GridMap ObstacleGridConverter::GridMapConverter()
     {
         vector<string> name;
@@ -14,7 +30,7 @@ namespace grid_map
         cout << map_size_x_ << endl;
         cout << map_size_y_ << endl;
         
-        gt_map.setGeometry(Length(map_size_x_, map_size_y_), 1.00);
+        gt_map.setGeometry(Length(map_size_y_, map_size_x_), 1.00);
         gt_map.add("base", 0.0); //Set all values to zero.
 
         double buffer = 1.0;
@@ -22,8 +38,11 @@ namespace grid_map
             Position position;
             gt_map.getPosition(*it, position);
             // cout << position.x() << endl;
-            double x = position.x() + map_size_x_/2.0; 
-            double y = position.y() + map_size_y_/2.0;
+            Eigen::Vector2d gridref_pos(position.x(), position.y());
+            // double x = position.x() + map_size_x_/2.0; 
+            // double y = position.y() + map_size_y_/2.0;
+            Eigen::Vector2d euc_pos = gridref_to_euc(gridref_pos);
+            double x = euc_pos(0);  double y = euc_pos(1);
             bool is_obs = false;
 
             //Check current pos. is inside any obstacles. If yes, it set the grid map value to 1.0
