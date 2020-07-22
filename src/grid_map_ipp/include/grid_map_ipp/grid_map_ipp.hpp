@@ -92,7 +92,7 @@ namespace RayTracer{
                 // cout << belief_map_.getLayers().at(0) << endl;
 
                 grid_map::Length size; size = map.getLength();
-                cout << "size " << size(0) << " " << size(1) << endl;
+                // cout << "size " << size(0) << " " << size(1) << endl;
                 return map;
             }
 

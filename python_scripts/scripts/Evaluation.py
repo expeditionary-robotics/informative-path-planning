@@ -110,7 +110,6 @@ class Evaluation:
         
         pred_world, var_world = self.world.GP.predict_value(data)
         pred_robot, var_robot = robot_model.predict_value(data)      
-        
         return ((pred_world - pred_robot) ** 2).mean()
     
     def update_metrics(self, t, robot_model, all_paths, selected_path):
@@ -127,7 +126,7 @@ class Evaluation:
         self.metrics['hotspot_info_reward'][t] = self.hotspot_info_reward(t, selected_path, robot_model)
         self.metrics['mes_reward_robot'][t] = aqlib.mves(t, selected_path, robot_model, [None])
         # Compute other performance metrics
-        self.metrics['MSE'][t] = self.MSE(robot_model, NTEST = 25)
+        self.metrics['MSE'][t] = self.MSE(robot_model, NTEST = 100)
         # self.metrics['instant_regret'][t] = self.inst_regret(t, all_paths, selected_path, robot_model)
     
     def save_metric(self):
@@ -142,8 +141,9 @@ class Evaluation:
         ''' Metrics that the robot can compute online '''
         info_gain = np.cumsum(np.array(self.metrics['info_gain_reward'].values()))        
         UCB = np.cumsum(np.array(self.metrics['aquisition_function'].values()))
+        mes_reward_robot = np.cumsum(np.array(self.metrics['mes_reward_robot'].values()))
         
-        return MSE, regret, mean, hotspot_info, info_gain, UCB
+        return MSE, regret, mean, hotspot_info, info_gain, UCB, mes_reward_robot
         
     def plot_metrics(self, iteration, range_max, grad_step):
         # Asumme that all metrics have the same time as MSE; not necessary
@@ -158,23 +158,26 @@ class Evaluation:
         ''' Metrics that the robot can compute online '''
         info_gain = np.cumsum(np.array(self.metrics['info_gain_reward'].values()))        
         UCB = np.cumsum(np.array(self.metrics['aquisition_function'].values()))
-        
+        mes_reward_robot = np.cumsum(np.array(self.metrics['mes_reward_robot'].values()))
 
         if not os.path.exists('./result/' + str(self.reward_function)):
             os.makedirs('./result/' + str(self.reward_function))
         ''' Save the relevent metrics as csv files '''
-        np.savetxt('./result/' + self.reward_function + '/metrics_grad_step_' + str(grad_step)+ 'range_max_' + str(range_max) \
+        np.savetxt('./result/' + self.reward_function + '/metrics_reward_' + str(self.reward_function)+ 'range_max_' + str(range_max) \
             + ' iter_' + str(iteration) +'_time' + '.txt', time.T, fmt='%s')
-        np.savetxt('./result/' + self.reward_function + '/metrics_grad_step_' + str(grad_step)+ 'range_max_' + str(range_max) \
+        np.savetxt('./result/' + self.reward_function + '/metrics_reward_' + str(self.reward_function)+ 'range_max_' + str(range_max) \
             + ' iter_' + str(iteration) +'_info_gain' + '.txt', info_gain.T, fmt='%s')
-        np.savetxt('./result/' + self.reward_function + '/metrics_grad_step_' + str(grad_step)+ 'range_max_' + str(range_max) \
+        np.savetxt('./result/' + self.reward_function + '/metrics_reward_' + str(self.reward_function)+ 'range_max_' + str(range_max) \
             + ' iter_' + str(iteration) +'_MSE' + '.txt', MSE.T, fmt='%s')
-        np.savetxt('./result/' + self.reward_function + '/metrics_grad_step_' + str(grad_step)+ 'range_max_' + str(range_max) \
+        np.savetxt('./result/' + self.reward_function + '/metrics_reward_' + str(self.reward_function)+ 'range_max_' + str(range_max) \
             + ' iter_' + str(iteration) +'_hotspot_info' + '.txt', hotspot_info.T, fmt='%s')
-        np.savetxt('./result/' + self.reward_function + '/metrics_grad_step_' + str(grad_step)+ 'range_max_' + str(range_max) \
+        np.savetxt('./result/' + self.reward_function + '/metrics_reward_' + str(self.reward_function)+ 'range_max_' + str(range_max) \
             + ' iter_' + str(iteration) +'_UCB' + '.txt', UCB.T, fmt='%s')
-        np.savetxt('./result/' + self.reward_function + '/metrics_grad_step_' + str(grad_step)+ 'range_max_' + str(range_max) \
+        np.savetxt('./result/' + self.reward_function + '/metrics_reward_' + str(self.reward_function)+ 'range_max_' + str(range_max) \
             + ' iter_' + str(iteration) +'_mean' + '.txt', mean.T, fmt='%s')
+        np.savetxt('./result/' + self.reward_function + '/metrics_reward_' + str(self.reward_function)+ 'range_max_' + str(range_max) \
+            + ' iter_' + str(iteration) +'_MVI' + '.txt', mes_reward_robot.T, fmt='%s')
+        
 # , info_gain.T, MSE.T, hotspot_info.T,UCB.T, regret.T, mean.T )
         # for i in range(0, self.num_stars):
         #     f = open('./figures/'+self.reward_function + '/stars.csv', "a")

@@ -180,7 +180,7 @@ class MCTS():
             for pt in path:
                 if(self.obstacle_world.in_obstacle(pt, 3.0)):
                     is_collision = 1
-                    print("Collision Occured!")
+                    # print("Collision Occured!")
             if(is_collision == 0):
                 free_paths[key] = path
         

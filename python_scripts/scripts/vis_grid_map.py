@@ -11,7 +11,7 @@ import matplotlib.colors as mcolors
 import matplotlib.collections as mcoll
 
 class visualization():
-    def __init__(self, mapsize, resol, lidar_belief, save):
+    def __init__(self, mapsize, resol, lidar_belief, reward_function, save):
         '''
         - mapsize : Axis length of the map (m)
         - resol : Resolution of grid 
@@ -21,15 +21,16 @@ class visualization():
         self.resol = resol
         self.lidar = lidar_belief 
         self.save = save #Bool value
+        self.reward_function = reward_function
 
     def visualization(self, t):
         data = self.iterator()
         fig = self.show(data)
 
         if self.save:
-            if not os.path.exists('../figures/nonmyopic/GridMap'):
-                os.makedirs('../figures/nonmyopic/GridMap')
-            fig.savefig('../figures/nonmyopic/GridMap/' + str(t) + '_gridmap.png')
+            if not os.path.exists('../figures/nonmyopic/'+str(self.reward_function)+'/GridMap/'):
+                os.makedirs('../figures/nonmyopic/'+str(self.reward_function)+'/GridMap/')
+            fig.savefig('../figures/nonmyopic/'+str(self.reward_function)+'/GridMap/' + str(t) + '.png')
 
 
     def iterator(self):

@@ -27,10 +27,10 @@ namespace RayTracer{
 
         grid_map::Position pre_transform_pos(cur_pos.x, cur_pos.y);
         grid_map::Position start_pos = euc_to_gridref(pre_transform_pos);
-        cout << start_pos(0) << " " << start_pos(1) << endl;
+        // cout << start_pos(0) << " " << start_pos(1) << endl;
         grid_map::Index startIndex;
         belief_map_.getIndex(start_pos, startIndex);
-        cout << startIndex(0) << " " << startIndex(1) << endl;
+        // cout << startIndex(0) << " " << startIndex(1) << endl;
 
         // cout << "X " << cur_pos.x << " Y " << cur_pos.y << endl;
         vector<grid_map::Index> lidar_free_vec; //Free voxels
@@ -71,7 +71,7 @@ namespace RayTracer{
             else{
                 lidar_free_vec.insert(lidar_free_vec.end(), idx.first.begin(), idx.first.end()); //Concatenate two vectors
             }
-            cout <<"After raycasting " << (*(--idx.first.end()))(0) <<" " << (*(--idx.first.end()))(1) <<endl;
+            // cout <<"After raycasting " << (*(--idx.first.end()))(0) <<" " << (*(--idx.first.end()))(1) <<endl;
             // cout << idx.second << endl;
         }     
         update_map(lidar_free_vec, lidar_collision_vec);
@@ -122,10 +122,10 @@ namespace RayTracer{
         grid_map::Index endIndex;
         belief_map_.getIndex(end_pos, endIndex);
         
-        cout << "start_index " <<startIndex(0) << " " << startIndex(1) << endl;
+        // cout << "start_index " <<startIndex(0) << " " << startIndex(1) << endl;
         // cout << startIndex << endl;
         // cout <<"end_pos " << end_pos(0) << " " << end_pos(1) << endl;
-        cout << "end_index " << endIndex(0) << " " << endIndex(1) << endl;
+        // cout << "end_index " << endIndex(0) << " " << endIndex(1) << endl;
                 
         // RayTracer raytracer; 
         pair<vector<grid_map::Index>, bool> result = raytracer_.raytracing(*this, startIndex, endIndex);

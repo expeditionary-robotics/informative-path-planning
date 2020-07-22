@@ -22,7 +22,7 @@ if __name__ == "__main__":
 
     centers = [center1, center2]
     obstacle_world = obs.BlockWorld(extent = ranges, num_blocks=5, dim_blocks=(block_x, block_y), centers = centers )
-    obstacle_world.draw_obstacles()
+    # obstacle_world.draw_obstacles()
 
     np_center1 = np.array([center1[0]-block_x/2.0, center1[1]-block_y/2.0, center1[0]+block_x/2.0, center1[1]+block_y/2.0  ])
     np_center2 = np.array([center2[0]-block_x/2.0, center2[1]-block_y/2.0, center2[0]+block_x/2.0, center2[1]+block_y/2.0  ])
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     '''World generation '''    
     
     # Options include mean, info_gain, and hotspot_info, mes'''
-    reward_function = 'mean'
+    reward_function = 'hotspot_info'
 
     world = Environment(ranges = ranges, # x1min, x1max, x2min, x2max constraints
                         NUM_PTS = 20, 
@@ -70,7 +70,7 @@ if __name__ == "__main__":
     2) Lidar sensor construction 
     '''
     start_loc = (0.5, 0.5, 0.0)
-    time_step = 500
+    time_step = 200
 
     cur_x = 1.0
     cur_y = 1.0
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     '''
     Planning Setup 
     '''
-    display = False
+    display = True
     gradient_on = True
 
     gradient_step_list = [0.0, 0.05, 0.1, 0.15, 0.20]

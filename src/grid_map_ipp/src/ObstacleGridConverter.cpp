@@ -27,8 +27,8 @@ namespace grid_map
 
         grid_map::GridMap gt_map(name);
         gt_map.setFrameId("map");
-        cout << map_size_x_ << endl;
-        cout << map_size_y_ << endl;
+        // cout << map_size_x_ << endl;
+        // cout << map_size_y_ << endl;
         
         gt_map.setGeometry(Length(map_size_y_, map_size_x_), 1.00);
         gt_map.add("base", 0.0); //Set all values to zero.

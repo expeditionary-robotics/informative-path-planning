@@ -215,10 +215,10 @@ class Robot:
         self.eval.plot_metrics(iteration, range_max, grad_step)
 
     def save_information(self):
-        MSE, regret, mean, hotspot_info, info_gain, UCB = self.eval.save_metric()
+        MSE, regret, mean, hotspot_info, info_gain, UCB, mes_reward_robot = self.eval.save_metric()
         
 
-        return MSE, regret, mean, hotspot_info, info_gain, UCB
+        return MSE, regret, mean, hotspot_info, info_gain, UCB, mes_reward_robot
 
 class Nonmyopic_Robot(Robot):
     '''This robot inherits from the Robot class, but uses a MCTS in order to perform global horizon planning'''
@@ -321,13 +321,14 @@ class Nonmyopic_Robot(Robot):
 
             free_paths = self.collision_check(all_paths)
             
-            self.eval.update_metrics(t, self.GP, free_paths, best_path) 
+            self.eval.update_metrics(t, self.GP, free_paths, best_path)
+
             self.collect_observations(xlocs)
-            print("Prev.")
+
             self.collect_lidar_observations(xlocs)
             self.trajectory.append(best_path)
 
-            visual = vis.visualization(self.ranges[1], 1.0, self.lidar, True)
+            visual = vis.visualization(self.ranges[1], 1.0, self.lidar, self.f_rew, True)
             # visual.show(data)
             visual.visualization(t)
             
@@ -366,11 +367,9 @@ class Nonmyopic_Robot(Robot):
                     occ_val = self.lidar.get_occ_value(x,y)
                     if(occ_val > 0.15):
                         is_collision = 1 
-                        print("Collision Occured!")
                 else:
                     if(self.obstacle_World.in_obstacle(pt, 3.0)):
                         is_collision = 1
-                        print("Collision Occured!")
             if(is_collision == 0):
                 free_paths[key] = path
         
@@ -395,10 +394,10 @@ class Nonmyopic_Robot(Robot):
             x,y = obs.exterior.xy
             ax.plot(x,y)
         
-        if not os.path.exists('../figures/nonmyopic/Free/GP'):
-            os.makedirs('../figures/nonmyopic/Free/GP')
+        if not os.path.exists('../figures/nonmyopic/' + self.f_rew +'/GP'):
+            os.makedirs('../figures/nonmyopic/' + self.f_rew +'/GP')
 
         if rob_mod.xvals is not None:
             scatter = ax.scatter(rob_mod.xvals[:, 0], rob_mod.xvals[:, 1], c='k', s = 20.0, cmap = 'viridis')
-            fig.savefig('../figures/nonmyopic/Free/GP/' + str(t) + '.png')
+            fig.savefig('../figures/nonmyopic/' + self.f_rew +'/GP/' + str(t) + '.png')
         plt.close()
