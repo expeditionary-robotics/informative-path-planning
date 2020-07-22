@@ -20,13 +20,10 @@ if __name__ == "__main__":
     ranges = (0.0, map_max, 0.0, map_max)
     
     block_size = 10.0
-    center1 = (10.0, 20.0)
-    center2 = 50.0, 30.0
-    center3 = 60.0, 80.0
-    center4 = 30.0, 60.0
-    center5 = 70.0, 90.0
+    center1, center2, center3, center4, center5 = (10.0, 20.0), (50.0, 30.0), (60.0, 80.0), (30.0, 60.0), (70.0, 90.0)
+
     centers = [center1, center2, center3, center4, center5]
-    obstacle_world = obs.BlockWorld(extent = ranges, num_blocks=5, dim_blocks=(5., 5.), centers = centers )
+    obstacle_world = obs.BlockWorld(extent = ranges, num_blocks=5, dim_blocks=(block_size, block_size), centers = centers )
 
     np_center1 = np.array([center1[0]-block_size/2.0, center1[1]-block_size/2.0, center1[0]+block_size/2.0, center1[1]+block_size/2.0  ])
     np_center2 = np.array([center2[0]-block_size/2.0, center2[1]-block_size/2.0, center2[0]+block_size/2.0, center2[1]+block_size/2.0  ])
@@ -35,8 +32,11 @@ if __name__ == "__main__":
     np_center5 = np.array([center5[0]-block_size/2.0, center5[1]-block_size/2.0, center5[0]+block_size/2.0, center5[1]+block_size/2.0  ])
     np_centers = [np_center1, np_center2, np_center3, np_center4, np_center5]
     
+    obstacle_world = obs.FreeWorld()
     ### Grid Map
     grid_map = grid.ObstacleGridConverter(map_max, map_max, 5, np_centers)
+    grid_map = grid.ObstacleGridConverter(map_max, map_max, 0, np_centers)
+    
     raytracer = grid.Raytracer(map_max, map_max, 5, np_centers)
 
     '''World generation '''    

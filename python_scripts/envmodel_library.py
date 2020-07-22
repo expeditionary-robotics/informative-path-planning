@@ -118,9 +118,9 @@ class Environment:
                 ax2.scatter(self.GP.xvals[maxind, 0], self.GP.xvals[maxind,1], color = 'k', marker = '*', s = 500)
                 # fig2.colorbar(plot, ax=ax2)
 
-                if not os.path.exists('./figures'):
-                    os.makedirs('./figures')
-                fig2.savefig('./figures/world_model_countour.png')
+                if not os.path.exists('../figures'):
+                    os.makedirs('../figures')
+                fig2.savefig('../figures/world_model_countour.png')
                 #plt.show()           
                 plt.close()
         else:
@@ -202,7 +202,7 @@ class Environment:
                         surf = ax.plot_surface(x1vals, x2vals, self.GP.zvals.reshape(x1vals.shape), cmap = cm.coolwarm, linewidth = 1)
                         if not os.path.exists('./figures'):
                             os.makedirs('./figures')
-                        fig.savefig('./figures/world_model_surface.'+ str(T) + '.png')
+                        fig.savefig('../figures/world_model_surface.'+ str(T) + '.png')
                         plt.close('all')
                         
                         # the contour map            
@@ -223,7 +223,7 @@ class Environment:
                                 x,y = o.exterior.xy
                                 ax2.plot(x,y,'r',linewidth=3)
 
-                        fig2.savefig('./figures/world_model_countour.'+ str(T) + '.png')
+                        fig2.savefig('../figures/world_model_countour.'+ str(T) + '.png')
                         #plt.show()           
                         plt.close()
                         plt.close('all')

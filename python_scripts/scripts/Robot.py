@@ -395,10 +395,10 @@ class Nonmyopic_Robot(Robot):
             x,y = obs.exterior.xy
             ax.plot(x,y)
         
-        if not os.path.exists('../figures/nonmyopic/GP'):
-            os.makedirs('../figures/nonmyopic/GP')
+        if not os.path.exists('../figures/nonmyopic/Free/GP'):
+            os.makedirs('../figures/nonmyopic/Free/GP')
 
         if rob_mod.xvals is not None:
             scatter = ax.scatter(rob_mod.xvals[:, 0], rob_mod.xvals[:, 1], c='k', s = 20.0, cmap = 'viridis')
-            fig.savefig('../figures/nonmyopic/GP/' + str(t) + '.png')
+            fig.savefig('../figures/nonmyopic/Free/GP/' + str(t) + '.png')
         plt.close()
