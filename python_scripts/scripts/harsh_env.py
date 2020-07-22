@@ -1,5 +1,3 @@
-import sys
-#sys.path.append('~/code/informative_ws/devel/.private/grid_map_ipp/lib')
 import grid_map_ipp_module as grid 
 import obstacles as obs 
 import numpy as np
@@ -9,7 +7,6 @@ import vis_grid_map as vis
 from continuous import *
 
 if __name__ == "__main__":
-
     '''
     Map Initialization
     1) Map size and obstacles
@@ -19,31 +16,27 @@ if __name__ == "__main__":
     map_max = 100.0
     ranges = (0.0, map_max, 0.0, map_max)
     
-    # block_size = 10.0
     block_x = 10.0
-    block_y = 42.0
-    center1, center2 = (50.0, 75.0), (50.0, 25.0)
+    block_y = 47.0
+    center1, center2 = (50.0, 77.0), (50.0, 22.0)
 
     centers = [center1, center2]
     obstacle_world = obs.BlockWorld(extent = ranges, num_blocks=5, dim_blocks=(block_x, block_y), centers = centers )
-    # obstacle_world.draw_obstacles()    center1, center2, center3, center4, center5 = (10.0, 20.0), (50.0, 30.0), (60.0, 80.0), (30.0, 60.0), (70.0, 90.0)
+    obstacle_world.draw_obstacles()
 
-    # centers = [center1, center2, center3, center4, center5]
-    # obstacle_world = obs.BlockWorld(extent = ranges, num_blocks=5, dim_blocks=(block_size, block_size), centers = centers )
+    np_center1 = np.array([center1[0]-block_x/2.0, center1[1]-block_y/2.0, center1[0]+block_x/2.0, center1[1]+block_y/2.0  ])
+    np_center2 = np.array([center2[0]-block_x/2.0, center2[1]-block_y/2.0, center2[0]+block_x/2.0, center2[1]+block_y/2.0  ])
+    # np_center3 = np.array([center3[0]-block_size/2.0, center3[1]-block_size/2.0, center3[0]+block_size/2.0, center3[1]+block_size/2.0  ])
+    # np_center4 = np.array([center4[0]-block_size/2.0, center4[1]-block_size/2.0, center4[0]+block_size/2.0, center4[1]+block_size/2.0  ])
+    # np_center5 = np.array([center5[0]-block_size/2.0, center5[1]-block_size/2.0, center5[0]+block_size/2.0, center5[1]+block_size/2.0  ])
+    # np_centers = [np_center1, np_center2, np_center3, np_center4, np_center5]
+    np_centers = [np_center1, np_center2]
 
-    np_center1 = np.array([center1[0]-block_size/2.0, center1[1]-block_size/2.0, center1[0]+block_size/2.0, center1[1]+block_size/2.0  ])
-    np_center2 = np.array([center2[0]-block_size/2.0, center2[1]-block_size/2.0, center2[0]+block_size/2.0, center2[1]+block_size/2.0  ])
-    np_center3 = np.array([center3[0]-block_size/2.0, center3[1]-block_size/2.0, center3[0]+block_size/2.0, center3[1]+block_size/2.0  ])
-    np_center4 = np.array([center4[0]-block_size/2.0, center4[1]-block_size/2.0, center4[0]+block_size/2.0, center4[1]+block_size/2.0  ])
-    np_center5 = np.array([center5[0]-block_size/2.0, center5[1]-block_size/2.0, center5[0]+block_size/2.0, center5[1]+block_size/2.0  ])
-    np_centers = [np_center1, np_center2, np_center3, np_center4, np_center5]
-    
-    obstacle_world = obs.FreeWorld()
     ### Grid Map
-    grid_map = grid.ObstacleGridConverter(map_max, map_max, 5, np_centers)
-    grid_map = grid.ObstacleGridConverter(map_max, map_max, 0, np_centers)
+    grid_map = grid.ObstacleGridConverter(map_max, map_max, 2, np_centers)
+    # grid_map = grid.ObstacleGridConverter(map_max, map_max, 0, np_centers)
     
-    raytracer = grid.Raytracer(map_max, map_max, 5, np_centers)
+    raytracer = grid.Raytracer(map_max, map_max, 2, np_centers)
 
     '''World generation '''    
     
@@ -54,7 +47,7 @@ if __name__ == "__main__":
                         NUM_PTS = 20, 
                         variance = 100.0, 
                         lengthscale = 3.0, 
-                        visualize = False,
+                        visualize = True,
                         seed = 1)
 
     evaluation = Evaluation(world = world, 
@@ -90,7 +83,7 @@ if __name__ == "__main__":
     '''
     Planning Setup 
     '''
-    display = True
+    display = False
     gradient_on = True
 
     gradient_step_list = [0.0, 0.05, 0.1, 0.15, 0.20]
@@ -104,8 +97,8 @@ if __name__ == "__main__":
                                grid_map, lidar, display, gradient_on, gradient_step, iteration)
 
 
-    sdf_map = grid.GridMap_SDF(1.0, map_max, map_max, 5, np_centers)
-    sdf_map.generate_SDF("base")
+    # sdf_map = grid.GridMap_SDF(1.0, map_max, map_max, 5, np_centers)
+    # sdf_map.generate_SDF("base")
     
     
     # visual = vis.visualization(map_max, 1.0, lidar)

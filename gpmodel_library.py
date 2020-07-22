@@ -13,7 +13,7 @@ import math
 import os
 import copy
 from sets import Set
-import GPy as GPy
+import GPy as GPy   
 from GPy.inference.latent_function_inference import exact_gaussian_inference
 from GPy.util.linalg import pdinv, dpotrs, dpotri, symmetrify, jitchol, dtrtrs, tdot
 from GPy.util import diag
