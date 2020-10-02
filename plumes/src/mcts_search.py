@@ -441,14 +441,14 @@ class BeliefTree(Tree):
     def get_best_child(self):
         # Max Reward-based node selection
         # return random.choice([node for node in self.root.children if node.nqueries == np.nanmax([n.nqueries for n in self.tree.children])])
-        # return self.root.children[np.argmax([node.nqueries for node in self.root.children])]
-        vals = {}
-        for child in self.root.children:
-            if child.nqueries == 0:
-                return child, False
-            vals[child] = child.reward/float(child.nqueries)
-        # Return the max node, or a random node if the value is equal
-        return random.choice([key for key in vals.keys() if vals[key] == max(vals.values())])
+        return self.root.children[np.argmax([node.nqueries for node in self.root.children])]
+        # vals = {}
+        # for child in self.root.children:
+        #     if child.nqueries == 0:
+        #         return child, False
+        #     vals[child] = child.reward/float(child.nqueries)
+        # # Return the max node, or a random node if the value is equal
+        # return random.choice([key for key in vals.keys() if vals[key] == max(vals.values())])
 
     def random_rollouts(self, current_node, reward, belief):
         cur_depth = current_node.depth

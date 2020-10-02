@@ -83,42 +83,6 @@ class GPModel(object):
                                        variance_x=kparams['variance'][0],
                                        variance_t=kparams['variance'][1],
                                        period=kparams['period'])
-        elif kernel == 'seperable':
-            self.kern = GPy.kern.Seperable(input_dim=dim,
-                                           lengthscale_x=kparams['lengthscale'][0],
-                                           lengthscale_t=kparams['lengthscale'][1],
-                                           variance_x=kparams['variance'][0],
-                                           variance_t=kparams['variance'][1],
-                                           period=kparams['period'])
-            # k1 = GPy.kern.StdPeriodic(input_dim=1,
-            #                           lengthscale=80.,
-            #                           variance=100.,
-            #                           period=80.,
-            #                           ARD1=False,
-            #                           ARD2=False)
-            # k2 = GPy.kern.RBF(input_dim=2,
-            #                   lengthscale=1.5,
-            #                   variance=100.,
-            #                   ARD=False)
-            # self.kern = k2 + k1
-        elif kernel == 'learned':
-            self.kern = GPy.kern.LearnTracking(input_dim=dim,
-                                           lengthscale_x=kparams['lengthscale'][0],
-                                           lengthscale_t=kparams['lengthscale'][1],
-                                           variance_x=kparams['variance'][0],
-                                           variance_t=kparams['variance'][1],
-                                           period=kparams['period'])
-            # k1 = GPy.kern.StdPeriodic(input_dim=3,
-            #                           lengthscale=(10., 10., 10.),
-            #                           variance=100.,
-            #                           period=(80., 80., 80.),
-            #                           ARD1=True,
-            #                           ARD2=True)
-            # k2 = GPy.kern.RBF(input_dim=3,
-            #                   lengthscale=(1.5, 1.5, 100.),
-            #                   variance=100.,
-            #                   ARD=True)
-            # self.kern = k1#*k2
         elif kernel == 'polar':
             self.kern = GPy.kern.PolarPeriodic(input_dim=dim,
                                                lengthscale_x=(1.5, 1.5),#(2.0, 0.5),#kparams['lengthscale'][0],
@@ -126,6 +90,17 @@ class GPModel(object):
                                                variance_x=100.,#kparams['variance'][0],
                                                variance_t=10.,#kparams['variance'][1],
                                                period=80.)#kparams['period'])
+        elif kernel == 'playground':
+            k = GPy.kern.StdPeriodic(input_dim=2,
+                                     lengthscale=(1.5, 1.5),
+                                     variance=500,
+                                     period=(5, 5),
+                                     ARD1=True,
+                                     ARD2=True)
+            # k2 = GPy.kern.RBF(input_dim=2,
+            #                   lengthscale=1.5,
+            #                   variance=100.)
+            self.kern = k
         else:
             raise ValueError('Kernel type must be \'rbf\'')
             
@@ -217,18 +192,6 @@ class GPModel(object):
             print "Optimizing kernel parameters given data"
             logger.info("Optimizing kernel parameters given data")
             # Initilaize a GP model (used only for optmizing kernel hyperparamters)
-            # k1 = GPy.kern.StdPeriodic(input_dim=3,
-            #                          lengthscale=(10., 10., 10.),
-            #                          variance=100.,
-            #                          period=(80., 80., 80.),
-            #                          ARD1=True,
-            #                          ARD2=True)
-            # k2 = GPy.kern.RBF(input_dim=3,
-            #                   lengthscale=(1.5, 1.5, 100.),
-            #                   variance=100.,
-            #                   ARD=True)
-            # k = k1*k2
-            # k = k1
             self.m = GPy.models.GPRegression(np.array(xvals), np.array(zvals), self.k)
             # self.m = GPy.models.models.SparseGPRegression(X=np.array(self.xvals), Y=np.array(self.zvals),kernel= self.kern, num_inducing=1000)
             self.m.initialize_parameter()

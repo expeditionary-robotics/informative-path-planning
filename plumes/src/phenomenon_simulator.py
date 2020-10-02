@@ -140,6 +140,8 @@ class Phenomenon:
 
                 # Satisfactory world has been found. Save the model and plot.
                 print maxima, np.max(self.GP.zvals)
+                print "Generated with maxima: ", maxima, np.max(self.GP.zvals)
+                logger.info("Generated with maxima: {}, {}, {}".format(maxima[0], maxima[1], np.max(self.GP.zvals)))
                 self.models[T] = copy.deepcopy(self.GP)
                 plot_world(ranges,
                            self.obstacle_world,
@@ -155,9 +157,8 @@ class Phenomenon:
                 print 'Dumping Generated Worlds to File'
                 pickle.dump(self.models, handle, protocol=pickle.HIGHEST_PROTOCOL)
         
-            print "Environment initialized with bounds X1: (", self.x1min, ",", self.x1max, ")  X2:(", self.x2min, ",", self.x2max, ")"
-            logger.info("Environment initialized with bounds X1: ({}, {})  X2: ({}, {})".format(self.x1min, self.x1max, self.x2min, self.x2max)) 
-
+            print "Environment initialized with bounds X1: (", self.x1min, ",", self.x1max, ")  X2:(", self.x2min, ",", self.x2max, ") and maxima (", maxima, ",", np.max(self.GP.zvals), ")"
+            logger.info("Environment initialized with bounds X1: ({}, {})  X2: ({}, {}) and maxima: ({}, {}, {})".format(self.x1min, self.x1max, self.x2min, self.x2max, maxima[0], maxima[1], np.max(self.GP.zvals))) 
     def sample_value(self, xvals, time=0):
         ''' The public interface to the Environment class. Returns a noisy sample of the true value of environment at a set of point. 
         Input:
@@ -232,20 +233,20 @@ if __name__ == '__main__':
     ode_variance = (10, 10)
     ode_lengthscale = (1.5, 1.0)
 
-    swell_variance = (100., 100.)
-    swell_lengthscale = (1.5, 1.5)
+    swell_variance = (100., 10.)
+    swell_lengthscale = (1.5, 50.)
 
     phenom = Phenomenon(ranges=[0., 10., 0., 10.],
                         NUM_PTS=20,
                         variance=rbf_variance,
                         lengthscale=rbf_lengthscale,
                         noise=0.5,
-                        seed=200,
+                        seed=500,
                         dim=3,
                         model=None,
                         metric_world=world,
-                        time_duration=5,
-                        kparams={'lengthscale':swell_lengthscale, 'variance':swell_variance},
-                        kernel='transport',
-                        MIN_COLOR=0,
-                        MAX_COLOR=3)
+                        time_duration=80,
+                        kparams={'lengthscale':swell_lengthscale, 'variance':swell_variance, 'period':10},
+                        kernel='swell',
+                        MIN_COLOR=-25.,
+                        MAX_COLOR=25)

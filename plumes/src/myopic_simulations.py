@@ -40,15 +40,15 @@ TREE_TYPE = parse.tree
 DIM = 3
 DURATION = 150
 MISSION_DURATION = 150
-LENGTHSCALE = 1.0#(1.5, 1.5, 100.)
+LENGTHSCALE = (1.5, 1.5, 100.)                                                         
 VARIANCE = 100.
-NOISE = 2.0
-KERNEL = 'target'
+NOISE = 0.1
+KERNEL = 'rbf'
 KERNEL_PARAMS = {'lengthscale':(1.5, 50.), 'variance':(100., 10.), 'period':50.}
 
 # Parameters for plotting based on the seed world information
-MIN_COLOR = -1.
-MAX_COLOR = 28.
+MIN_COLOR = -25.
+MAX_COLOR = 25.
 
 # Set up paths for logging the data from the simulation run
 if not os.path.exists('./figures/' + str(REWARD_FUNCTION)):
@@ -127,11 +127,12 @@ robot = roblib.Robot(sample_world=world.sample_value, #function handle for colle
                      kernel_file=None,
                      kernel_dataset=None,
                      prior_dataset=None, #(data, observations),
-                     kernel='polar',#'seperable',#KERNEL,
+                     # kernel='rbf',#'polar',#'seperable',#KERNEL,
+                     kernel=KERNEL,
                      # kparams={'lengthscale':(1.5, 100.), 'variance':(5., 100.), 'period':150.},#KERNEL_PARAMS,
                      kparams={'lengthscale':(1.5, 100.), 'variance':(100., np.pi), 'period':78.},#KERNEL_PARAMS,
-                     init_lengthscale=LENGTHSCALE,
-                     init_variance=VARIANCE,
+                     init_lengthscale=LENGTHSCALE,#1.5, #LENGTHSCALE,
+                     init_variance=VARIANCE,#500, #VARIANCE,
                      noise=NOISE,
                      path_generator=paths,
                      evaluation=evaluation,

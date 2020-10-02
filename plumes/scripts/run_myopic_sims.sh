@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-if [ ! -d thesis_sep3d_experiments ]; then
-mkdir thesis_sep3d_experiments
+if [ ! -d thesis_rbf3d_stat_experiments ]; then
+mkdir thesis_rbf3d_stat_experiments
 fi
 
-pushd thesis_sep3d_experiments
-    for seed in {100..1000..100}
+pushd thesis_rbf3d_stat_experiments
+    for seed in {0..1000..100}
     do
-        for nonmyopic in False True
+        for nonmyopic in True
         do
             for reward_func in gumbel mean #exp_improve
             do
@@ -17,6 +17,9 @@ pushd thesis_sep3d_experiments
                     continue
                   fi
                   if [ ${nonmyopic} = True ] && [ ${reward_func} = mean ] && [ ${tree_type} = dpw ]; then
+                    continue
+                  fi
+                  if [ ${nonmyopic} = False ] && [ ${reward_func} = gumbel ]; then
                     continue
                   fi
 
