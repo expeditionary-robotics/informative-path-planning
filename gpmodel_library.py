@@ -303,8 +303,8 @@ class OnlineGPModel(GPModel):
     def predict_value(self, xvals, include_noise = True, full_cov = False):
         # Calculate for the test point
         assert(xvals.shape[0] >= 1)            
-        assert(xvals.shape[1] == self.dimension)    
-	n_points, input_dim = xvals.shape
+        assert(xvals.shape[1] == self.dimension)
+        n_points, input_dim = xvals.shape
 
         # With no observations, predict 0 mean everywhere and prior variance
         if self.xvals is None:
@@ -545,8 +545,8 @@ class SpatialGPModel(GPModel):
     def predict_value(self, xvals, include_noise = True, full_cov = False):
         # Calculate for the test point
         assert(xvals.shape[0] >= 1)            
-        assert(xvals.shape[1] == self.dimension)    
-	n_points, input_dim = xvals.shape
+        assert(xvals.shape[1] == self.dimension)
+        n_points, input_dim = xvals.shape
 
         # With no observations, predict 0 mean everywhere and prior variance
         if self.xvals is None:
